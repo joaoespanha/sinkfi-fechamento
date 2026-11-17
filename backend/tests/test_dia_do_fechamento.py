@@ -11,9 +11,10 @@ SEGUNDA_18H = ConfigFechamento(dia_fechamento=1, hora_corte=time(18, 0), fuso="A
 
 
 def test_fechamento_vigente_de_cliente_de_segunda_na_terca_e_o_da_segunda_anterior():
-    terca = datetime(2026, 11, 11, 10, 0, tzinfo=SAO_PAULO)
+    # Calendário real: 10/11/2026 é terça. O CORTE do enunciado ("segunda, 10/11") não serve aqui.
+    terca = datetime(2026, 11, 10, 10, 0, tzinfo=SAO_PAULO)
 
-    assert fechamento_vigente(SEGUNDA_18H, terca) == CORTE
+    assert fechamento_vigente(SEGUNDA_18H, terca) == datetime(2026, 11, 9, 18, 0, tzinfo=SAO_PAULO)
 
 
 def test_cliente_de_sexta_tem_corte_na_sexta():
