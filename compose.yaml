@@ -43,5 +43,27 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # A api de leitura. Não publica porta: quem fala com ela é o nginx do `web`.
+  # O root-path faz o /docs funcionar atrás do prefixo /api.
+  api:
+    build: ./backend
+    command: ["uvicorn", "sinkfi.api:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/api"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
+    depends_on:
+      migrar:
+        condition: service_completed_successfully
+
+  # A tela, servida pelo nginx, que também repassa /api para a api.
+  web:
+    build: ./web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_started
+      migrar:
+        condition: service_completed_successfully
+
 volumes:
   postgres:
