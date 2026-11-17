@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,8 @@ class Recebivel:
     id: str
     loja_id: str
     adquirente: str
+    trilho: str
+    vendido_em: date
     liquidacao_prevista: date
     liquido_centavos: int
     nsu: str
@@ -26,6 +29,7 @@ class Recebivel:
 class Lancamento:
     id: str
     transacao_id: str
+    transacao_original_id: str | None
     lancado_em: datetime
     valor_centavos: int
     documento_contraparte: str
@@ -42,8 +46,50 @@ class GrupoDeRecebiveis:
     nao_caiu_centavos: int
     proximo_fechamento_centavos: int
 
+    @property
+    def entre_lojas(self) -> bool:
+        raise NotImplementedError
+
+
+class Severidade(Enum):
+    FALTA_DE_VERDADE = "falta_de_verdade"
+    PARA_CONFERIR = "para_conferir"
+
+
+class Motivo(Enum):
+    NAO_CAIU = "nao_caiu"
+    CAIU_EM_PARTE = "caiu_em_parte"
+    GRUPO_NAO_FECHA = "grupo_nao_fecha"
+    CHARGEBACK = "chargeback"
+    VENDA_CANCELADA = "venda_cancelada"
+    ENTRADA_SEM_RECEBIVEL = "entrada_sem_recebivel"
+    PODE_SER_ANTECIPACAO = "pode_ser_antecipacao"
+
+
+@dataclass(frozen=True)
+class Pendencia:
+    severidade: Severidade
+    motivo: Motivo
+    valor_centavos: int
+    grupo: GrupoDeRecebiveis | None = None
+    lancamento: Lancamento | None = None
+
 
 @dataclass(frozen=True)
 class Fechamento:
     grupos: list[GrupoDeRecebiveis]
-    pendencias: list = field(default_factory=list)
+    pendencias: list[Pendencia] = field(default_factory=list)
+
+
+class Recomendacao(Enum):
+    PODE_FECHAR = "pode_fechar"
+    FALTAM = "faltam"
+    NAO_FECHE = "nao_feche"
+
+
+@dataclass(frozen=True)
+class Resumo:
+    recomendacao: Recomendacao
+    falta_de_verdade_centavos: int
+    itens_falta_de_verdade: int
+    itens_para_conferir: int
