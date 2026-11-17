@@ -154,3 +154,21 @@ _Evitar_: fechar, concluir, fechamento concluído
 **Aviso**:
 A marca de um fechamento anterior ao atual que tem pendência e cuja rodada mais recente não tem término. Só lê os términos e não cria estado de semana fechada (ADR 0007). Não confundir com "Para conferir", que é uma severidade de pendência.
 _Evitar_: alerta, semana fechada, semana em aberto
+
+## Integração com o ERP
+
+**Liquidado**:
+Recebível cujo grupo casou certo: sem pendência, e todo o esperado caiu até o corte. É o que a sinkfi conta ao ERP do cliente.
+_Evitar_: pago, conciliado, baixado
+
+**Evento**:
+Um fato que a sinkfi conta ao sistema do cliente, como o recebível liquidado. Não muda depois de criado, e cada tipo acontece no máximo uma vez por recebível.
+_Evitar_: notificação, aviso, mensagem
+
+**Endpoint**:
+O endereço em que o sistema do cliente recebe os eventos. Pertence a um cliente e pode estar ativo ou não.
+_Evitar_: webhook, URL de callback
+
+**Entrega**:
+O envio de um evento a um endpoint, com todas as suas tentativas. Termina entregue ou falhou.
+_Evitar_: disparo, notificação
