@@ -43,6 +43,16 @@ def criar_cliente(
     sessao.flush()
 
 
+def definir_limite(sessao: Session, cliente_id: str, limite_trava_centavos: int | None) -> None:
+    """None desliga a trava (ADR 0003)."""
+    sessao.get_one(LinhaCliente, cliente_id).limite_trava_centavos = limite_trava_centavos
+    sessao.flush()
+
+
+def limite_do_cliente(sessao: Session, cliente_id: str) -> int | None:
+    return sessao.get_one(LinhaCliente, cliente_id).limite_trava_centavos
+
+
 def cliente_existe(sessao: Session, id: str) -> bool:
     return sessao.get(LinhaCliente, id) is not None
 
@@ -152,6 +162,7 @@ def _rodada(linha: LinhaRodada) -> Rodada:
         corte=linha.corte,
         versao_regra=linha.versao_regra,
         hash_entrada=linha.hash_entrada,
+        criada_em=linha.criada_em,
     )
 
 

@@ -9,8 +9,10 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.14",
+    "fastapi>=0.163.1",
     "psycopg[binary]>=3.2",
     "sqlalchemy>=2.0",
+    "uvicorn>=0.38",
 ]
 
 [build-system]
@@ -19,6 +21,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.16.2",
     "pytest>=9.2.0",
     "testcontainers[postgres]>=4.9",
 ]
