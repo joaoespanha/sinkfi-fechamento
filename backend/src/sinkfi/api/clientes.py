@@ -58,7 +58,7 @@ def ler_fechamento(
     return FechamentoResposta(
         rodada=RodadaLida.model_validate(lido.rodada),
         resumo=_resumo_lido(lido.resumo, lido.limite_trava_centavos),
-        itens=[ItemLido.model_validate(i) for i in lido.itens],
+        itens=[ItemLido.model_validate({**asdict(i.item), "dia": i.dia}) for i in lido.itens],
         ultimo_termino=_termino_lido(lido.ultimo_termino) if lido.ultimo_termino else None,
     )
 

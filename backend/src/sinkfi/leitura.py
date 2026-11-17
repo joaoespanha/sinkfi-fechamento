@@ -5,12 +5,21 @@ A rodada guarda as pendências, não a recomendação: o limite pode mudar depoi
 
 from dataclasses import dataclass
 from datetime import date
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from fechamento import Pendencia, Resumo, resumo
 from sinkfi.banco import repositorios
+from sinkfi.semanas import dia_do_item
 from sinkfi.tipos import ItemRodada, Rodada, Termino
+
+
+@dataclass(frozen=True)
+class ItemDoDia:
+    item: ItemRodada
+    # O dia da semana em que o item aparece (#26). None = antes desta semana.
+    dia: date | None
 
 
 @dataclass(frozen=True)
@@ -18,7 +27,7 @@ class FechamentoLido:
     rodada: Rodada
     resumo: Resumo
     limite_trava_centavos: int | None
-    itens: list[ItemRodada]
+    itens: list[ItemDoDia]
     # O "Terminei" mais recente das rodadas desta semana. A tela compara a rodada dele com a mostrada.
     ultimo_termino: Termino | None
 
@@ -34,6 +43,8 @@ def fechamento_da_semana(sessao: Session, cliente_id: str, data: date) -> Fecham
 def fechamento_da_rodada(sessao: Session, rodada: Rodada) -> FechamentoLido:
     itens = repositorios.itens_da_rodada(sessao, rodada.id)
     limite = repositorios.limite_do_cliente(sessao, rodada.cliente_id)
+    # O corte pode voltar do banco em UTC: o dia de cada item é no fuso do cliente.
+    fuso = ZoneInfo(repositorios.config_do_cliente(sessao, rodada.cliente_id).fuso)
     da_semana = {
         r.id for r in repositorios.rodadas_do_cliente(sessao, rodada.cliente_id)
         if r.data_fechamento == rodada.data_fechamento
@@ -43,7 +54,7 @@ def fechamento_da_rodada(sessao: Session, rodada: Rodada) -> FechamentoLido:
         rodada=rodada,
         resumo=resumo(_pendencias(itens), limite),
         limite_trava_centavos=limite,
-        itens=itens,
+        itens=[ItemDoDia(i, dia_do_item(i, rodada.corte, fuso)) for i in itens],
         ultimo_termino=terminos[-1] if terminos else None,
     )
 

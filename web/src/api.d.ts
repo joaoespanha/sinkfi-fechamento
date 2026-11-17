@@ -219,6 +219,8 @@ export interface components {
             motivo: components["schemas"]["Motivo"] | null;
             /** Pendencia Centavos */
             pendencia_centavos: number | null;
+            /** Dia */
+            dia: string | null;
         };
         /** Lancamento */
         Lancamento: {
