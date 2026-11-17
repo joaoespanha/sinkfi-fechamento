@@ -102,7 +102,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Ler Limite
+         * @description O limite atual, com ou sem fechamento: é o que a tela de Limite mostra (#25). Lojista e suporte.
+         */
+        get: operations["ler_limite_clientes__cliente_id__limite_get"];
         /** Mudar Limite */
         put: operations["mudar_limite_clientes__cliente_id__limite_put"];
         post?: never;
@@ -240,6 +244,11 @@ export interface components {
         };
         /** LimiteEntrada */
         LimiteEntrada: {
+            /** Limite Trava Centavos */
+            limite_trava_centavos: number | null;
+        };
+        /** LimiteLido */
+        LimiteLido: {
             /** Limite Trava Centavos */
             limite_trava_centavos: number | null;
         };
@@ -551,6 +560,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FechamentoResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_limite_clientes__cliente_id__limite_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimiteLido"];
                 };
             };
             /** @description Validation Error */

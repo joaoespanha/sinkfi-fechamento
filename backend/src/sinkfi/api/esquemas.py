@@ -83,6 +83,11 @@ class LimiteEntrada(BaseModel):
     limite_trava_centavos: int | None = Field(ge=0)
 
 
+class LimiteLido(BaseModel):
+    # None = trava desligada.
+    limite_trava_centavos: int | None
+
+
 class SemanaLida(BaseModel):
     """Um fechamento da lista (ADR 0007). As contagens são da rodada mais recente; None sem rodada."""
 
