@@ -167,6 +167,28 @@ tbody tr[data-severidade='para_conferir'] th {
   button { font: inherit; }
 }
 
+/* Fechamentos anteriores sem "Terminei" (ADR 0007). Mínimo: o lugar definitivo sai do #25. */
+.avisos {
+  margin-block: 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  border-inline-start: 0.375rem solid var(--atencao);
+  background: var(--fundo-suave);
+
+  & p { margin: 0; }
+  & p + p { margin-block-start: 0.25rem; }
+}
+
+.seletor-semana {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block: 0 1rem;
+
+  & select { font: inherit; }
+}
+
 /* Aviso do "Terminei": neutro na mesma rodada, destacado quando chegou rodada nova. */
 .termino {
   margin-block: 0 1rem;
