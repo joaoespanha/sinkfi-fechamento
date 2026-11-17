@@ -23,6 +23,7 @@ class Rodada:
     corte: datetime
     versao_regra: str
     hash_entrada: str
+    criada_em: datetime
 
 
 @dataclass(frozen=True)
