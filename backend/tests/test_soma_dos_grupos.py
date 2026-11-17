@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from fechamento import csv, fechar
+from fechamento import fechar
+from sinkfi.ingestao import csv
 
 from tests.construtores import CORTE
 

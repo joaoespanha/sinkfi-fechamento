@@ -15,6 +15,9 @@ from fechamento.tipos import (
     Severidade,
 )
 
+# Sobe a cada mudança de comportamento da regra. Entra no hash da rodada (ADR 0006).
+VERSAO_DA_REGRA = "1"
+
 # A adquirente é reconhecida pelo documento da contraparte, nunca pelo nome.
 DOCUMENTO_DA_ADQUIRENTE = {
     "stone": "16501555000100",
