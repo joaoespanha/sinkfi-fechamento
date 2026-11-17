@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.uv.build-backend]
-module-name = "fechamento"
+module-name = ["fechamento", "sinkfi"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
