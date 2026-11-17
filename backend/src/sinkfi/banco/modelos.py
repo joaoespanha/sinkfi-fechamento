@@ -129,3 +129,30 @@ class LinhaUsuario(Base):
     papel: Mapped[str] = mapped_column(Text)
     cliente_id: Mapped[str | None] = mapped_column(ForeignKey("clientes.id"))
     ativo: Mapped[bool] = mapped_column(Boolean, server_default="true")
+
+
+class LinhaMudancaLimite(Base):
+    """Só inserção (#12). NULL em `de`/`para` = trava desligada."""
+
+    __tablename__ = "mudancas_limite"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"), index=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    de_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    para_centavos: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class LinhaTermino(Base):
+    """Só inserção (#12): cada "Terminei" com a rodada vista, o limite e o resumo do momento."""
+
+    __tablename__ = "terminos"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"), index=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    rodada_id: Mapped[int] = mapped_column(ForeignKey("rodadas.id"))
+    limite_trava_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    resumo: Mapped[dict[str, Any]] = mapped_column(JSONB)

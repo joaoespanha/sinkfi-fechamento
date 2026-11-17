@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from enum import StrEnum
 
-from fechamento import Lancamento, Loja, Motivo, Recebivel, Severidade
+from fechamento import Lancamento, Loja, Motivo, Recebivel, Resumo, Severidade
 
 
 @dataclass(frozen=True)
@@ -68,3 +68,24 @@ class Usuario:
     papel: Papel
     cliente_id: str | None
     ativo: bool
+
+
+@dataclass(frozen=True)
+class MudancaLimite:
+    """None em `de`/`para` = trava desligada (ADR 0003)."""
+
+    quem: str
+    em: datetime
+    de_centavos: int | None
+    para_centavos: int | None
+
+
+@dataclass(frozen=True)
+class Termino:
+    """Um "Terminei": a rodada que a lojista viu, com o limite e o resumo daquele momento."""
+
+    quem: str
+    em: datetime
+    rodada_id: int
+    limite_trava_centavos: int | None
+    resumo: Resumo
