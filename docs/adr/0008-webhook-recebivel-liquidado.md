@@ -1,6 +1,6 @@
 # Webhook `recebivel.liquidado`: o Postgres decide quando, a fila só distribui
 
-Status: aceito, 17/11/2026
+Status: proposto, 17/11/2026. Não foi construído no prazo do desafio: o fechamento da Marina veio antes. Fica como a próxima mudança, no issue #30.
 
 O cliente enterprise recebe no ERP um evento `recebivel.liquidado` quando um recebível casou certo. O evento nasce na mesma transação da rodada e é único por recebível. A entrega, as tentativas e a hora da próxima tentativa ficam no Postgres. O beat enfileira o que venceu, e um worker assina e faz o POST. A base é o desenho de system design do webhook, adaptado ao ADR 0004: RabbitMQ no lugar do SQS e beat no lugar do processo de 1 minuto.
 
@@ -36,7 +36,7 @@ O fechamento diz à Marina o que caiu, mas o ERP dela continua sem saber: algué
 - A conferência de IP acontece antes da conexão, então um DNS que muda entre a conferência e o POST passa por ela. Quem fecha esse buraco é o proxy de saída isolado, que fica fora da fatia.
 - Ficam fora da fatia, cada um com o seu gatilho: SNS para um segundo consumidor interno, fan-out por tipo de evento, fila de retry separada, pausa automática do endpoint, proxy de saída isolado, IP fixo de saída e alertas para o suporte e os engenheiros.
 
-## Testes que garantem
+## Testes previstos
 
 - `recebivel_casado_certo_gera_evento_liquidado`
 - `credito_depois_do_corte_ainda_nao_gera_evento`
