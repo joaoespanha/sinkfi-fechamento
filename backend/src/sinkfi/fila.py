@@ -1,4 +1,4 @@
-"""A fila (ADR 0004): o app do Celery, a dead letter e a porta que a api usa para pedir trabalho.
+"""A fila (ADR 0004): o app do Celery, a dead letter e a porta que a api e o relay do outbox usam para pedir trabalho.
 
 A api importa daqui só a porta `Fila`; as tarefas ficam em `sinkfi.tarefas`, que só o worker e o beat carregam.
 """
@@ -38,11 +38,16 @@ app.conf.update(
 
 
 class Fila(Protocol):
+    def pedir_fechamento(self, cliente_id: str) -> None: ...
+
     def pedir_reprocessamento(self, cliente_id: str) -> None: ...
 
 
 class FilaCelery:
     """Publica pelo nome da tarefa, sem importar `sinkfi.tarefas`."""
+
+    def pedir_fechamento(self, cliente_id: str) -> None:
+        app.send_task("sinkfi.fechar_cliente", args=[cliente_id])
 
     def pedir_reprocessamento(self, cliente_id: str) -> None:
         app.send_task("sinkfi.reprocessar_cliente", args=[cliente_id])

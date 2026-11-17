@@ -156,3 +156,19 @@ class LinhaTermino(Base):
     rodada_id: Mapped[int] = mapped_column(ForeignKey("rodadas.id"))
     limite_trava_centavos: Mapped[int | None] = mapped_column(BigInteger)
     resumo: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
+class LinhaPedidoFechamento(Base):
+    """O outbox da ingestão (ADR 0004): nasce na transação do dado; o relay marca `publicado_em`."""
+
+    __tablename__ = "pedidos_fechamento"
+    __table_args__ = (
+        # O relay só lê os pendentes, e a tabela só cresce.
+        Index("ix_pedidos_fechamento_pendentes", "id", postgresql_where="publicado_em IS NULL"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # NULL = pendente.
+    publicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

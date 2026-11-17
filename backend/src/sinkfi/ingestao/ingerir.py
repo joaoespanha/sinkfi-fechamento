@@ -2,6 +2,9 @@
 
 `sinkfi.ingestao.csv` lê só o que a regra usa; aqui nada é descartado, porque a
 próxima versão da regra pode precisar de uma coluna que esta não usa.
+
+Na mesma transação do dado, grava o pedido de fechamento (o outbox do ADR 0004):
+se o dado entra, o pedido entra; se a transação desfaz, os dois somem.
 """
 
 import csv
@@ -18,6 +21,7 @@ def ingerir(sessao: Session, cliente_id: str, pasta: Path) -> None:
     repositorios.gravar_lojas(sessao, [_loja(l, cliente_id) for l in _linhas(pasta / "lojas.csv")])
     repositorios.gravar_recebiveis(sessao, [_recebivel(l) for l in _linhas(pasta / "recebiveis.csv")])
     repositorios.gravar_lancamentos(sessao, [_lancamento(l, cliente_id) for l in _linhas(pasta / "extrato.csv")])
+    repositorios.gravar_pedido_fechamento(sessao, cliente_id)
 
 
 def _linhas(arquivo: Path) -> list[dict[str, str]]:

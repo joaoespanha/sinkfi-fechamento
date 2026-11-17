@@ -4,7 +4,7 @@ from dataclasses import asdict
 from datetime import date, datetime, time
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -15,12 +15,13 @@ from sinkfi.banco.modelos import (
     LinhaLancamento,
     LinhaLoja,
     LinhaMudancaLimite,
+    LinhaPedidoFechamento,
     LinhaRecebivel,
     LinhaRodada,
     LinhaTermino,
     LinhaUsuario,
 )
-from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, MudancaLimite, Papel, Rodada, Termino, Usuario
+from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, MudancaLimite, Papel, PedidoFechamento, Rodada, Termino, Usuario
 
 
 def criar_cliente(
@@ -367,3 +368,26 @@ def terminos_do_cliente(sessao: Session, cliente_id: str) -> list[Termino]:
         )
         for t, email in linhas
     ]
+
+
+def gravar_pedido_fechamento(sessao: Session, cliente_id: str) -> None:
+    sessao.add(LinhaPedidoFechamento(cliente_id=cliente_id))
+    sessao.flush()
+
+
+def travar_pedidos_pendentes(sessao: Session, limite: int) -> list[PedidoFechamento]:
+    """Trava os pendentes até o fim da transação. Outro relay rodando junto pula estes (`SKIP LOCKED`)."""
+    linhas = sessao.scalars(
+        select(LinhaPedidoFechamento)
+        .where(LinhaPedidoFechamento.publicado_em.is_(None))
+        .order_by(LinhaPedidoFechamento.id)
+        .limit(limite)
+        .with_for_update(skip_locked=True)
+    ).all()
+    return [PedidoFechamento(id=l.id, cliente_id=l.cliente_id) for l in linhas]
+
+
+def marcar_publicados(sessao: Session, ids: list[int]) -> None:
+    sessao.execute(
+        update(LinhaPedidoFechamento).where(LinhaPedidoFechamento.id.in_(ids)).values(publicado_em=func.now())
+    )

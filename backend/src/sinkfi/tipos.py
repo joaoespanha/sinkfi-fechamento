@@ -54,6 +54,14 @@ class ConfigFechamento:
     fuso: str
 
 
+@dataclass(frozen=True)
+class PedidoFechamento:
+    """Um pedido de fechamento do outbox (ADR 0004), ainda não publicado na fila."""
+
+    id: int
+    cliente_id: str
+
+
 class Papel(StrEnum):
     LOJISTA = "lojista"
     SUPORTE = "suporte"
