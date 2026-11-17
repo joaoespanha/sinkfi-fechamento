@@ -87,6 +87,26 @@ def test_mudanca_de_limite_fica_registrada(sessao: Session, lojista: TestClient)
     assert all(_agora(m.em) for m in mudancas)
 
 
+def test_le_o_limite_atual(lojista: TestClient):
+    _mudar_limite(lojista, 200000)
+    assert lojista.get(f"/clientes/{MARINA}/limite").json() == {"limite_trava_centavos": 200000}
+
+    _mudar_limite(lojista, None)
+    assert lojista.get(f"/clientes/{MARINA}/limite").json() == {"limite_trava_centavos": None}
+
+
+def test_le_o_limite_sem_fechamento(sessao: Session, http: TestClient):
+    # A tela de Limite (#25) não depende de haver rodada.
+    preparar_marina(sessao)
+    criar_lojista(sessao, LOJISTA_MARINA, MARINA)
+    entrar(http, LOJISTA_MARINA)
+
+    resposta = http.get(f"/clientes/{MARINA}/limite")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"limite_trava_centavos": None}
+
+
 # Término
 
 

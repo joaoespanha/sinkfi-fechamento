@@ -13,6 +13,7 @@ from sinkfi.api.esquemas import (
     FechamentoResposta,
     ItemLido,
     LimiteEntrada,
+    LimiteLido,
     ResumoLido,
     RodadaLida,
     SemanaEntrada,
@@ -22,6 +23,7 @@ from sinkfi.api.esquemas import (
 )
 from sinkfi.api.relogio import obter_agora
 from sinkfi.api.sessao import obter_sessao
+from sinkfi.banco import repositorios
 from sinkfi.fila import Fila, obter_fila
 from sinkfi.fechamentos import ancora_dos_cortes, corte_atual, corte_da_semana, fechamentos_do_cliente
 from sinkfi.leitura import fechamento_da_semana
@@ -59,6 +61,12 @@ def ler_fechamento(
         itens=[ItemLido.model_validate(i) for i in lido.itens],
         ultimo_termino=_termino_lido(lido.ultimo_termino) if lido.ultimo_termino else None,
     )
+
+
+@rotas.get("/limite")
+def ler_limite(cliente_id: str, sessao: Session = Depends(obter_sessao)) -> LimiteLido:
+    """O limite atual, com ou sem fechamento: é o que a tela de Limite mostra (#25). Lojista e suporte."""
+    return LimiteLido(limite_trava_centavos=repositorios.limite_do_cliente(sessao, cliente_id))
 
 
 @rotas.put("/limite", status_code=status.HTTP_204_NO_CONTENT)

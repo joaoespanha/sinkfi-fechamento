@@ -86,6 +86,16 @@ def test_suporte_nao_muda_o_limite(sessao: Session, http: TestClient, marina_com
     assert resumo["limite_trava_centavos"] is None
 
 
+def test_suporte_le_o_limite(sessao: Session, http: TestClient, marina_com_rodada: None):
+    criar_suporte(sessao)
+    entrar(http, SUPORTE)
+
+    resposta = http.get(f"/clientes/{MARINA}/limite")
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"limite_trava_centavos": None}
+
+
 @pytest.mark.parametrize(("metodo", "caminho"), [*ROTAS_COM_CLIENTE, ("GET", "/eu")])
 def test_rota_sem_token_devolve_401(
     http: TestClient, marina_com_rodada: None, metodo: str, caminho: str

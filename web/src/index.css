@@ -7,6 +7,15 @@
   --ok: #1a7f37;
   --atencao: #9a6700;
   --perigo: #c62828;
+  --realce: #3d3a8c;
+
+  /* Espaçamento: uma escala só para a tela toda (#25). */
+  --espaco-1: 0.25rem;
+  --espaco-2: 0.5rem;
+  --espaco-3: 1rem;
+  --espaco-4: 1.5rem;
+  --raio: 0.25rem;
+  --largura-lateral: 13rem;
 
   font: 16px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light dark;
@@ -24,6 +33,7 @@
     --ok: #4ac26b;
     --atencao: #d4a72c;
     --perigo: #f47067;
+    --realce: #a9a4ff;
   }
 }
 
@@ -31,15 +41,192 @@ body {
   margin: 0;
 }
 
-main {
+a { color: var(--realce); }
+
+:focus-visible {
+  outline: 2px solid var(--realce);
+  outline-offset: 2px;
+}
+
+.so-leitor {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Antes do login: sem sidebar. */
+.sozinha {
   max-inline-size: 60rem;
   margin-inline: auto;
-  padding: 1.5rem 1rem;
+  padding: var(--espaco-4) var(--espaco-3);
 }
 
 h1 {
   font-size: 1.25rem;
-  margin-block: 0 1rem;
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* Layout (#25, variação B): a sidebar só navega; o conteúdo ocupa o resto. */
+.app {
+  display: grid;
+  grid-template-columns: var(--largura-lateral) minmax(0, 1fr);
+  min-block-size: 100dvh;
+}
+
+.lateral {
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+  padding: var(--espaco-3);
+  background: var(--fundo-suave);
+  border-inline-end: 1px solid var(--borda);
+  min-inline-size: 0;
+}
+
+.marca {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cliente {
+  display: grid;
+  gap: var(--espaco-1);
+  overflow-wrap: anywhere;
+}
+
+.rotulo {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.paginas {
+  display: grid;
+  gap: var(--espaco-1);
+
+  & a {
+    color: inherit;
+    text-decoration: none;
+    padding: 0.375rem var(--espaco-2);
+    border-radius: var(--raio);
+  }
+
+  & a:hover { background: var(--fundo); }
+
+  & a[aria-current='page'] {
+    background: var(--fundo);
+    box-shadow: inset 0 0 0 1px var(--borda);
+    font-weight: 600;
+  }
+}
+
+.rodape {
+  margin-block-start: auto;
+  display: grid;
+  gap: var(--espaco-1);
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+
+  & button { justify-self: start; }
+}
+
+.rodape-email { overflow-wrap: anywhere; }
+
+.conteudo {
+  padding: var(--espaco-4);
+  max-inline-size: 60rem;
+  min-inline-size: 0;
+}
+
+/* Título com as setas do fechamento ao lado. */
+.titulo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2) var(--espaco-3);
+  align-items: center;
+  justify-content: space-between;
+  margin-block: 0 var(--espaco-3);
+}
+
+.setas {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.seta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  padding: var(--espaco-1) 0.625rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--fundo);
+  color: var(--texto-suave);
+  text-decoration: none;
+
+  &:hover { color: var(--texto); }
+  &[data-desligada] { opacity: 0.4; }
+}
+
+.setas-atual {
+  font-weight: 600;
+  padding-inline: var(--espaco-2);
+}
+
+/* Vizinho com aviso: anterior ao atual, com pendência e sem término. */
+.ponto {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--atencao);
+  flex: none;
+}
+
+/* Celular: a sidebar vira uma barra no topo, com as páginas em abas. */
+@media (width < 700px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .lateral {
+    position: static;
+    block-size: auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'marca cliente rodape'
+      'paginas paginas paginas';
+    align-items: center;
+    gap: var(--espaco-2) var(--espaco-3);
+    padding: var(--espaco-2) var(--espaco-3);
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--borda);
+  }
+
+  .marca { grid-area: marca; }
+  .cliente { grid-area: cliente; }
+  .cliente .rotulo { display: none; }
+  .rodape { grid-area: rodape; margin: 0; }
+  .rodape-email { display: none; }
+
+  .paginas {
+    grid-area: paginas;
+    display: flex;
+  }
+
+  .conteudo { padding: var(--espaco-3); }
 }
 
 .resumo {
@@ -139,16 +326,34 @@ tbody tr[data-severidade='para_conferir'] th {
   td:nth-child(4)::before { content: 'Valor: '; color: var(--texto-suave); }
 }
 
-.login,
-.escolher-cliente {
+.login {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--espaco-2);
   max-inline-size: 22rem;
-  margin-block-end: 1.5rem;
+  margin-block: var(--espaco-3) var(--espaco-4);
 
   h2 { font-size: 1.125rem; margin: 0; }
-  input { font: inherit; padding: 0.5rem; border: 1px solid var(--borda); border-radius: 0.25rem; background: var(--fundo); color: inherit; }
-  button { font: inherit; padding: 0.5rem 1rem; justify-self: start; }
+  input { font: inherit; padding: var(--espaco-2); border: 1px solid var(--borda); border-radius: var(--raio); background: var(--fundo); color: inherit; }
+  button { font: inherit; padding: var(--espaco-2) var(--espaco-3); justify-self: start; }
+}
+
+/* Na sidebar: o campo e o botão numa linha só, sem passar da largura dela. */
+.escolher-cliente {
+  display: flex;
+  gap: var(--espaco-1);
+  min-inline-size: 0;
+
+  input {
+    font: inherit;
+    inline-size: 0;
+    min-inline-size: 0;
+    flex: 1;
+    padding: var(--espaco-1);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    background: var(--fundo);
+    color: inherit;
+  }
 }
 
 .login-falha {
@@ -157,17 +362,7 @@ tbody tr[data-severidade='para_conferir'] th {
   min-block-size: 1.5em;
 }
 
-.sessao {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  color: var(--texto-suave);
-  margin-block: 0 1rem;
-
-  button { font: inherit; }
-}
-
-/* Fechamentos anteriores sem "Terminei" (ADR 0007). Mínimo: o lugar definitivo sai do #25. */
+/* Fechamentos anteriores sem "Terminei" (ADR 0007), no topo da tela; o ponto nas setas repete a marca. */
 .avisos {
   margin-block: 0 1rem;
   padding: 0.5rem 0.75rem;
@@ -177,16 +372,6 @@ tbody tr[data-severidade='para_conferir'] th {
 
   & p { margin: 0; }
   & p + p { margin-block-start: 0.25rem; }
-}
-
-.seletor-semana {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-block: 0 1rem;
-
-  & select { font: inherit; }
 }
 
 /* Aviso do "Terminei": neutro na mesma rodada, destacado quando chegou rodada nova. */
@@ -215,16 +400,30 @@ tbody tr[data-severidade='para_conferir'] th {
   & dd { margin: 0; }
 }
 
-/* Ações da lojista: "Terminei" e o limite lado a lado; um embaixo do outro no celular. */
+/* Ação da lojista no fechamento: "Terminei" e a explicação ao lado. */
 .acoes {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem 2rem;
-  align-items: start;
-  margin-block: 1rem 1.5rem;
+  gap: var(--espaco-2) var(--espaco-3);
+  align-items: center;
+  margin-block: var(--espaco-3) var(--espaco-4);
+
+  & .ajuda { margin: 0; color: var(--texto-suave); font-size: 0.875rem; }
 }
 
 .acoes p[role='status']:empty { display: none; }
+
+/* Tela de Limite: o valor para o suporte, o formulário para a lojista. */
+.limite-leitura {
+  & p { margin: 0; }
+  & .ajuda { color: var(--texto-suave); font-size: 0.875rem; }
+}
+
+.limite-valor {
+  font-size: 1.375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
 .limite {
   display: grid;
