@@ -3,7 +3,8 @@
 from datetime import date, datetime, time
 from typing import Any
 
-from sqlalchemy import insert, select
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from fechamento import Lancamento, Loja, Recebivel
@@ -35,15 +36,24 @@ def criar_cliente(
 
 
 def gravar_lojas(sessao: Session, linhas: list[dict[str, Any]]) -> None:
-    sessao.execute(insert(LinhaLoja), linhas)
+    _upsert(sessao, LinhaLoja, linhas)
 
 
 def gravar_recebiveis(sessao: Session, linhas: list[dict[str, Any]]) -> None:
-    sessao.execute(insert(LinhaRecebivel), linhas)
+    _upsert(sessao, LinhaRecebivel, linhas)
 
 
 def gravar_lancamentos(sessao: Session, linhas: list[dict[str, Any]]) -> None:
-    sessao.execute(insert(LinhaLancamento), linhas)
+    _upsert(sessao, LinhaLancamento, linhas)
+
+
+def _upsert(sessao: Session, modelo: type, linhas: list[dict[str, Any]]) -> None:
+    """O reenvio traz o lote inteiro: linha nova entra, linha conhecida é sobrescrita."""
+    if not linhas:
+        return
+    comando = insert(modelo)
+    colunas = {c: comando.excluded[c] for c in linhas[0] if c != "id"}
+    sessao.execute(comando.on_conflict_do_update(index_elements=["id"], set_=colunas), linhas)
 
 
 def entrada_do_cliente(sessao: Session, cliente_id: str) -> Entrada:
@@ -131,3 +141,14 @@ def _rodada(linha: LinhaRodada) -> Rodada:
         versao_regra=linha.versao_regra,
         hash_entrada=linha.hash_entrada,
     )
+
+
+def rodadas_do_cliente(sessao: Session, cliente_id: str) -> list[Rodada]:
+    """Da mais recente para a mais antiga. O `id` desempata rodadas da mesma transação,
+    que recebem o mesmo `now()` em `criada_em`."""
+    linhas = sessao.scalars(
+        select(LinhaRodada)
+        .where(LinhaRodada.cliente_id == cliente_id)
+        .order_by(LinhaRodada.criada_em.desc(), LinhaRodada.id.desc())
+    ).all()
+    return [_rodada(l) for l in linhas]
