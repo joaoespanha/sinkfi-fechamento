@@ -150,3 +150,7 @@ _Evitar_: bloqueio, materialidade
 **Término**:
 O registro de que a lojista terminou um fechamento: quem, quando, qual rodada viu e o resumo daquele momento. Não trava nada, e ela pode registrar de novo se o fechamento mudar. Na tela, o botão "Terminei".
 _Evitar_: fechar, concluir, fechamento concluído
+
+**Aviso**:
+A marca de um fechamento anterior ao atual que tem pendência e cuja rodada mais recente não tem término. Só lê os términos e não cria estado de semana fechada (ADR 0007). Não confundir com "Para conferir", que é uma severidade de pendência.
+_Evitar_: alerta, semana fechada, semana em aberto
