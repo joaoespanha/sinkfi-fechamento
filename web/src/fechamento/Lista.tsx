@@ -1,111 +1,137 @@
+import { useId, useState } from 'react'
 import { hashDa, hashDaSemana } from '../navegacao'
+import { type Filtro, SEM_FILTRO, adquirentes, fracao, pendencias, porDia, severidade } from './contas'
 import {
-  ANTES,
+  ABAS,
   type Fechamento,
   type Item,
+  LEGENDA_DA_FAIXA,
+  ORDENS,
+  SEM_PENDENCIA_NO_FILTRO,
   casaDoItem,
   chaveDoItem,
-  diasDaSemana,
+  dicaDoDia,
   emReais,
+  marcaDeConferir,
+  marcaDeFaltas,
+  nomeDaAdquirente,
   nomeDoDia,
   notaDoDia,
   origem,
+  textoDaSeveridade,
   textoDoMotivo,
   valorDoItem,
 } from './textos'
 
-type Severidade = NonNullable<Item['severidade']> | 'ok'
-
-function severidade(item: Item): Severidade {
-  return item.severidade ?? 'ok'
-}
-
-function contar(itens: Item[], s: Severidade): number {
-  return itens.filter((i) => severidade(i) === s).length
-}
+// A severidade nunca vem só pela cor: cada marca tem ícone e texto.
+const ICONE = { falta_de_verdade: '!', para_conferir: '?', ok: '✓' } as const
 
 /**
- * Os dias da semana e "Antes desta semana" (#26). Cada casa leva à lista filtrada por aquele dia;
- * clicar de novo tira o filtro. O dia de cada item vem da leitura, não é calculado aqui.
+ * Os dias da semana e "Antes desta semana" (#26). Cada casa mostra quanto caiu e um medidor (#32):
+ * a largura é o esperado do dia perto do maior dia, e a parte cheia é o que caiu.
+ * Cada casa leva à lista filtrada por aquele dia; clicar de novo tira o filtro.
  */
 export function Faixa({ fechamento, dia }: { fechamento: Fechamento; dia: string | null }) {
   const semana = fechamento.rodada.data_fechamento
-  const casas = [ANTES, ...diasDaSemana(semana)]
+  const dias = porDia(fechamento)
+  const maior = Math.max(...dias.map((d) => d.esperado), 1)
+  const legenda = useId()
   return (
-    <nav className="faixa" aria-label="Dias do fechamento">
-      {casas.map((casa) => {
-        const itens = fechamento.itens.filter((i) => casaDoItem(i) === casa)
-        const esperado = itens.reduce((s, i) => s + (i.esperado_centavos ?? 0), 0)
-        const caiu = itens.reduce((s, i) => s + (i.caiu_centavos ?? 0), 0)
-        const faltas = contar(itens, 'falta_de_verdade')
-        const conferir = contar(itens, 'para_conferir')
-        const certos = contar(itens, 'ok')
-        const escolhida = dia === casa
-        return (
-          <a
-            key={casa}
-            className="dia"
-            href={hashDaSemana(semana, escolhida ? null : casa)}
-            aria-current={escolhida ? 'true' : undefined}
-            data-vazio={itens.length === 0 || undefined}
-            data-corte={casa === semana || undefined}
-          >
-            <span className="dia-nome">{nomeDoDia(casa)}</span>
-            {casa === semana && <span className="dia-corte">corte</span>}
-            <span className="dia-linha">esperado {emReais(esperado)}</span>
-            <span className="dia-linha">caiu {emReais(caiu)}</span>
-            <span className="dia-marcas">
-              {faltas > 0 && <span className="chip" data-severidade="falta_de_verdade">{faltas === 1 ? '1 falta' : `${faltas} faltas`}</span>}
-              {conferir > 0 && <span className="chip" data-severidade="para_conferir">{conferir} conferir</span>}
-              {certos > 0 && <span className="chip" data-severidade="ok">{certos} ok</span>}
-            </span>
-          </a>
-        )
-      })}
-    </nav>
+    <div className="faixa">
+      <p id={legenda} className="faixa-legenda">
+        {LEGENDA_DA_FAIXA}
+      </p>
+      <nav className="faixa-dias" aria-label="Dias do fechamento" aria-describedby={legenda}>
+        {dias.map((d) => {
+          const escolhida = dia === d.casa
+          return (
+            <a
+              key={d.casa}
+              className="dia"
+              href={hashDaSemana(semana, escolhida ? null : d.casa)}
+              aria-current={escolhida ? 'true' : undefined}
+              // A dica é visual; o leitor de tela ouve o mesmo texto pelo nome do link.
+              aria-label={dicaDoDia(d)}
+              data-vazio={d.vazio || undefined}
+              data-corte={d.casa === semana || undefined}
+            >
+              <span className="dia-nome">{nomeDoDia(d.casa)}</span>
+              <span className="dia-valor valor">{emReais(d.caiu)}</span>
+              <span className="medidor" style={{ inlineSize: fracao(d.esperado, maior) }}>
+                <span style={{ inlineSize: fracao(d.caiu, d.esperado) }} />
+              </span>
+              <span className="dia-marcas">
+                {d.faltas > 0 && <Marca s="falta_de_verdade">{marcaDeFaltas(d.faltas)}</Marca>}
+                {d.conferir > 0 && <Marca s="para_conferir">{marcaDeConferir(d.conferir)}</Marca>}
+              </span>
+              <span className="dica" aria-hidden="true">
+                {dicaDoDia(d)}
+              </span>
+            </a>
+          )
+        })}
+      </nav>
+    </div>
   )
 }
 
-/** As pendências primeiro (faltas de verdade, depois o maior valor) e "Casou certo" recolhido (#26). */
+function Marca({ s, children }: { s: keyof typeof ICONE; children: string }) {
+  return (
+    <span className="selo" data-severidade={s}>
+      <span aria-hidden="true">{ICONE[s]}</span>
+      {children}
+    </span>
+  )
+}
+
+/**
+ * O extrato: as pendências primeiro e "Casou certo" recolhido (#26). As abas de severidade,
+ * a adquirente e a ordem filtram só as pendências (#32); o filtro do dia vem da faixa, pelo hash.
+ */
 export function Lista({ fechamento, dia }: { fechamento: Fechamento; dia: string | null }) {
   const semana = fechamento.rodada.data_fechamento
+  const [filtro, setFiltro] = useState(SEM_FILTRO)
   const itens = fechamento.itens.filter((i) => dia === null || casaDoItem(i) === dia)
-  const pendencias = itens
-    .filter((i) => i.severidade != null)
-    .sort(
-      (a, b) =>
-        Number(a.severidade !== 'falta_de_verdade') - Number(b.severidade !== 'falta_de_verdade') ||
-        valorDoItem(b) - valorDoItem(a),
-    )
+  const lista = pendencias(itens, filtro)
+  const doDia = pendencias(itens, SEM_FILTRO).length
   const certos = itens.filter((i) => i.severidade == null)
+  const contagem = Object.fromEntries(
+    ABAS.map((a) => [a.valor, pendencias(itens, { ...filtro, severidade: a.valor }).length]),
+  ) as Record<Filtro['severidade'], number>
 
   return (
-    <>
-      {dia !== null && (
-        <p className="filtro">
-          Mostrando {nomeDoDia(dia)}. <a href={hashDaSemana(semana)}>Ver a semana toda</a>
-        </p>
-      )}
+    <section className="extrato" aria-labelledby="pendencias-titulo">
+      <header>
+        <h2 id="pendencias-titulo">
+          Pendências <span className="contagem">{lista.length}</span>
+        </h2>
+        {dia !== null && (
+          <p className="filtro">
+            Mostrando {nomeDoDia(dia)}. <a href={hashDaSemana(semana)}>Ver a semana toda</a>
+          </p>
+        )}
+      </header>
       {itens.length === 0 ? (
-        <p>Nada previsto nem caído neste dia.</p>
+        <p className="vazio">Nada previsto nem caído neste dia.</p>
       ) : (
         <>
-          <section className="lista" aria-labelledby="pendencias-titulo">
-            <h2 id="pendencias-titulo">Pendências ({pendencias.length})</h2>
-            {pendencias.length === 0 ? (
-              <p>Nenhuma pendência.</p>
-            ) : (
-              <ul>
-                {pendencias.map((i) => (
-                  <LinhaDoItem key={chaveDoItem(i)} item={i} semana={semana} />
-                ))}
-              </ul>
-            )}
-          </section>
+          {doDia > 0 && (
+            <Filtros filtro={filtro} mudar={setFiltro} adquirentes={adquirentes(fechamento)} contagem={contagem} />
+          )}
+          {lista.length === 0 ? (
+            <p className="vazio">{doDia === 0 ? 'Nenhuma pendência.' : SEM_PENDENCIA_NO_FILTRO}</p>
+          ) : (
+            <ul className="linhas">
+              {lista.map((i) => (
+                // A ordem na chave remonta as linhas ao reordenar: elas entram de novo, com a transição.
+                <LinhaDoItem key={`${filtro.ordem}-${chaveDoItem(i)}`} item={i} semana={semana} />
+              ))}
+            </ul>
+          )}
           {certos.length > 0 && (
             <details className="certos">
               <summary>Casou certo ({certos.length})</summary>
-              <ul className="lista">
+              <ul className="linhas">
                 {certos.map((i) => (
                   <LinhaDoItem key={chaveDoItem(i)} item={i} semana={semana} />
                 ))}
@@ -114,25 +140,85 @@ export function Lista({ fechamento, dia }: { fechamento: Fechamento; dia: string
           )}
         </>
       )}
-    </>
+    </section>
+  )
+}
+
+/** Abas de severidade como rádios de verdade: as setas do teclado trocam de aba sem código. */
+function Filtros({
+  filtro,
+  mudar,
+  adquirentes,
+  contagem,
+}: {
+  filtro: Filtro
+  mudar: (f: Filtro) => void
+  adquirentes: string[]
+  contagem: Record<Filtro['severidade'], number>
+}) {
+  const nome = useId()
+  return (
+    <div className="filtros">
+      <fieldset className="abas">
+        <legend className="so-leitor">Severidade</legend>
+        {ABAS.map((a) => (
+          <label key={a.valor} data-severidade={a.valor}>
+            <input
+              type="radio"
+              className="so-leitor"
+              name={nome}
+              checked={filtro.severidade === a.valor}
+              onChange={() => mudar({ ...filtro, severidade: a.valor })}
+            />
+            {a.nome} <span className="abas-n">{contagem[a.valor]}</span>
+          </label>
+        ))}
+      </fieldset>
+      {/* Com uma adquirente só, o filtro não escolhe nada. */}
+      {adquirentes.length > 1 && (
+        <label>
+          Adquirente
+          <select value={filtro.adquirente} onChange={(e) => mudar({ ...filtro, adquirente: e.target.value })}>
+            <option value="todas">Todas</option>
+            {adquirentes.map((a) => (
+              <option key={a} value={a}>
+                {nomeDaAdquirente(a)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label>
+        Ordem
+        <select
+          value={filtro.ordem}
+          onChange={(e) => mudar({ ...filtro, ordem: e.target.value as Filtro['ordem'] })}
+        >
+          {ORDENS.map((o) => (
+            <option key={o.valor} value={o.valor}>
+              {o.nome}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   )
 }
 
 function LinhaDoItem({ item, semana }: { item: Item; semana: string }) {
   const nota = notaDoDia(item)
+  const s = severidade(item)
   return (
-    <li>
-      <a
-        className="item"
-        data-severidade={severidade(item)}
-        href={hashDa({ tela: 'fechamento', semana, dia: null, item: chaveDoItem(item) })}
-      >
-        <span className="item-motivo">{item.motivo ? textoDoMotivo(item.motivo) : 'Casou certo'}</span>
-        <span className="item-valor valor">{emReais(valorDoItem(item))}</span>
-        <span className="item-origem">
+    <li className="linha">
+      <a data-severidade={s} href={hashDa({ tela: 'fechamento', semana, dia: null, item: chaveDoItem(item) })}>
+        <Marca s={s}>{item.severidade ? textoDaSeveridade(item.severidade) : 'Casou certo'}</Marca>
+        <span className="linha-motivo">{item.motivo ? textoDoMotivo(item.motivo) : 'Casou certo'}</span>
+        <span className="linha-origem">
           {origem(item)}
           {nota && ` · ${nota}`}
         </span>
+        <span className="linha-dia">{nomeDoDia(casaDoItem(item))}</span>
+        <span className="linha-valor valor">{emReais(valorDoItem(item))}</span>
       </a>
     </li>
   )

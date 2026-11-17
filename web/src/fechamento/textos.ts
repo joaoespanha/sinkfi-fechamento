@@ -253,3 +253,112 @@ export function oQueFazer(motivo: Esquemas['Motivo'], item: Item): string {
       return `Confira se você pediu antecipação da venda ligada ao ${credito} ("${c?.descricao}"). Se pediu, não há nada a fazer agora. Se não pediu, pergunte à adquirente.`
   }
 }
+
+// Interface (#32): gráficos, filtros e o "?" ao lado dos termos
+
+const porcento = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 })
+
+/** A fração de um total, já formatada ("66%"). Total zero vira "0%". */
+export function emPorcento(parte: number, todo: number): string {
+  return porcento.format(todo > 0 ? parte / todo : 0)
+}
+
+/** O "?" ao lado de cada termo: a definição do GLOSSARY.md, com as palavras da lojista. */
+export const TERMOS = {
+  corte: {
+    nome: 'Corte',
+    texto: 'O momento que separa um fechamento do seguinte. O seu é segunda às 18:00, horário de São Paulo. O que cai depois entra no fechamento seguinte.',
+  },
+  esperado: {
+    nome: 'Esperado',
+    texto: 'A soma dos recebíveis com liquidação prevista até o dia do fechamento. Esperado = Caiu + Não caiu + Próximo fechamento.',
+  },
+  caiu: {
+    nome: 'Caiu',
+    texto: 'A parte do esperado que entrou na conta até o corte e não foi desfeita por chargeback.',
+  },
+  naoCaiu: {
+    nome: 'Não caiu',
+    texto: 'A parte do esperado que não está na conta: não foi depositada, foi depositada em parte ou saiu por chargeback.',
+  },
+  proximo: {
+    nome: 'Próximo fechamento',
+    texto: 'A parte do esperado cujo crédito casou, mas caiu depois do corte. Não é pendência: entra no fechamento seguinte.',
+  },
+  falta: {
+    nome: 'Falta de verdade',
+    texto: 'Dinheiro que muda o fechamento: não entrou, ou entrou e não é seu. É o que pesa na recomendação.',
+  },
+  conferir: {
+    nome: 'Para conferir',
+    texto: 'Vale olhar, mas não muda o fechamento, como um crédito que não casa com nenhuma venda.',
+  },
+  trava: {
+    nome: 'Trava',
+    texto: 'O limite que você define sobre a soma das faltas de verdade. Acima dele, o resumo recomenda não fechar. Nunca impede de fechar.',
+  },
+} as const
+
+export type Termo = keyof typeof TERMOS
+
+/** As partes do esperado, na ordem da barra e da legenda. */
+export const PARTES = [
+  { chave: 'caiu', termo: 'caiu' },
+  { chave: 'nao-caiu', termo: 'naoCaiu' },
+  { chave: 'proximo', termo: 'proximo' },
+] as const
+
+export const LEGENDA_DA_FAIXA =
+  'Cada dia mostra quanto caiu; a barra é o esperado do dia, e a parte cheia, o que caiu. Passe o mouse ou o foco num dia para ver o detalhe; clique para filtrar a lista.'
+
+export const ABAS = [
+  { valor: 'todas', nome: 'Todas' },
+  { valor: 'falta_de_verdade', nome: 'Faltas de verdade' },
+  { valor: 'para_conferir', nome: 'Para conferir' },
+] as const
+
+export const ORDENS = [
+  { valor: 'severidade', nome: 'Faltas primeiro' },
+  { valor: 'valor', nome: 'Maior valor' },
+  { valor: 'dia', nome: 'Dia' },
+] as const
+
+export const SEM_PENDENCIA_NO_FILTRO = 'Nenhuma pendência com esses filtros.'
+
+/** As marcas do cartão do dia: "1 falta", "3 faltas", "2 conferir". */
+export function marcaDeFaltas(n: number): string {
+  return n === 1 ? '1 falta' : `${n} faltas`
+}
+
+export function marcaDeConferir(n: number): string {
+  return `${n} conferir`
+}
+
+type DiaDaFaixa = {
+  casa: string
+  vazio: boolean
+  esperado: number
+  caiu: number
+  naoCaiu: number
+  proximo: number
+  faltas: number
+  conferir: number
+  certos: number
+}
+
+/** A dica de um dia da faixa, que também é o nome do link para o leitor de tela. */
+export function dicaDoDia(d: DiaDaFaixa): string {
+  if (d.vazio) return `${nomeDoDia(d.casa)}: nada previsto nem caído`
+  const valores = [
+    `esperado ${emReais(d.esperado)}`,
+    `caiu ${emReais(d.caiu)}`,
+    `não caiu ${emReais(d.naoCaiu)}`,
+    d.proximo > 0 && `próximo fechamento ${emReais(d.proximo)}`,
+  ].filter(Boolean)
+  const marcas = [
+    d.faltas > 0 && (d.faltas === 1 ? '1 falta de verdade' : `${d.faltas} faltas de verdade`),
+    d.conferir > 0 && `${d.conferir} para conferir`,
+    d.certos > 0 && (d.certos === 1 ? '1 casou certo' : `${d.certos} casaram certo`),
+  ].filter(Boolean)
+  return `${nomeDoDia(d.casa)}: ${valores.join(', ')}.${marcas.length ? ` ${marcas.join(', ')}.` : ''}`
+}

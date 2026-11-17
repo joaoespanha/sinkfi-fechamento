@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import type { components } from '../api'
 import { type Acoes, enviar } from '../enviar'
 import { hashDa, hashDaSemana } from '../navegacao'
+import { Ajuda } from './Ajuda'
+import { BarraDoEsperado } from './BarraDoEsperado'
 import { DetalheDoItem } from './DetalheDoItem'
 import { Faixa, Lista } from './Lista'
 import {
   type Fechamento,
   type Semana,
   diaDaSemana,
+  emReais,
   linhaDoResumo,
   paraConferir,
   quando,
@@ -284,21 +287,42 @@ function Detalhe({
     <>
       <AvisoDoTermino fechamento={fechamento} />
 
-      <header className="resumo" data-recomendacao={resumo.recomendacao}>
-        <p className="resumo-linha">{linhaDoResumo(resumo)}</p>
-        {conferir && <p className="resumo-conferir">{conferir}</p>}
-        <p className="resumo-corte">Fechamento com corte em {quando(rodada.corte)}</p>
-      </header>
-
-      {lojista && (
-        <section className="acoes" aria-label="O que fazer com este fechamento">
-          <Terminei clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
-          <p className="ajuda">
-            Registra que você conferiu esta rodada. Não trava nada. O limite da trava fica em{' '}
-            <a href={hashDa({ tela: 'limite' })}>Limite</a>.
-          </p>
-        </section>
-      )}
+      {/* O resumo é um cartão (#32): a linha, o corte e a trava com o "?", a barra do esperado e o "Terminei". */}
+      <section className="resumo" data-recomendacao={resumo.recomendacao} aria-label="Resumo do fechamento">
+        <p className="resumo-linha">
+          {linhaDoResumo(resumo)}
+          {resumo.itens_falta_de_verdade > 0 && (
+            <>
+              {' '}
+              <Ajuda termo="falta" />
+            </>
+          )}
+        </p>
+        <p className="resumo-sub">
+          {conferir && (
+            <>
+              {conferir} <Ajuda termo="conferir" /> ·{' '}
+            </>
+          )}
+          Corte em {quando(rodada.corte)} <Ajuda termo="corte" />
+          {resumo.limite_trava_centavos != null && (
+            <>
+              {' '}
+              · Trava em {emReais(resumo.limite_trava_centavos)} <Ajuda termo="trava" />
+            </>
+          )}
+        </p>
+        <BarraDoEsperado fechamento={fechamento} />
+        {lojista && (
+          <div className="acoes" role="group" aria-label="O que fazer com este fechamento">
+            <Terminei clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
+            <p className="ajuda">
+              Registra que você conferiu esta rodada. Não trava nada. O limite da trava fica em{' '}
+              <a href={hashDa({ tela: 'limite' })}>Limite</a>.
+            </p>
+          </div>
+        )}
+      </section>
 
       <Faixa fechamento={fechamento} dia={dia} />
       <Lista fechamento={fechamento} dia={dia} />

@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "contrato": "uv run --project ../backend python -m sinkfi.exportar_openapi > openapi.json && openapi-typescript openapi.json -o src/api.d.ts"
+    "contrato": "uv run --project ../backend python -m sinkfi.exportar_openapi > openapi.json && openapi-typescript openapi.json -o src/api.d.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -22,6 +23,7 @@
     "openapi-typescript": "^7.13.0",
     "oxlint": "^1.90.0",
     "typescript": "^5.9.3",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   }
 }
