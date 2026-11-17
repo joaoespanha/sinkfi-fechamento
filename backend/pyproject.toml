@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.14",
     "argon2-cffi>=25.1.0",
+    "celery>=5.5",
     "fastapi>=0.163.1",
     "psycopg[binary]>=3.2",
     "pyjwt>=2.15.1",

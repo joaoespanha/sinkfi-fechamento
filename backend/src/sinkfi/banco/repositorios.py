@@ -63,6 +63,10 @@ def config_do_cliente(sessao: Session, cliente_id: str) -> ConfigFechamento | No
     return ConfigFechamento(dia_fechamento=linha.dia_fechamento, hora_corte=linha.hora_corte, fuso=linha.fuso)
 
 
+def ids_dos_clientes(sessao: Session) -> list[str]:
+    return list(sessao.scalars(select(LinhaCliente.id).order_by(LinhaCliente.id)))
+
+
 def cliente_existe(sessao: Session, id: str) -> bool:
     return sessao.get(LinhaCliente, id) is not None
 
