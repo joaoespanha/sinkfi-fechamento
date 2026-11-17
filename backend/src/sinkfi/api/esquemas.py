@@ -41,6 +41,8 @@ class ItemLido(_DeAtributos):
     severidade: Severidade | None
     motivo: Motivo | None
     pendencia_centavos: int | None
+    # O dia da semana em que o item aparece (#26). None = antes desta semana.
+    dia: date | None
 
 
 class TerminoLido(BaseModel):

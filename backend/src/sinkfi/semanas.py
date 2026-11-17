@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sinkfi.rodadas import fechamento_vigente
-from sinkfi.tipos import ConfigFechamento
+from sinkfi.tipos import ConfigFechamento, ItemRodada
 
 SEMANA = timedelta(days=7)
 
@@ -46,3 +46,25 @@ def fechamento_atual(cortes: list[datetime], datas_com_dado: Iterable[date]) -> 
         if any(anterior < d <= cortes[i].date() for d in datas):
             return cortes[i]
     return None
+
+
+def dias_da_semana(data_fechamento: date) -> list[date]:
+    """Os 7 dias do fechamento: do dia seguinte ao corte anterior até o dia do corte."""
+    return [data_fechamento - timedelta(days=n) for n in range(6, -1, -1)]
+
+
+def dia_do_item(item: ItemRodada, corte: datetime, fuso: ZoneInfo) -> date | None:
+    """O dia da semana em que o item aparece. None = antes desta semana.
+
+    Venda ou grupo: a última liquidação prevista (ADR 0002). Crédito sem venda: a data em que
+    caiu, no fuso do cliente. O crédito depois do corte anterior, no mesmo dia dele, entra no
+    primeiro dia; o depois do corte, no último.
+    """
+    dias = dias_da_semana(corte.astimezone(fuso).date())
+    if item.recebiveis:
+        dia = max(r.liquidacao_prevista for r in item.recebiveis)
+        return dia if dia >= dias[0] else None
+    lancado_em = item.creditos[0].lancado_em
+    if lancado_em <= corte - SEMANA:
+        return None
+    return min(max(lancado_em.astimezone(fuso).date(), dias[0]), dias[-1])
