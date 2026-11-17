@@ -6,7 +6,10 @@ a ingestão não decide o que a próxima versão da regra vai precisar.
 
 from datetime import date, datetime, time
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Identity, SmallInteger, Text, Time, UniqueConstraint, func
+from typing import Any
+
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Identity, Index, SmallInteger, Text, Time, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -83,3 +86,26 @@ class LinhaRodada(Base):
     versao_regra: Mapped[str] = mapped_column(Text)
     hash_entrada: Mapped[str] = mapped_column(Text)
     criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LinhaItemRodada(Base):
+    """Recebíveis e créditos em JSONB, como estavam na hora do cálculo (ADR 0006)."""
+
+    __tablename__ = "itens_rodada"
+    __table_args__ = (
+        Index("ix_itens_rodada_recebiveis", "recebiveis", postgresql_using="gin", postgresql_ops={"recebiveis": "jsonb_path_ops"}),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    rodada_id: Mapped[int] = mapped_column(ForeignKey("rodadas.id"), index=True)
+    # NULL nos itens de crédito, que não têm grupo.
+    esperado_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    caiu_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    nao_caiu_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    proximo_fechamento_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    # NULL quando o item não é pendência.
+    severidade: Mapped[str | None] = mapped_column(Text)
+    motivo: Mapped[str | None] = mapped_column(Text)
+    pendencia_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    recebiveis: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    creditos: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)

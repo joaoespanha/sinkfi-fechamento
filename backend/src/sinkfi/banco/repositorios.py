@@ -1,5 +1,6 @@
 """Leitura e gravação no Postgres. Recebe e devolve tipos do núcleo e de `sinkfi.tipos`."""
 
+from dataclasses import asdict
 from datetime import date, datetime, time
 from typing import Any
 
@@ -7,9 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from fechamento import Lancamento, Loja, Recebivel
-from sinkfi.banco.modelos import LinhaCliente, LinhaLancamento, LinhaLoja, LinhaRecebivel, LinhaRodada
-from sinkfi.tipos import Entrada, Rodada
+from fechamento import Lancamento, Loja, Motivo, Recebivel, Severidade
+from sinkfi.banco.modelos import (
+    LinhaCliente,
+    LinhaItemRodada,
+    LinhaLancamento,
+    LinhaLoja,
+    LinhaRecebivel,
+    LinhaRodada,
+)
+from sinkfi.tipos import Entrada, ItemRodada, Rodada
 
 
 def criar_cliente(
@@ -152,3 +160,73 @@ def rodadas_do_cliente(sessao: Session, cliente_id: str) -> list[Rodada]:
         .order_by(LinhaRodada.criada_em.desc(), LinhaRodada.id.desc())
     ).all()
     return [_rodada(l) for l in linhas]
+
+
+def gravar_itens(sessao: Session, rodada_id: int, itens: list[ItemRodada]) -> None:
+    sessao.add_all(
+        LinhaItemRodada(
+            rodada_id=rodada_id,
+            esperado_centavos=item.esperado_centavos,
+            caiu_centavos=item.caiu_centavos,
+            nao_caiu_centavos=item.nao_caiu_centavos,
+            proximo_fechamento_centavos=item.proximo_fechamento_centavos,
+            severidade=item.severidade.value if item.severidade else None,
+            motivo=item.motivo.value if item.motivo else None,
+            pendencia_centavos=item.pendencia_centavos,
+            recebiveis=[_json(r) for r in item.recebiveis],
+            creditos=[_json(c) for c in item.creditos],
+        )
+        for item in itens
+    )
+    sessao.flush()
+
+
+def itens_da_rodada(sessao: Session, rodada_id: int) -> list[ItemRodada]:
+    linhas = sessao.scalars(
+        select(LinhaItemRodada).where(LinhaItemRodada.rodada_id == rodada_id).order_by(LinhaItemRodada.id)
+    ).all()
+    return [
+        ItemRodada(
+            recebiveis=[_recebivel_do_json(r) for r in l.recebiveis],
+            creditos=[_lancamento_do_json(c) for c in l.creditos],
+            esperado_centavos=l.esperado_centavos,
+            caiu_centavos=l.caiu_centavos,
+            nao_caiu_centavos=l.nao_caiu_centavos,
+            proximo_fechamento_centavos=l.proximo_fechamento_centavos,
+            severidade=Severidade(l.severidade) if l.severidade else None,
+            motivo=Motivo(l.motivo) if l.motivo else None,
+            pendencia_centavos=l.pendencia_centavos,
+        )
+        for l in linhas
+    ]
+
+
+def rodadas_com_recebivel(sessao: Session, cliente_id: str, recebivel_id: str) -> list[Rodada]:
+    """Mesma ordem de `rodadas_do_cliente`. O filtro usa o índice GIN dos itens."""
+    com_recebivel = select(LinhaItemRodada.rodada_id).where(
+        LinhaItemRodada.recebiveis.contains([{"id": recebivel_id}])
+    )
+    linhas = sessao.scalars(
+        select(LinhaRodada)
+        .where(LinhaRodada.cliente_id == cliente_id, LinhaRodada.id.in_(com_recebivel))
+        .order_by(LinhaRodada.criada_em.desc(), LinhaRodada.id.desc())
+    ).all()
+    return [_rodada(l) for l in linhas]
+
+
+def _json(valor: Recebivel | Lancamento) -> dict[str, Any]:
+    return {k: v.isoformat() if isinstance(v, date) else v for k, v in asdict(valor).items()}
+
+
+def _recebivel_do_json(d: dict[str, Any]) -> Recebivel:
+    return Recebivel(
+        **d
+        | {
+            "vendido_em": date.fromisoformat(d["vendido_em"]),
+            "liquidacao_prevista": date.fromisoformat(d["liquidacao_prevista"]),
+        }
+    )
+
+
+def _lancamento_do_json(d: dict[str, Any]) -> Lancamento:
+    return Lancamento(**d | {"lancado_em": datetime.fromisoformat(d["lancado_em"])})
