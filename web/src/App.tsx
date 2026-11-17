@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { TelaFechamento } from './fechamento/TelaFechamento'
 import { TelaLimite } from './limite/TelaLimite'
+import { Alternador } from './prototipo/Alternador'
 import { type Rota, hashDa, useRota } from './navegacao'
 import { EscolherCliente } from './sessao/EscolherCliente'
 import { type Eu, quemSouEu, sair } from './sessao/sessao'
@@ -96,6 +97,7 @@ export default function App() {
           />
         )}
       </main>
+      <Alternador />
     </div>
   )
 }

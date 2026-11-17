@@ -4,6 +4,9 @@ import { type Acoes, enviar } from '../enviar'
 import { hashDa, hashDaSemana } from '../navegacao'
 import { DetalheDoItem } from './DetalheDoItem'
 import { Faixa, Lista } from './Lista'
+import { useVariante } from '../prototipo/variante'
+import { VarianteA } from '../prototipo/VarianteA'
+import { VarianteB } from '../prototipo/VarianteB'
 import {
   type Fechamento,
   type Semana,
@@ -279,6 +282,28 @@ function Detalhe({
 }) {
   const { resumo, rodada } = fechamento
   const conferir = paraConferir(resumo)
+  const variante = useVariante()
+
+  // PROTÓTIPO (Q5c): as variantes recebem o "Terminei" pronto e desenham o resto.
+  if (variante !== 'atual') {
+    const acoesDaVariante = lojista && (
+      <section className="acoes" aria-label="O que fazer com este fechamento">
+        <Terminei clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
+        <p className="ajuda">Registra que você conferiu esta rodada. Não trava nada.</p>
+      </section>
+    )
+    // C: a estrutura e os gráficos da A, com a paleta e as abas de severidade da B.
+    return (
+      <>
+        <AvisoDoTermino fechamento={fechamento} />
+        {variante === 'B' ? (
+          <VarianteB fechamento={fechamento} dia={dia} acoes={acoesDaVariante} />
+        ) : (
+          <VarianteA fechamento={fechamento} dia={dia} acoes={acoesDaVariante} abas={variante === 'C'} />
+        )}
+      </>
+    )
+  }
 
   return (
     <>
