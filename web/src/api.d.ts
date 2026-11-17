@@ -115,7 +115,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Pedir Reprocessamento */
+        /**
+         * Pedir Reprocessamento
+         * @description Enfileira o pedido e responde na hora: a rodada nova aparece quando o worker terminar (ADR 0004).
+         */
         post: operations["pedir_reprocessamento_clientes__cliente_id__reprocessar_post"];
         delete?: never;
         options?: never;
@@ -533,13 +536,11 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            200: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["RodadaLida"];
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

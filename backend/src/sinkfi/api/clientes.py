@@ -1,6 +1,6 @@
 """Rotas com cliente no endereço. Todas passam por `checar_cliente`, no próprio router (ADR 0005)."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from fechamento import Resumo
@@ -16,8 +16,9 @@ from sinkfi.api.esquemas import (
     TerminoLido,
 )
 from sinkfi.api.sessao import obter_sessao
+from sinkfi.banco import repositorios
+from sinkfi.fila import Fila, obter_fila
 from sinkfi.leitura import fechamento_mais_recente
-from sinkfi.rodadas import reprocessar
 from sinkfi.tipos import Papel, Termino, Usuario
 
 rotas = APIRouter(prefix="/clientes/{cliente_id}", dependencies=[Depends(checar_cliente)])
@@ -61,14 +62,20 @@ def marcar_terminei(
     return _termino_lido(termino)
 
 
-@rotas.post("/reprocessar", dependencies=[Depends(exige_papel(Papel.SUPORTE))])
-def pedir_reprocessamento(cliente_id: str, sessao: Session = Depends(obter_sessao)) -> RodadaLida:
-    # Síncrono até o #10, que troca por enfileirar (plano de corte do ADR 0004).
-    rodada = reprocessar(sessao, cliente_id)
-    if rodada is None:
+@rotas.post(
+    "/reprocessar",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_class=Response,
+    dependencies=[Depends(exige_papel(Papel.SUPORTE))],
+)
+def pedir_reprocessamento(
+    cliente_id: str, sessao: Session = Depends(obter_sessao), fila: Fila = Depends(obter_fila)
+) -> Response:
+    """Enfileira o pedido e responde na hora: a rodada nova aparece quando o worker terminar (ADR 0004)."""
+    if not repositorios.rodadas_do_cliente(sessao, cliente_id):
         raise HTTPException(status_code=404, detail="cliente sem rodada")
-    sessao.commit()
-    return RodadaLida.model_validate(rodada)
+    fila.pedir_reprocessamento(cliente_id)
+    return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 def _resumo_lido(resumo: Resumo, limite_trava_centavos: int | None) -> ResumoLido:

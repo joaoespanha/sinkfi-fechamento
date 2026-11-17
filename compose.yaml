@@ -43,6 +43,50 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # O broker do Celery (ADR 0004). As portas ficam só no host: a 5672 serve à api
+  # rodando fora do compose, e o painel na 15672 mostra a fila e a dead letter.
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Roda os pedidos da fila `fechamento`. Não guarda estado: pode ter várias cópias.
+  # A pasta de dados tem uma subpasta por cliente; na demonstração, só a da Marina.
+  worker:
+    build: ./backend
+    command: ["celery", "-A", "sinkfi.tarefas", "worker", "-Q", "fechamento", "--loglevel=info"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
+      BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      PASTA_DADOS: /dados
+      # Só na demonstração: o corte de 10/11, com que os CSVs batem. Vazio, vale o fechamento vigente.
+      SINKFI_CORTE_FIXO: ${SINKFI_CORTE_FIXO-2026-11-10T18:00:00-03:00}
+    volumes:
+      - ./dados:/dados/cli_marina:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      migrar:
+        condition: service_completed_successfully
+
+  # Agenda a ingestão de cada cliente a cada 6 horas. Exatamente uma cópia:
+  # duas agendariam tudo em dobro.
+  beat:
+    build: ./backend
+    command: ["celery", "-A", "sinkfi.tarefas", "beat", "--loglevel=info", "--schedule", "/tmp/celerybeat-schedule"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
+      BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   # A api de leitura. Não publica porta: quem fala com ela é o nginx do `web`.
   # O root-path faz o /docs funcionar atrás do prefixo /api.
   api:
@@ -52,9 +96,13 @@ services:
       DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
       # Assina o cookie de sessão (ADR 0005). O padrão só serve à demonstração.
       JWT_SECRET: ${JWT_SECRET:-segredo-da-demonstracao-troque-fora-dela}
+      # O reprocessar só enfileira; quem roda é o worker.
+      BROKER_URL: amqp://guest:guest@rabbitmq:5672//
     depends_on:
       migrar:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
 
   # A tela, servida pelo nginx, que também repassa /api para a api.
   web:
