@@ -38,6 +38,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm test
       # O contrato vem do OpenAPI da api (ADR 0004): se alguém esqueceu de regerar, a CI falha.
       - run: npm run contrato
       - run: git diff --exit-code src/api.d.ts
