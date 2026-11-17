@@ -1,11 +1,12 @@
-import { type FormEvent, useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { components } from '../api'
+import { type Acoes, enviar } from '../enviar'
+import { hashDa } from '../navegacao'
 import {
   type Fechamento,
   type Item,
   type Semana,
-  campoDosCentavos,
-  centavosDoCampo,
+  diaDaSemana,
   emReais,
   explicacaoDoMotivo,
   linhaDoCredito,
@@ -14,7 +15,6 @@ import {
   origem,
   paraConferir,
   quando,
-  rotuloDaSemana,
   textoDoAviso,
   textoDaSeveridade,
   textoDoMotivo,
@@ -35,9 +35,6 @@ type Pendencia = Item & {
   pendencia_centavos: number
 }
 
-/** O que a tela faz depois de uma escrita: 401 volta ao login, sucesso recarrega o fechamento. */
-type Acoes = { aoPerderSessao: () => void; recarregar: () => void }
-
 // A rodada pedida chega pelo worker (ADR 0004): consulta de novo a cada 2 s, por até 30 s.
 const INTERVALO_MS = 2_000
 const PRAZO_MS = 30_000
@@ -51,14 +48,6 @@ function pendencias(itens: Item[]): Pendencia[] {
         Number(a.severidade !== 'falta_de_verdade') - Number(b.severidade !== 'falta_de_verdade') ||
         b.pendencia_centavos - a.pendencia_centavos,
     )
-}
-
-async function enviar(caminho: string, metodo: 'PUT' | 'POST', corpo: unknown): Promise<Response> {
-  return fetch(`/api${caminho}`, {
-    method: metodo,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(corpo),
-  })
 }
 
 function esperar(ms: number, signal: AbortSignal): Promise<void> {
@@ -91,47 +80,40 @@ async function esperarRodada(url: string, signal: AbortSignal): Promise<Response
   }
 }
 
-/** A semana escolhida fica no endereço (`?semana=AAAA-MM-DD`), para o link do aviso e o voltar do navegador. */
-function semanaDoEndereco(): string | null {
-  return new URLSearchParams(window.location.search).get('semana')
-}
-
 export function TelaFechamento({
   clienteId,
   papel,
+  escolhida,
   aoPerderSessao,
 }: {
   clienteId: string
   papel: Papel
+  // A semana do hash (#25); null abre o fechamento atual.
+  escolhida: string | null
   // 401: o token venceu (8 horas) ou o usuário foi desativado. A tela volta ao login.
   aoPerderSessao: () => void
 }) {
-  const [escolhida, setEscolhida] = useState<string | null>(semanaDoEndereco)
   const [semanas, setSemanas] = useState<Semana[] | null>(null)
-  const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' })
+  // O estado vale para a semana em que foi carregado: trocar de semana mostra "carregando" sem resto da anterior.
+  const [carga, setCarga] = useState<{ semana: string; estado: Estado } | null>(null)
   // Muda depois de cada escrita para buscar tudo de novo, sem voltar a "carregando".
   const [versao, setVersao] = useState(0)
   // Muda quando a rodada pedida chega: a lista passa a dizer que a semana tem rodada.
   const [versaoDaLista, setVersaoDaLista] = useState(0)
-
-  useEffect(() => {
-    const voltar = () => setEscolhida(semanaDoEndereco())
-    window.addEventListener('popstate', voltar)
-    return () => window.removeEventListener('popstate', voltar)
-  }, [])
+  const [erroDaLista, setErroDaLista] = useState(false)
 
   useEffect(() => {
     const controle = new AbortController()
     fetch(`/api/clientes/${encodeURIComponent(clienteId)}/semanas`, { signal: controle.signal })
       .then(async (resposta) => {
         if (resposta.status === 401) return aoPerderSessao()
-        if (!resposta.ok) return setEstado({ tipo: 'erro' })
+        if (!resposta.ok) return setErroDaLista(true)
         setSemanas((await resposta.json()) as Semana[])
       })
       .catch((erro: unknown) => {
         if (!controle.signal.aborted) {
           console.error(erro)
-          setEstado({ tipo: 'erro' })
+          setErroDaLista(true)
         }
       })
     return () => controle.abort()
@@ -147,6 +129,7 @@ export function TelaFechamento({
     const controle = new AbortController()
     const cliente = encodeURIComponent(clienteId)
     const url = `/api/clientes/${cliente}/fechamento?semana=${encodeURIComponent(semana)}`
+    const setEstado = (estado: Estado) => setCarga({ semana, estado })
 
     async function carregar(): Promise<void> {
       let resposta = await fetch(url, { signal: controle.signal })
@@ -175,22 +158,31 @@ export function TelaFechamento({
     return () => controle.abort()
   }, [clienteId, aoPerderSessao, semana, listaChegou, versao])
 
-  function escolher(nova: string) {
-    if (nova === semana) return
-    window.history.pushState(null, '', `?semana=${encodeURIComponent(nova)}`)
-    setEstado({ tipo: 'carregando' })
-    setEscolhida(nova)
-  }
-
+  const estado: Estado = erroDaLista
+    ? { tipo: 'erro' }
+    : carga && carga.semana === semana
+      ? carga.estado
+      : { tipo: 'carregando' }
   const acoes: Acoes = { aoPerderSessao, recarregar: () => setVersao((v) => v + 1) }
 
   return (
     <>
-      {semanas && <Avisos semanas={semanas} escolher={escolher} />}
-      {semanas && semana && <SeletorDeSemana semanas={semanas} semana={semana} escolher={escolher} />}
+      {semanas && <Avisos semanas={semanas} />}
+      <header className="titulo">
+        <h1>{semana ? `Fechamento de ${diaDaSemana(semana)}` : 'Fechamento'}</h1>
+        {semanas && semana && <Setas semanas={semanas} semana={semana} />}
+      </header>
       {(() => {
         // Lista vazia: o cliente ainda não tem liquidação prevista, então não há fechamento.
         if (listaChegou && semana === null) return <p>Ainda não há fechamento calculado.</p>
+        // Semana do hash fora da lista (link velho ou digitado): não pede cálculo, a api recusaria.
+        if (semanas && semana && !semanas.some((s) => s.semana === semana)) {
+          return (
+            <p role="alert">
+              Este fechamento não está na lista. <a href={hashDa({ tela: 'fechamento', semana: null })}>Ver o atual</a>
+            </p>
+          )
+        }
         switch (estado.tipo) {
           case 'carregando':
             return <p aria-busy="true">Carregando o fechamento…</p>
@@ -224,7 +216,7 @@ export function TelaFechamento({
 }
 
 /** Fechamentos anteriores ao atual com pendência e sem "Terminei". Lê os términos; não é estado (ADR 0003). */
-function Avisos({ semanas, escolher }: { semanas: Semana[]; escolher: (semana: string) => void }) {
+function Avisos({ semanas }: { semanas: Semana[] }) {
   const comAviso = semanas.filter((s) => s.aviso)
   if (comAviso.length === 0) return null
   return (
@@ -232,42 +224,57 @@ function Avisos({ semanas, escolher }: { semanas: Semana[]; escolher: (semana: s
       {comAviso.map((s) => (
         <p key={s.semana}>
           {textoDoAviso(s)}{' '}
-          <a
-            href={`?semana=${encodeURIComponent(s.semana)}`}
-            onClick={(e) => {
-              e.preventDefault()
-              escolher(s.semana)
-            }}
-          >
-            Ver o fechamento
-          </a>
+          <a href={hashDa({ tela: 'fechamento', semana: s.semana })}>Ver o fechamento de {diaDaSemana(s.semana)}</a>
         </p>
       ))}
     </section>
   )
 }
 
-function SeletorDeSemana({
-  semanas,
-  semana,
-  escolher,
-}: {
-  semanas: Semana[]
-  semana: string
-  escolher: (semana: string) => void
-}) {
-  const id = useId()
+/**
+ * Troca de fechamento por setas ao lado do título (#25, variação B). A lista vem do mais novo para o mais antigo.
+ * O ponto marca o vizinho com aviso: anterior ao atual, com pendência e sem término.
+ */
+function Setas({ semanas, semana }: { semanas: Semana[]; semana: string }) {
+  const i = semanas.findIndex((s) => s.semana === semana)
+  if (i === -1) return null
+  const anterior = semanas[i + 1]
+  const proximo = semanas[i - 1]
   return (
-    <div className="seletor-semana">
-      <label htmlFor={id}>Fechamento de</label>
-      <select id={id} value={semana} onChange={(e) => escolher(e.target.value)}>
-        {semanas.map((s) => (
-          <option key={s.semana} value={s.semana}>
-            {rotuloDaSemana(s)}
-          </option>
-        ))}
-      </select>
-    </div>
+    <nav className="setas" aria-label="Trocar de fechamento">
+      <Seta vizinha={anterior} direcao="anterior" />
+      <span className="setas-atual" aria-current="page">
+        {diaDaSemana(semana)}
+      </span>
+      <Seta vizinha={proximo} direcao="proximo" />
+    </nav>
+  )
+}
+
+function Seta({ vizinha, direcao }: { vizinha: Semana | undefined; direcao: 'anterior' | 'proximo' }) {
+  const seta = direcao === 'anterior' ? '‹' : '›'
+  const nome = direcao === 'anterior' ? 'Fechamento anterior' : 'Próximo fechamento'
+  if (!vizinha) {
+    return (
+      <span className="seta" aria-hidden="true" data-desligada>
+        {seta}
+      </span>
+    )
+  }
+  const data = diaDaSemana(vizinha.semana)
+  const marcas = [vizinha.aviso && 'sem término', !vizinha.tem_rodada && 'não calculado'].filter(Boolean)
+  return (
+    <a
+      className="seta"
+      href={hashDa({ tela: 'fechamento', semana: vizinha.semana })}
+      aria-label={`${nome}: ${data}${marcas.length ? ` (${marcas.join(', ')})` : ''}`}
+      title={marcas.length ? marcas.join(', ') : undefined}
+    >
+      {direcao === 'anterior' && <span aria-hidden="true">{seta}</span>}
+      <span className="seta-data">{data}</span>
+      {vizinha.aviso && <span className="ponto" aria-hidden="true" />}
+      {direcao === 'proximo' && <span aria-hidden="true">{seta}</span>}
+    </a>
   )
 }
 
@@ -299,7 +306,10 @@ function Detalhe({
       {lojista && (
         <section className="acoes" aria-label="O que fazer com este fechamento">
           <Terminei clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
-          <FormularioLimite clienteId={clienteId} limite={resumo.limite_trava_centavos} acoes={acoes} />
+          <p className="ajuda">
+            Registra que você conferiu esta rodada. Não trava nada. O limite da trava fica em{' '}
+            <a href={hashDa({ tela: 'limite' })}>Limite</a>.
+          </p>
         </section>
       )}
 
@@ -392,79 +402,6 @@ function Terminei({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId:
       </button>
       <p role="status">{falhou ? 'Não foi possível registrar. Tente de novo.' : ''}</p>
     </div>
-  )
-}
-
-function FormularioLimite({
-  clienteId,
-  limite,
-  acoes,
-}: {
-  clienteId: string
-  limite: number | null
-  acoes: Acoes
-}) {
-  const id = useId()
-  const [texto, setTexto] = useState(campoDosCentavos(limite))
-  const [mensagem, setMensagem] = useState('')
-  const [invalido, setInvalido] = useState(false)
-  const [enviando, setEnviando] = useState(false)
-
-  async function salvar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault()
-    const centavos = centavosDoCampo(texto)
-    if (centavos === 'invalido') {
-      setInvalido(true)
-      setMensagem('Digite o valor em reais, como 2.000 ou 2000,50.')
-      document.getElementById(`${id}-campo`)?.focus()
-      return
-    }
-    setInvalido(false)
-    setEnviando(true)
-    try {
-      const resposta = await enviar(`/clientes/${encodeURIComponent(clienteId)}/limite`, 'PUT', {
-        limite_trava_centavos: centavos,
-      })
-      if (resposta.status === 401) return acoes.aoPerderSessao()
-      if (!resposta.ok) return setMensagem('Não foi possível salvar o limite. Tente de novo.')
-      setMensagem(centavos === null ? 'Trava desligada.' : `Limite salvo: ${emReais(centavos)}.`)
-      acoes.recarregar()
-    } catch (erro: unknown) {
-      console.error(erro)
-      setMensagem('Não foi possível salvar o limite. Tente de novo.')
-    } finally {
-      setEnviando(false)
-    }
-  }
-
-  return (
-    <form className="limite" onSubmit={salvar} noValidate>
-      <label htmlFor={`${id}-campo`}>Limite da trava (R$)</label>
-      <input
-        id={`${id}-campo`}
-        name="limite"
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        enterKeyHint="done"
-        value={texto}
-        aria-invalid={invalido}
-        aria-describedby={`${id}-ajuda ${id}-mensagem`}
-        onChange={(e) => {
-          setTexto(e.target.value)
-          if (invalido) setInvalido(false)
-        }}
-      />
-      <p id={`${id}-ajuda`} className="ajuda">
-        Acima deste valor em faltas, o resumo recomenda não fechar. Deixe vazio para desligar a trava.
-      </p>
-      <button type="submit" disabled={enviando}>
-        Salvar limite
-      </button>
-      <p id={`${id}-mensagem`} role="status">
-        {mensagem}
-      </p>
-    </form>
   )
 }
 
