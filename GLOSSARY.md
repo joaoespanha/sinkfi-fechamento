@@ -90,8 +90,12 @@ _Evitar_: conciliação, fechar o caixa
 O momento que separa um fechamento do seguinte. Cada cliente tem o seu dia, hora e fuso; o da Marina é segunda às 18:00, horário de São Paulo.
 _Evitar_: horário limite, deadline
 
+**Fechamento atual**:
+O fechamento mais recente cujo corte já passou e que tem algum recebível previsto ou crédito nos seus dias. É onde a tela abre; os anteriores ficam para consulta.
+_Evitar_: semana padrão, semana vigente, semana atual
+
 **Rodada**:
-Um cálculo do fechamento de um cliente com os dados que havia naquele momento. Não muda depois de gravada: dados novos geram outra rodada, e a lojista vê a mais recente.
+Um cálculo do fechamento de um cliente com os dados que havia naquele momento. Não muda depois de gravada: dados novos geram outra rodada, e a lojista vê a mais recente do fechamento que escolheu.
 _Evitar_: execução, versão, reprocessamento
 
 **Versão da regra**:
