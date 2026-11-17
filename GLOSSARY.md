@@ -1,6 +1,6 @@
 # Fechamento semanal
 
-A conferência que a lojista faz toda segunda à noite: o que as adquirentes deviam ter depositado até o corte, o que caiu de fato na conta e o que falta de verdade. Vale para todas as lojas da mesma conta.
+A conferência que a lojista faz uma vez por semana, no dia do seu corte (a Marina fecha na segunda à noite): o que as adquirentes deviam ter depositado até o corte, o que caiu de fato na conta e o que falta de verdade. Vale para todas as lojas da mesma conta.
 
 ## Partes
 
@@ -83,16 +83,20 @@ Grupo cujos recebíveis são de lojas diferentes da mesma adquirente, quando o c
 ## Fechamento
 
 **Fechamento**:
-A conferência de uma semana, feita na segunda à noite com o que caiu até o corte.
+A conferência de uma semana de um cliente, com o que caiu até o corte. A Marina fecha na segunda à noite.
 _Evitar_: conciliação, fechar o caixa
 
 **Corte**:
-O momento que separa um fechamento do seguinte: segunda às 18:00, horário de São Paulo.
+O momento que separa um fechamento do seguinte. Cada cliente tem o seu dia, hora e fuso; o da Marina é segunda às 18:00, horário de São Paulo.
 _Evitar_: horário limite, deadline
 
 **Rodada**:
 Um cálculo do fechamento de um cliente com os dados que havia naquele momento. Não muda depois de gravada: dados novos geram outra rodada, e a lojista vê a mais recente.
 _Evitar_: execução, versão, reprocessamento
+
+**Versão da regra**:
+A versão do cálculo que gerou uma rodada. Corrigir a regra gera rodadas novas e nunca muda as antigas. Não confundir com rodada, que é um cálculo e não uma versão.
+_Evitar_: release
 
 **Esperado**:
 A soma dos recebíveis com liquidação prevista até o dia do fechamento. Esperado = Caiu + Não caiu + Próximo fechamento.
@@ -138,3 +142,7 @@ _Evitar_: veredito, status
 **Trava**:
 Limite opcional que a lojista define sobre a soma das faltas de verdade. Acima dele, o resumo recomenda não fechar. Ela só muda o resumo e nunca impede o fechamento. Vem desligada.
 _Evitar_: bloqueio, materialidade
+
+**Término**:
+O registro de que a lojista terminou um fechamento: quem, quando, qual rodada viu e o resumo daquele momento. Não trava nada, e ela pode registrar de novo se o fechamento mudar. Na tela, o botão "Terminei".
+_Evitar_: fechar, concluir, fechamento concluído
