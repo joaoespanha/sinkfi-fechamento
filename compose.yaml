@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sinkfi
+      POSTGRES_PASSWORD: sinkfi
+      POSTGRES_DB: sinkfi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sinkfi -d sinkfi"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Roda as migrações e termina. É o passo que iria para produção como está:
+  # nenhum serviço de aplicação migra o banco ao subir.
+  migrar:
+    build: ./backend
+    command: ["python", "-m", "sinkfi.migrar"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Só existe na demonstração: cria a Marina, ingere os CSVs de dados/ e roda o
+  # fechamento de 10/11. Em produção o cliente nasce por cadastro e a ingestão
+  # chega pela api. Pode rodar de novo: nada se repete.
+  semear:
+    build: ./backend
+    command: ["python", "-m", "sinkfi.semear"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
+      PASTA_DADOS: /dados
+    volumes:
+      - ./dados:/dados:ro
+    depends_on:
+      migrar:
+        condition: service_completed_successfully
+    restart: "no"
+
+volumes:
+  postgres:

@@ -43,6 +43,10 @@ def criar_cliente(
     sessao.flush()
 
 
+def cliente_existe(sessao: Session, id: str) -> bool:
+    return sessao.get(LinhaCliente, id) is not None
+
+
 def gravar_lojas(sessao: Session, linhas: list[dict[str, Any]]) -> None:
     _upsert(sessao, LinhaLoja, linhas)
 
