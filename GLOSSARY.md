@@ -12,6 +12,18 @@ _Evitar_: maquininha, credenciadora
 Ponto de venda da lojista. Várias lojas podem receber na mesma conta e pela mesma adquirente.
 _Evitar_: estabelecimento, filial
 
+**Cliente**:
+A empresa que contrata a sinkfi, com todas as suas lojas e a conta em que elas recebem. Um fechamento é sempre de um cliente.
+_Evitar_: conta, tenant, empresa
+
+**Lojista**:
+A pessoa do cliente que faz o fechamento. Vê só o próprio cliente e é quem define a trava.
+_Evitar_: usuário, dona
+
+**Suporte**:
+A pessoa do time da sinkfi que investiga um fechamento. Vê qualquer cliente e pode pedir uma rodada nova.
+_Evitar_: admin, operador
+
 ## O que deveria cair
 
 **Recebível**:
@@ -77,6 +89,10 @@ _Evitar_: conciliação, fechar o caixa
 **Corte**:
 O momento que separa um fechamento do seguinte: segunda às 18:00, horário de São Paulo.
 _Evitar_: horário limite, deadline
+
+**Rodada**:
+Um cálculo do fechamento de um cliente com os dados que havia naquele momento. Não muda depois de gravada: dados novos geram outra rodada, e a lojista vê a mais recente.
+_Evitar_: execução, versão, reprocessamento
 
 **Esperado**:
 A soma dos recebíveis com liquidação prevista até o dia do fechamento. Esperado = Caiu + Não caiu + Próximo fechamento.
