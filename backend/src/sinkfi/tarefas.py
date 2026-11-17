@@ -13,11 +13,12 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from sinkfi.banco import engine, repositorios
+from sinkfi.fechamentos import ancora_dos_cortes
 from sinkfi.fila import FilaCelery, app, fila_morta
 from sinkfi.ingestao.ingerir import ingerir
 from sinkfi.outbox import publicar_pendentes
 from sinkfi.pedidos import processar_pedido
-from sinkfi.rodadas import reprocessar
+from sinkfi.rodadas import reprocessar, rodar_fechamento
 
 log = logging.getLogger(__name__)
 
@@ -70,18 +71,19 @@ def publicar_pedidos() -> None:
 
 @app.task(name="sinkfi.fechar_cliente", **TENTA_DE_NOVO)
 def fechar_cliente(cliente_id: str) -> None:
+    """O pedido da ingestão, sem corte (#11): roda o fechamento atual."""
     with Session(engine()) as sessao, sessao.begin():
-        processar_pedido(sessao, cliente_id, datetime.now(UTC), corte_fixo=_corte_fixo())
+        processar_pedido(sessao, cliente_id, datetime.now(UTC), ancora=ancora_dos_cortes())
+
+
+@app.task(name="sinkfi.fechar_semana", **TENTA_DE_NOVO)
+def fechar_semana(cliente_id: str, corte: str) -> None:
+    """O pedido de quem escolheu um fechamento sem rodada (ADR 0007). A api já conferiu o corte."""
+    with Session(engine()) as sessao, sessao.begin():
+        rodar_fechamento(sessao, cliente_id, datetime.fromisoformat(corte))
 
 
 @app.task(name="sinkfi.reprocessar_cliente", **TENTA_DE_NOVO)
-def reprocessar_cliente(cliente_id: str) -> None:
+def reprocessar_cliente(cliente_id: str, corte: str) -> None:
     with Session(engine()) as sessao, sessao.begin():
-        reprocessar(sessao, cliente_id)
-
-
-def _corte_fixo() -> datetime | None:
-    """Só na demonstração: os CSVs de `dados/` batem com o corte de 10/11, que não é um dia
-    de fechamento da Marina. Fora dela, o corte vem de `fechamento_vigente`."""
-    valor = os.environ.get("SINKFI_CORTE_FIXO")
-    return datetime.fromisoformat(valor) if valor else None
+        reprocessar(sessao, cliente_id, datetime.fromisoformat(corte))

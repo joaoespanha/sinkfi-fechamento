@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clientes/{cliente_id}/semanas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Semanas
+         * @description Os fechamentos que já passaram, do mais novo para o mais antigo (ADR 0007).
+         */
+        get: operations["listar_semanas_clientes__cliente_id__semanas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clientes/{cliente_id}/fechamento": {
         parameters: {
             query?: never;
@@ -62,7 +82,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ler Fechamento */
+        /**
+         * Ler Fechamento
+         * @description A rodada mais recente da semana. Sem `semana`, a do fechamento atual.
+         */
         get: operations["ler_fechamento_clientes__cliente_id__fechamento_get"];
         put?: never;
         post?: never;
@@ -100,6 +123,26 @@ export interface paths {
         put?: never;
         /** Marcar Terminei */
         post: operations["marcar_terminei_clientes__cliente_id__terminei_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clientes/{cliente_id}/fechamentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedir Fechamento
+         * @description Pede o cálculo de uma semana da lista, pela fila (ADR 0004 e 0007). Lojista e suporte.
+         */
+        post: operations["pedir_fechamento_clientes__cliente_id__fechamentos_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -287,6 +330,42 @@ export interface components {
              */
             criada_em: string;
         };
+        /** SemanaEntrada */
+        SemanaEntrada: {
+            /**
+             * Semana
+             * Format: date
+             */
+            semana: string;
+        };
+        /**
+         * SemanaLida
+         * @description Um fechamento da lista (ADR 0007). As contagens são da rodada mais recente; None sem rodada.
+         */
+        SemanaLida: {
+            /**
+             * Semana
+             * Format: date
+             */
+            semana: string;
+            /**
+             * Corte
+             * Format: date-time
+             */
+            corte: string;
+            /** Atual */
+            atual: boolean;
+            /** Tem Rodada */
+            tem_rodada: boolean;
+            /** Itens Falta De Verdade */
+            itens_falta_de_verdade: number | null;
+            /** Itens Para Conferir */
+            itens_para_conferir: number | null;
+            /** Terminado */
+            terminado: boolean;
+            /** Aviso */
+            aviso: boolean;
+        };
         /**
          * Severidade
          * @enum {string}
@@ -417,9 +496,44 @@ export interface operations {
             };
         };
     };
-    ler_fechamento_clientes__cliente_id__fechamento_get: {
+    listar_semanas_clientes__cliente_id__semanas_get: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanaLida"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_fechamento_clientes__cliente_id__fechamento_get: {
+        parameters: {
+            query?: {
+                semana?: string | null;
+            };
             header?: never;
             path: {
                 cliente_id: string;
@@ -522,6 +636,41 @@ export interface operations {
             };
         };
     };
+    pedir_fechamento_clientes__cliente_id__fechamentos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemanaEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     pedir_reprocessamento_clientes__cliente_id__reprocessar_post: {
         parameters: {
             query?: never;
@@ -533,7 +682,11 @@ export interface operations {
                 sinkfi_sessao?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemanaEntrada"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {

@@ -3,6 +3,7 @@ import type { components } from '../api'
 import {
   type Fechamento,
   type Item,
+  type Semana,
   campoDosCentavos,
   centavosDoCampo,
   emReais,
@@ -13,6 +14,8 @@ import {
   origem,
   paraConferir,
   quando,
+  rotuloDaSemana,
+  textoDoAviso,
   textoDaSeveridade,
   textoDoMotivo,
 } from './textos'
@@ -21,7 +24,8 @@ type Papel = components['schemas']['Papel']
 
 type Estado =
   | { tipo: 'carregando' }
-  | { tipo: 'sem_rodada' }
+  | { tipo: 'calculando' }
+  | { tipo: 'demorou' }
   | { tipo: 'erro' }
   | { tipo: 'pronto'; fechamento: Fechamento }
 
@@ -33,6 +37,10 @@ type Pendencia = Item & {
 
 /** O que a tela faz depois de uma escrita: 401 volta ao login, sucesso recarrega o fechamento. */
 type Acoes = { aoPerderSessao: () => void; recarregar: () => void }
+
+// A rodada pedida chega pelo worker (ADR 0004): consulta de novo a cada 2 s, por até 30 s.
+const INTERVALO_MS = 2_000
+const PRAZO_MS = 30_000
 
 function pendencias(itens: Item[]): Pendencia[] {
   return itens
@@ -53,6 +61,41 @@ async function enviar(caminho: string, metodo: 'PUT' | 'POST', corpo: unknown): 
   })
 }
 
+function esperar(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const relogio = setTimeout(resolve, ms)
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(relogio)
+        reject(signal.reason)
+      },
+      { once: true },
+    )
+  })
+}
+
+/** Consulta até a rodada existir. null quando o prazo acaba antes. */
+async function esperarRodada(url: string, signal: AbortSignal): Promise<Response | null> {
+  const prazo = AbortSignal.any([signal, AbortSignal.timeout(PRAZO_MS)])
+  try {
+    for (;;) {
+      await esperar(INTERVALO_MS, prazo)
+      const resposta = await fetch(url, { signal: prazo })
+      if (resposta.status !== 404) return resposta
+    }
+  } catch (erro: unknown) {
+    // O prazo aborta com TimeoutError; sair da tela aborta com AbortError, que sobe.
+    if (erro instanceof DOMException && erro.name === 'TimeoutError') return null
+    throw erro
+  }
+}
+
+/** A semana escolhida fica no endereço (`?semana=AAAA-MM-DD`), para o link do aviso e o voltar do navegador. */
+function semanaDoEndereco(): string | null {
+  return new URLSearchParams(window.location.search).get('semana')
+}
+
 export function TelaFechamento({
   clienteId,
   papel,
@@ -63,19 +106,27 @@ export function TelaFechamento({
   // 401: o token venceu (8 horas) ou o usuário foi desativado. A tela volta ao login.
   aoPerderSessao: () => void
 }) {
+  const [escolhida, setEscolhida] = useState<string | null>(semanaDoEndereco)
+  const [semanas, setSemanas] = useState<Semana[] | null>(null)
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' })
-  // Muda depois de cada escrita para buscar o fechamento de novo, sem voltar a "carregando".
+  // Muda depois de cada escrita para buscar tudo de novo, sem voltar a "carregando".
   const [versao, setVersao] = useState(0)
+  // Muda quando a rodada pedida chega: a lista passa a dizer que a semana tem rodada.
+  const [versaoDaLista, setVersaoDaLista] = useState(0)
+
+  useEffect(() => {
+    const voltar = () => setEscolhida(semanaDoEndereco())
+    window.addEventListener('popstate', voltar)
+    return () => window.removeEventListener('popstate', voltar)
+  }, [])
 
   useEffect(() => {
     const controle = new AbortController()
-    fetch(`/api/clientes/${encodeURIComponent(clienteId)}/fechamento`, { signal: controle.signal })
+    fetch(`/api/clientes/${encodeURIComponent(clienteId)}/semanas`, { signal: controle.signal })
       .then(async (resposta) => {
         if (resposta.status === 401) return aoPerderSessao()
-        // 404 também é cliente de outro dono ou inexistente (ADR 0005).
-        if (resposta.status === 404) return setEstado({ tipo: 'sem_rodada' })
         if (!resposta.ok) return setEstado({ tipo: 'erro' })
-        setEstado({ tipo: 'pronto', fechamento: (await resposta.json()) as Fechamento })
+        setSemanas((await resposta.json()) as Semana[])
       })
       .catch((erro: unknown) => {
         if (!controle.signal.aborted) {
@@ -84,28 +135,140 @@ export function TelaFechamento({
         }
       })
     return () => controle.abort()
-  }, [clienteId, aoPerderSessao, versao])
+  }, [clienteId, aoPerderSessao, versao, versaoDaLista])
+
+  // Sem semana no endereço, a tela abre no fechamento atual.
+  const semana = escolhida ?? semanas?.find((s) => s.atual)?.semana ?? null
+  // Recarregar a lista não busca o fechamento de novo: só importa se ela já chegou.
+  const listaChegou = semanas !== null
+
+  useEffect(() => {
+    if (!listaChegou || semana === null) return
+    const controle = new AbortController()
+    const cliente = encodeURIComponent(clienteId)
+    const url = `/api/clientes/${cliente}/fechamento?semana=${encodeURIComponent(semana)}`
+
+    async function carregar(): Promise<void> {
+      let resposta = await fetch(url, { signal: controle.signal })
+      if (resposta.status === 404) {
+        // Semana sem rodada: pede o cálculo pela fila e espera a rodada chegar.
+        const pedido = await enviar(`/clientes/${cliente}/fechamentos`, 'POST', { semana })
+        if (pedido.status === 401) return aoPerderSessao()
+        if (!pedido.ok) return setEstado({ tipo: 'erro' })
+        setEstado({ tipo: 'calculando' })
+        const chegou = await esperarRodada(url, controle.signal)
+        if (chegou === null) return setEstado({ tipo: 'demorou' })
+        resposta = chegou
+        setVersaoDaLista((v) => v + 1)
+      }
+      if (resposta.status === 401) return aoPerderSessao()
+      if (!resposta.ok) return setEstado({ tipo: 'erro' })
+      setEstado({ tipo: 'pronto', fechamento: (await resposta.json()) as Fechamento })
+    }
+
+    carregar().catch((erro: unknown) => {
+      if (!controle.signal.aborted) {
+        console.error(erro)
+        setEstado({ tipo: 'erro' })
+      }
+    })
+    return () => controle.abort()
+  }, [clienteId, aoPerderSessao, semana, listaChegou, versao])
+
+  function escolher(nova: string) {
+    if (nova === semana) return
+    window.history.pushState(null, '', `?semana=${encodeURIComponent(nova)}`)
+    setEstado({ tipo: 'carregando' })
+    setEscolhida(nova)
+  }
 
   const acoes: Acoes = { aoPerderSessao, recarregar: () => setVersao((v) => v + 1) }
 
-  switch (estado.tipo) {
-    case 'carregando':
-      return <p aria-busy="true">Carregando o fechamento…</p>
-    case 'sem_rodada':
-      return <p>Ainda não há fechamento calculado.</p>
-    case 'erro':
-      return <p role="alert">Não foi possível carregar o fechamento. Tente de novo em instantes.</p>
-    case 'pronto':
-      return (
-        <Detalhe
-          fechamento={estado.fechamento}
-          clienteId={clienteId}
-          // Só a lojista muda o limite e marca "Terminei" (ADR 0005); o suporte só olha.
-          lojista={papel === 'lojista'}
-          acoes={acoes}
-        />
-      )
-  }
+  return (
+    <>
+      {semanas && <Avisos semanas={semanas} escolher={escolher} />}
+      {semanas && semana && <SeletorDeSemana semanas={semanas} semana={semana} escolher={escolher} />}
+      {(() => {
+        // Lista vazia: o cliente ainda não tem liquidação prevista, então não há fechamento.
+        if (listaChegou && semana === null) return <p>Ainda não há fechamento calculado.</p>
+        switch (estado.tipo) {
+          case 'carregando':
+            return <p aria-busy="true">Carregando o fechamento…</p>
+          case 'calculando':
+            return <p aria-busy="true">Calculando o fechamento…</p>
+          case 'demorou':
+            return (
+              <div role="alert">
+                <p>O cálculo não terminou; tente de novo.</p>
+                <button type="button" onClick={acoes.recarregar}>
+                  Tentar de novo
+                </button>
+              </div>
+            )
+          case 'erro':
+            return <p role="alert">Não foi possível carregar o fechamento. Tente de novo em instantes.</p>
+          case 'pronto':
+            return (
+              <Detalhe
+                fechamento={estado.fechamento}
+                clienteId={clienteId}
+                // Só a lojista muda o limite e marca "Terminei" (ADR 0005); o suporte só olha.
+                lojista={papel === 'lojista'}
+                acoes={acoes}
+              />
+            )
+        }
+      })()}
+    </>
+  )
+}
+
+/** Fechamentos anteriores ao atual com pendência e sem "Terminei". Lê os términos; não é estado (ADR 0003). */
+function Avisos({ semanas, escolher }: { semanas: Semana[]; escolher: (semana: string) => void }) {
+  const comAviso = semanas.filter((s) => s.aviso)
+  if (comAviso.length === 0) return null
+  return (
+    <section className="avisos" aria-label="Fechamentos sem término">
+      {comAviso.map((s) => (
+        <p key={s.semana}>
+          {textoDoAviso(s)}{' '}
+          <a
+            href={`?semana=${encodeURIComponent(s.semana)}`}
+            onClick={(e) => {
+              e.preventDefault()
+              escolher(s.semana)
+            }}
+          >
+            Ver o fechamento
+          </a>
+        </p>
+      ))}
+    </section>
+  )
+}
+
+function SeletorDeSemana({
+  semanas,
+  semana,
+  escolher,
+}: {
+  semanas: Semana[]
+  semana: string
+  escolher: (semana: string) => void
+}) {
+  const id = useId()
+  return (
+    <div className="seletor-semana">
+      <label htmlFor={id}>Fechamento de</label>
+      <select id={id} value={semana} onChange={(e) => escolher(e.target.value)}>
+        {semanas.map((s) => (
+          <option key={s.semana} value={s.semana}>
+            {rotuloDaSemana(s)}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
 }
 
 function Detalhe({

@@ -7,8 +7,8 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from sinkfi.banco import repositorios
-from sinkfi.rodadas import fechamento_vigente, rodar_fechamento
+from sinkfi.fechamentos import corte_atual
+from sinkfi.rodadas import rodar_fechamento
 from sinkfi.tipos import Rodada
 
 
@@ -17,13 +17,13 @@ class ClienteDesconhecido(LookupError):
 
 
 def processar_pedido(
-    sessao: Session, cliente_id: str, agora: datetime, corte_fixo: datetime | None = None
+    sessao: Session, cliente_id: str, agora: datetime, ancora: datetime | None = None
 ) -> Rodada:
-    """Roda o fechamento vigente em `agora`. O pedido repetido devolve a rodada que já existe.
+    """Roda o fechamento atual em `agora` (ADR 0007). O pedido repetido devolve a rodada que já existe.
 
-    `corte_fixo` só existe na demonstração e passa por cima do fechamento vigente.
+    O pedido da ingestão não leva corte (#11): o fechamento atual é calculado aqui, na hora.
     """
-    config = repositorios.config_do_cliente(sessao, cliente_id)
-    if config is None:
+    corte = corte_atual(sessao, cliente_id, agora, ancora)
+    if corte is None:
         raise ClienteDesconhecido(cliente_id)
-    return rodar_fechamento(sessao, cliente_id, corte_fixo or fechamento_vigente(config, agora))
+    return rodar_fechamento(sessao, cliente_id, corte)

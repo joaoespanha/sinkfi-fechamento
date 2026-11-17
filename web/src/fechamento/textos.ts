@@ -4,6 +4,7 @@ type Esquemas = components['schemas']
 export type Fechamento = Esquemas['FechamentoResposta']
 export type Item = Esquemas['ItemLido']
 export type Termino = Esquemas['TerminoLido']
+export type Semana = Esquemas['SemanaLida']
 type Resumo = Esquemas['ResumoLido']
 type Recebivel = Esquemas['Recebivel']
 type Lancamento = Esquemas['Lancamento']
@@ -44,6 +45,28 @@ export function linhaDoResumo(resumo: Resumo): string {
       // `nao_feche` só existe com a trava ligada; o `?? 0` é só para o tipo.
       return `Não feche: faltam ${falta}, acima do seu limite de ${emReais(limite ?? 0)}`
   }
+}
+
+/** "2026-11-10" vira "10/11". A semana já é uma data do fuso do cliente: não passa por `Date`. */
+export function diaDaSemana(semana: string): string {
+  const [, mes, dia] = semana.split('-')
+  return `${dia}/${mes}`
+}
+
+export function rotuloDaSemana(s: Semana): string {
+  const marcas = [s.atual && 'atual', !s.tem_rodada && 'não calculado'].filter(Boolean)
+  return marcas.length ? `${diaDaSemana(s.semana)} (${marcas.join(', ')})` : diaDaSemana(s.semana)
+}
+
+/** O aviso de fechamento anterior com pendência e sem "Terminei" (ADR 0007). */
+export function textoDoAviso(s: Semana): string {
+  const faltas = s.itens_falta_de_verdade ?? 0
+  const conferir = s.itens_para_conferir ?? 0
+  const partes = [
+    faltas > 0 && (faltas === 1 ? '1 falta de verdade' : `${faltas} faltas de verdade`),
+    conferir > 0 && `${conferir} para conferir`,
+  ].filter(Boolean)
+  return `Você ainda não terminou o fechamento de ${diaDaSemana(s.semana)}: ${partes.join(', ')}.`
 }
 
 export function paraConferir(resumo: Resumo): string | null {

@@ -1,5 +1,8 @@
 """Rotas com cliente no endereço. Todas passam por `checar_cliente`, no próprio router (ADR 0005)."""
 
+from dataclasses import asdict
+from datetime import date, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
@@ -12,23 +15,44 @@ from sinkfi.api.esquemas import (
     LimiteEntrada,
     ResumoLido,
     RodadaLida,
+    SemanaEntrada,
+    SemanaLida,
     TermineiEntrada,
     TerminoLido,
 )
+from sinkfi.api.relogio import obter_agora
 from sinkfi.api.sessao import obter_sessao
-from sinkfi.banco import repositorios
 from sinkfi.fila import Fila, obter_fila
-from sinkfi.leitura import fechamento_mais_recente
+from sinkfi.fechamentos import ancora_dos_cortes, corte_atual, corte_da_semana, fechamentos_do_cliente
+from sinkfi.leitura import fechamento_da_semana
 from sinkfi.tipos import Papel, Termino, Usuario
 
 rotas = APIRouter(prefix="/clientes/{cliente_id}", dependencies=[Depends(checar_cliente)])
 
 
+@rotas.get("/semanas")
+def listar_semanas(
+    cliente_id: str, sessao: Session = Depends(obter_sessao), agora: datetime = Depends(obter_agora)
+) -> list[SemanaLida]:
+    """Os fechamentos que já passaram, do mais novo para o mais antigo (ADR 0007)."""
+    semanas = fechamentos_do_cliente(sessao, cliente_id, agora, ancora_dos_cortes())
+    return [SemanaLida(**asdict(s)) for s in semanas]
+
+
 @rotas.get("/fechamento")
-def ler_fechamento(cliente_id: str, sessao: Session = Depends(obter_sessao)) -> FechamentoResposta:
-    lido = fechamento_mais_recente(sessao, cliente_id)
+def ler_fechamento(
+    cliente_id: str,
+    semana: date | None = None,
+    sessao: Session = Depends(obter_sessao),
+    agora: datetime = Depends(obter_agora),
+) -> FechamentoResposta:
+    """A rodada mais recente da semana. Sem `semana`, a do fechamento atual."""
+    if semana is None:
+        atual = corte_atual(sessao, cliente_id, agora, ancora_dos_cortes())
+        semana = atual.date() if atual else None
+    lido = fechamento_da_semana(sessao, cliente_id, semana) if semana else None
     if lido is None:
-        raise HTTPException(status_code=404, detail="cliente sem rodada")
+        raise HTTPException(status_code=404, detail="semana sem rodada")
     return FechamentoResposta(
         rodada=RodadaLida.model_validate(lido.rodada),
         resumo=_resumo_lido(lido.resumo, lido.limite_trava_centavos),
@@ -62,6 +86,20 @@ def marcar_terminei(
     return _termino_lido(termino)
 
 
+@rotas.post("/fechamentos", status_code=status.HTTP_202_ACCEPTED, response_class=Response)
+def pedir_fechamento(
+    cliente_id: str,
+    entrada: SemanaEntrada,
+    sessao: Session = Depends(obter_sessao),
+    fila: Fila = Depends(obter_fila),
+    agora: datetime = Depends(obter_agora),
+) -> Response:
+    """Pede o cálculo de uma semana da lista, pela fila (ADR 0004 e 0007). Lojista e suporte."""
+    corte = _corte_da_lista(sessao, cliente_id, agora, entrada.semana)
+    fila.pedir_fechamento_da_semana(cliente_id, corte)
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
 @rotas.post(
     "/reprocessar",
     status_code=status.HTTP_202_ACCEPTED,
@@ -69,13 +107,25 @@ def marcar_terminei(
     dependencies=[Depends(exige_papel(Papel.SUPORTE))],
 )
 def pedir_reprocessamento(
-    cliente_id: str, sessao: Session = Depends(obter_sessao), fila: Fila = Depends(obter_fila)
+    cliente_id: str,
+    entrada: SemanaEntrada,
+    sessao: Session = Depends(obter_sessao),
+    fila: Fila = Depends(obter_fila),
+    agora: datetime = Depends(obter_agora),
 ) -> Response:
     """Enfileira o pedido e responde na hora: a rodada nova aparece quando o worker terminar (ADR 0004)."""
-    if not repositorios.rodadas_do_cliente(sessao, cliente_id):
-        raise HTTPException(status_code=404, detail="cliente sem rodada")
-    fila.pedir_reprocessamento(cliente_id)
+    corte = _corte_da_lista(sessao, cliente_id, agora, entrada.semana)
+    if fechamento_da_semana(sessao, cliente_id, entrada.semana) is None:
+        raise HTTPException(status_code=404, detail="semana sem rodada")
+    fila.pedir_reprocessamento(cliente_id, corte)
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+def _corte_da_lista(sessao: Session, cliente_id: str, agora: datetime, semana: date) -> datetime:
+    corte = corte_da_semana(sessao, cliente_id, agora, ancora_dos_cortes(), semana)
+    if corte is None:
+        raise HTTPException(status_code=422, detail="semana fora da lista")
+    return corte
 
 
 def _resumo_lido(resumo: Resumo, limite_trava_centavos: int | None) -> ResumoLido:
