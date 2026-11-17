@@ -39,4 +39,5 @@ docker compose up --build -d worker beat
 - **Fonte da ingestão:** uma pasta por cliente em `PASTA_DADOS`. Na demonstração, `dados/` é montada como a pasta da `cli_marina`.
 - **Corte da demonstração:** os CSVs batem com o corte de 10/11, que não é um dia de fechamento da Marina. Por isso o worker recebe `SINKFI_CORTE_FIXO`; com ela vazia (`SINKFI_CORTE_FIXO= docker compose up ...`), vale o fechamento vigente, e a tela passa a mostrar a rodada de hoje.
 - **Retry e dead letter:** banco fora do ar tenta de novo até 5 vezes, com espera crescente. Qualquer outra falha vai para a fila `fechamento.morta`, visível no painel do RabbitMQ em `localhost:15672` (`guest`/`guest`).
+- **Outbox:** a ingestão grava o pedido de fechamento na mesma transação do dado (tabela `pedidos_fechamento`), e o beat dispara a cada 10 segundos o relay, que publica os pendentes. O relay tem a fila própria `outbox`, sem dead letter: o tick perdido é coberto pelo próximo.
 - **Api fora do compose** (o uvicorn local): passe `BROKER_URL=amqp://guest:guest@localhost:5672//`.

@@ -1,6 +1,6 @@
 """As tarefas do Celery: cascas finas que abrem a sessão, fazem o commit e chamam o serviço (ADR 0004).
 
-Worker: `celery -A sinkfi.tarefas worker -Q fechamento`. Beat: `celery -A sinkfi.tarefas beat`, com exatamente uma cópia.
+Worker: `celery -A sinkfi.tarefas worker -Q fechamento,outbox`. Beat: `celery -A sinkfi.tarefas beat`, com exatamente uma cópia.
 """
 
 import logging
@@ -27,8 +27,8 @@ TENTA_DE_NOVO = dict(autoretry_for=(OperationalError,), retry_backoff=True, retr
 
 app.conf.beat_schedule = {
     "ingestao-a-cada-6-horas": {"task": "sinkfi.agendar_ingestoes", "schedule": 6 * 60 * 60},
-    # O relay do outbox. Segundos para a demonstração; o tick que expira sem rodar é descartado,
-    # para não acumular na fila enquanto o worker estiver fora.
+    # O relay do outbox, na fila `outbox`. Segundos para a demonstração. O tick que expira sem rodar
+    # some (a fila não tem dead letter), para não acumular enquanto o worker estiver fora.
     "outbox-a-cada-10-segundos": {"task": "sinkfi.publicar_pedidos", "schedule": 10, "options": {"expires": 10}},
 }
 

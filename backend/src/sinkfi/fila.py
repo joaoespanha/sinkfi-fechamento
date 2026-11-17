@@ -11,6 +11,7 @@ from kombu import Exchange, Queue
 
 FILA = "fechamento"
 FILA_MORTA = "fechamento.morta"
+FILA_OUTBOX = "outbox"
 
 # A mensagem que falha de vez é rejeitada sem voltar para a fila, e o RabbitMQ a manda para cá.
 fila_morta = Queue(FILA_MORTA, Exchange(FILA_MORTA, type="direct"), routing_key=FILA_MORTA)
@@ -21,9 +22,14 @@ fila = Queue(
     queue_arguments={"x-dead-letter-exchange": FILA_MORTA, "x-dead-letter-routing-key": FILA_MORTA},
 )
 
+# Só o tick do relay, e sem dead letter: a mensagem não carrega trabalho, só manda olhar a tabela.
+# O pedido pendente fica no Postgres, e o tick perdido ou expirado é coberto pelo próximo.
+fila_outbox = Queue(FILA_OUTBOX, Exchange(FILA_OUTBOX, type="direct"), routing_key=FILA_OUTBOX)
+
 app = Celery("sinkfi", broker=os.environ.get("BROKER_URL", "amqp://guest:guest@localhost:5672//"))
 app.conf.update(
-    task_queues=[fila],
+    task_queues=[fila, fila_outbox],
+    task_routes={"sinkfi.publicar_pedidos": {"queue": FILA_OUTBOX}},
     task_default_queue=FILA,
     task_default_exchange=FILA,
     task_default_routing_key=FILA,
