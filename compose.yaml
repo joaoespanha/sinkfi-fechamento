@@ -60,7 +60,7 @@ services:
   # A pasta de dados tem uma subpasta por cliente; na demonstração, só a da Marina.
   worker:
     build: ./backend
-    command: ["celery", "-A", "sinkfi.tarefas", "worker", "-Q", "fechamento", "--loglevel=info"]
+    command: ["celery", "-A", "sinkfi.tarefas", "worker", "-Q", "fechamento,outbox", "--loglevel=info"]
     environment:
       DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
       BROKER_URL: amqp://guest:guest@rabbitmq:5672//

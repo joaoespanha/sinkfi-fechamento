@@ -1,6 +1,6 @@
 """As tarefas do Celery: cascas finas que abrem a sessão, fazem o commit e chamam o serviço (ADR 0004).
 
-Worker: `celery -A sinkfi.tarefas worker -Q fechamento`. Beat: `celery -A sinkfi.tarefas beat`, com exatamente uma cópia.
+Worker: `celery -A sinkfi.tarefas worker -Q fechamento,outbox`. Beat: `celery -A sinkfi.tarefas beat`, com exatamente uma cópia.
 """
 
 import logging
@@ -13,8 +13,9 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from sinkfi.banco import engine, repositorios
-from sinkfi.fila import app, fila_morta
+from sinkfi.fila import FilaCelery, app, fila_morta
 from sinkfi.ingestao.ingerir import ingerir
+from sinkfi.outbox import publicar_pendentes
 from sinkfi.pedidos import processar_pedido
 from sinkfi.rodadas import reprocessar
 
@@ -26,6 +27,9 @@ TENTA_DE_NOVO = dict(autoretry_for=(OperationalError,), retry_backoff=True, retr
 
 app.conf.beat_schedule = {
     "ingestao-a-cada-6-horas": {"task": "sinkfi.agendar_ingestoes", "schedule": 6 * 60 * 60},
+    # O relay do outbox, na fila `outbox`. Segundos para a demonstração. O tick que expira sem rodar
+    # some (a fila não tem dead letter), para não acumular enquanto o worker estiver fora.
+    "outbox-a-cada-10-segundos": {"task": "sinkfi.publicar_pedidos", "schedule": 10, "options": {"expires": 10}},
 }
 
 
@@ -52,10 +56,16 @@ def ingerir_cliente(cliente_id: str) -> None:
     if not pasta.is_dir():
         log.info("cliente %s sem pasta de dados em %s", cliente_id, pasta)
         return
+    # O pedido de fechamento é gravado junto com o dado; quem publica é o `publicar_pedidos`.
     with Session(engine()) as sessao, sessao.begin():
         ingerir(sessao, cliente_id, pasta)
-    # O #11 troca esta publicação pelo outbox, gravado na mesma transação da ingestão.
-    fechar_cliente.delay(cliente_id)
+
+
+@app.task(name="sinkfi.publicar_pedidos")
+def publicar_pedidos() -> None:
+    """Disparada pelo beat. Sem retry: o próximo tick tenta de novo o que ficou pendente."""
+    with Session(engine()) as sessao, sessao.begin():
+        publicar_pendentes(sessao, FilaCelery())
 
 
 @app.task(name="sinkfi.fechar_cliente", **TENTA_DE_NOVO)
