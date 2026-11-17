@@ -64,7 +64,7 @@ export default function App() {
           )}
         </div>
         <nav className="paginas" aria-label="Páginas">
-          <LinkDaPagina rota={rota} para={{ tela: 'fechamento', semana: null }}>
+          <LinkDaPagina rota={rota} para={{ tela: 'fechamento', semana: null, dia: null, item: null }}>
             Fechamento
           </LinkDaPagina>
           <LinkDaPagina rota={rota} para={{ tela: 'limite' }}>
@@ -90,6 +90,8 @@ export default function App() {
             clienteId={clienteId}
             papel={eu.papel}
             escolhida={rota.semana}
+            dia={rota.dia}
+            item={rota.item}
             aoPerderSessao={perdeuSessao}
           />
         )}

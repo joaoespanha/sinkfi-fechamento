@@ -1,23 +1,17 @@
 import { useEffect, useState } from 'react'
 import type { components } from '../api'
 import { type Acoes, enviar } from '../enviar'
-import { hashDa } from '../navegacao'
+import { hashDa, hashDaSemana } from '../navegacao'
+import { DetalheDoItem } from './DetalheDoItem'
+import { Faixa, Lista } from './Lista'
 import {
   type Fechamento,
-  type Item,
   type Semana,
   diaDaSemana,
-  emReais,
-  explicacaoDoMotivo,
-  linhaDoCredito,
-  linhaDoRecebivel,
   linhaDoResumo,
-  origem,
   paraConferir,
   quando,
   textoDoAviso,
-  textoDaSeveridade,
-  textoDoMotivo,
 } from './textos'
 
 type Papel = components['schemas']['Papel']
@@ -29,26 +23,9 @@ type Estado =
   | { tipo: 'erro' }
   | { tipo: 'pronto'; fechamento: Fechamento }
 
-type Pendencia = Item & {
-  severidade: NonNullable<Item['severidade']>
-  motivo: NonNullable<Item['motivo']>
-  pendencia_centavos: number
-}
-
 // A rodada pedida chega pelo worker (ADR 0004): consulta de novo a cada 2 s, por até 30 s.
 const INTERVALO_MS = 2_000
 const PRAZO_MS = 30_000
-
-function pendencias(itens: Item[]): Pendencia[] {
-  return itens
-    .filter((i): i is Pendencia => i.severidade != null && i.motivo != null && i.pendencia_centavos != null)
-    // Faltas de verdade primeiro; dentro de cada severidade, o maior valor primeiro.
-    .sort(
-      (a, b) =>
-        Number(a.severidade !== 'falta_de_verdade') - Number(b.severidade !== 'falta_de_verdade') ||
-        b.pendencia_centavos - a.pendencia_centavos,
-    )
-}
 
 function esperar(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -84,12 +61,17 @@ export function TelaFechamento({
   clienteId,
   papel,
   escolhida,
+  dia,
+  item,
   aoPerderSessao,
 }: {
   clienteId: string
   papel: Papel
   // A semana do hash (#25); null abre o fechamento atual.
   escolhida: string | null
+  // O filtro da faixa de dias e o item aberto (#26), também do hash.
+  dia: string | null
+  item: string | null
   // 401: o token venceu (8 horas) ou o usuário foi desativado. A tela volta ao login.
   aoPerderSessao: () => void
 }) {
@@ -168,10 +150,12 @@ export function TelaFechamento({
   return (
     <>
       {semanas && <Avisos semanas={semanas} />}
-      <header className="titulo">
-        <h1>{semana ? `Fechamento de ${diaDaSemana(semana)}` : 'Fechamento'}</h1>
-        {semanas && semana && <Setas semanas={semanas} semana={semana} />}
-      </header>
+      {item === null && (
+        <header className="titulo">
+          <h1>{semana ? `Fechamento de ${diaDaSemana(semana)}` : 'Fechamento'}</h1>
+          {semanas && semana && <Setas semanas={semanas} semana={semana} />}
+        </header>
+      )}
       {(() => {
         // Lista vazia: o cliente ainda não tem liquidação prevista, então não há fechamento.
         if (listaChegou && semana === null) return <p>Ainda não há fechamento calculado.</p>
@@ -179,7 +163,7 @@ export function TelaFechamento({
         if (semanas && semana && !semanas.some((s) => s.semana === semana)) {
           return (
             <p role="alert">
-              Este fechamento não está na lista. <a href={hashDa({ tela: 'fechamento', semana: null })}>Ver o atual</a>
+              Este fechamento não está na lista. <a href={hashDaSemana(null)}>Ver o atual</a>
             </p>
           )
         }
@@ -200,8 +184,10 @@ export function TelaFechamento({
           case 'erro':
             return <p role="alert">Não foi possível carregar o fechamento. Tente de novo em instantes.</p>
           case 'pronto':
+            if (item !== null) return <DetalheDoItem fechamento={estado.fechamento} chave={item} />
             return (
               <Detalhe
+                dia={dia}
                 fechamento={estado.fechamento}
                 clienteId={clienteId}
                 // Só a lojista muda o limite e marca "Terminei" (ADR 0005); o suporte só olha.
@@ -224,7 +210,7 @@ function Avisos({ semanas }: { semanas: Semana[] }) {
       {comAviso.map((s) => (
         <p key={s.semana}>
           {textoDoAviso(s)}{' '}
-          <a href={hashDa({ tela: 'fechamento', semana: s.semana })}>Ver o fechamento de {diaDaSemana(s.semana)}</a>
+          <a href={hashDaSemana(s.semana)}>Ver o fechamento de {diaDaSemana(s.semana)}</a>
         </p>
       ))}
     </section>
@@ -266,7 +252,7 @@ function Seta({ vizinha, direcao }: { vizinha: Semana | undefined; direcao: 'ant
   return (
     <a
       className="seta"
-      href={hashDa({ tela: 'fechamento', semana: vizinha.semana })}
+      href={hashDaSemana(vizinha.semana)}
       aria-label={`${nome}: ${data}${marcas.length ? ` (${marcas.join(', ')})` : ''}`}
       title={marcas.length ? marcas.join(', ') : undefined}
     >
@@ -280,18 +266,19 @@ function Seta({ vizinha, direcao }: { vizinha: Semana | undefined; direcao: 'ant
 
 function Detalhe({
   fechamento,
+  dia,
   clienteId,
   lojista,
   acoes,
 }: {
   fechamento: Fechamento
+  dia: string | null
   clienteId: string
   lojista: boolean
   acoes: Acoes
 }) {
   const { resumo, rodada } = fechamento
   const conferir = paraConferir(resumo)
-  const lista = pendencias(fechamento.itens)
 
   return (
     <>
@@ -313,35 +300,8 @@ function Detalhe({
         </section>
       )}
 
-      {lista.length > 0 && (
-        <div className="tabela" role="region" aria-labelledby="pendencias-titulo" tabIndex={0}>
-          <table>
-            <caption id="pendencias-titulo">Pendências</caption>
-            <thead>
-              <tr>
-                <th scope="col">Motivo</th>
-                <th scope="col">Severidade</th>
-                <th scope="col">Origem</th>
-                <th scope="col" className="valor">
-                  Valor
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((p, i) => (
-                <tr key={i} data-severidade={p.severidade}>
-                  <th scope="row">
-                    <Explicacao pendencia={p} />
-                  </th>
-                  <td>{textoDaSeveridade(p.severidade)}</td>
-                  <td>{origem(p)}</td>
-                  <td className="valor">{emReais(p.pendencia_centavos)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Faixa fechamento={fechamento} dia={dia} />
+      <Lista fechamento={fechamento} dia={dia} />
     </>
   )
 }
@@ -402,52 +362,5 @@ function Terminei({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId:
       </button>
       <p role="status">{falhou ? 'Não foi possível registrar. Tente de novo.' : ''}</p>
     </div>
-  )
-}
-
-/** Do grupo até o recebível, o crédito e o motivo da regra. Sai inteira do que a rodada gravou. */
-function Explicacao({ pendencia: p }: { pendencia: Pendencia }) {
-  const grupo = p.esperado_centavos !== null
-  return (
-    <details className="explicacao">
-      <summary>{textoDoMotivo(p.motivo)}</summary>
-      <p>{explicacaoDoMotivo(p.motivo)}</p>
-      {grupo && (
-        <dl className="valores">
-          <dt>Esperado</dt>
-          <dd>{emReais(p.esperado_centavos ?? 0)}</dd>
-          <dt>Caiu</dt>
-          <dd>{emReais(p.caiu_centavos ?? 0)}</dd>
-          <dt>Não caiu</dt>
-          <dd>{emReais(p.nao_caiu_centavos ?? 0)}</dd>
-          <dt>Próximo fechamento</dt>
-          <dd>{emReais(p.proximo_fechamento_centavos ?? 0)}</dd>
-        </dl>
-      )}
-      {p.recebiveis.length > 0 && (
-        <>
-          <p className="explicacao-titulo">Recebíveis</p>
-          <ul>
-            {p.recebiveis.map((r) => (
-              <li key={r.id}>
-                {linhaDoRecebivel(r)} · <span className="valor">{emReais(r.liquido_centavos)}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      <p className="explicacao-titulo">Créditos</p>
-      {p.creditos.length > 0 ? (
-        <ul>
-          {p.creditos.map((c) => (
-            <li key={c.id}>
-              {linhaDoCredito(c)} · <span className="valor">{emReais(c.valor_centavos)}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Nenhum crédito casou com este grupo.</p>
-      )}
-    </details>
   )
 }

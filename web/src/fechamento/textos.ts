@@ -156,3 +156,100 @@ export function centavosDoCampo(texto: string): number | null | 'invalido' {
 export function campoDosCentavos(centavos: number | null): string {
   return centavos === null ? '' : (centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 }
+
+// Dia de cada item (#26)
+
+const nomeDoDiaFmt = new Intl.DateTimeFormat('pt-BR', {
+  weekday: 'short',
+  day: '2-digit',
+  month: '2-digit',
+  timeZone: 'UTC',
+})
+const dataNoFuso = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+/** A casa da faixa para os itens com `dia` null (#26). */
+export const ANTES = 'antes'
+
+/** Os 7 dias da semana: do dia seguinte ao corte anterior até o dia do corte. Datas ISO, sem fuso. */
+export function diasDaSemana(semana: string): string[] {
+  const corte = new Date(`${semana}T00:00:00Z`)
+  return Array.from({ length: 7 }, (_, k) =>
+    new Date(corte.getTime() - (6 - k) * 86_400_000).toISOString().slice(0, 10),
+  )
+}
+
+/** "2026-11-04" vira "qua., 04/11". */
+export function nomeDoDia(dia: string): string {
+  return dia === ANTES ? 'Antes desta semana' : nomeDoDiaFmt.format(new Date(`${dia}T12:00:00Z`))
+}
+
+/** A data ISO de um instante no fuso do cliente. */
+function diaNoFuso(iso: string): string {
+  return dataNoFuso.format(new Date(iso))
+}
+
+export function casaDoItem(item: Item): string {
+  return item.dia ?? ANTES
+}
+
+/** O id do endereço do item: o da primeira venda, ou o do crédito. É do domínio, então sobrevive a um reprocessamento. */
+export function chaveDoItem(item: Item): string {
+  return item.recebiveis[0]?.id ?? item.creditos[0]?.id ?? ''
+}
+
+/** O item de uma chave: o grupo que tem a venda, ou o item de crédito com aquele crédito. */
+export function acharItem(itens: Item[], chave: string): Item | undefined {
+  return (
+    itens.find((i) => i.recebiveis.some((r) => r.id === chave)) ??
+    itens.find((i) => i.recebiveis.length === 0 && i.creditos.some((c) => c.id === chave))
+  )
+}
+
+/** O valor que a lista mostra: a pendência, ou o esperado do grupo, ou o que caiu no item de crédito. */
+export function valorDoItem(item: Item): number {
+  return item.pendencia_centavos ?? item.esperado_centavos ?? item.creditos.reduce((s, c) => s + c.valor_centavos, 0)
+}
+
+/** A venda aparece no dia previsto; diz quando o dinheiro caiu em outro dia ou ficou para depois do corte. */
+export function notaDoDia(item: Item): string | null {
+  if (item.recebiveis.length === 0) return null
+  if (item.proximo_fechamento_centavos) return 'entra no próximo fechamento'
+  const outro = item.creditos.map((c) => diaNoFuso(c.lancado_em)).find((d) => d !== item.dia)
+  return outro ? `caiu em ${diaDaSemana(outro)}` : null
+}
+
+/**
+ * Por qual chave o item casou (GLOSSARY: Chave forte, Chave fraca). A chave fraca só vale para crédito
+ * que não cita o NSU de nenhum recebível; então NSU na descrição quer dizer chave forte.
+ */
+export function textoDaChave(item: Item): string {
+  const forte = item.creditos.some((c) => item.recebiveis.some((r) => c.descricao.includes(r.nsu)))
+  return forte
+    ? 'Casou pela chave forte: o NSU da venda está na descrição do crédito.'
+    : 'Casou pela chave fraca: mesma adquirente e mesmo valor líquido, dentro da janela.'
+}
+
+/** O que a lojista faz com a pendência. O `switch` é exaustivo: um motivo novo não compila. */
+export function oQueFazer(motivo: Esquemas['Motivo'], item: Item): string {
+  const r = item.recebiveis[0]
+  const c = item.creditos[0]
+  const adquirente = r ? nomeDaAdquirente(r.adquirente) : 'adquirente'
+  const valor = emReais(item.pendencia_centavos ?? 0)
+  const credito = c ? `crédito de ${emReais(c.valor_centavos)} em ${diaDaSemana(diaNoFuso(c.lancado_em))}` : 'crédito'
+  switch (motivo) {
+    case 'nao_caiu':
+      return `Confira no portal da ${adquirente} se a venda NSU ${r?.nsu} foi liquidada, e em qual conta. Se não foi, abra um chamado com o NSU e a data prevista, ${r ? diaDaSemana(r.liquidacao_prevista) : ''}.`
+    case 'caiu_em_parte':
+      return `Compare com o extrato da ${adquirente}. A diferença de ${valor} pode ser taxa ou antecipação descontada. Se não tiver explicação, abra um chamado com o NSU ${r?.nsu} e a diferença.`
+    case 'grupo_nao_fecha':
+      return `Peça à ${adquirente} o detalhamento do ${credito}. Com ele dá para saber qual venda ficou sem pagar.`
+    case 'chargeback':
+      return `Veja no portal da ${adquirente} o motivo da contestação da venda NSU ${r?.nsu}. Se for contestar, junte o comprovante de entrega dentro do prazo da ${adquirente}.`
+    case 'venda_cancelada':
+      return `Confirme com a adquirente se os ${valor} vão ser descontados de um repasse futuro ou se você precisa devolver. O crédito é "${c?.descricao}".`
+    case 'entrada_sem_recebivel':
+      return `Confira quem mandou o ${credito} ("${c?.descricao}"). Se for uma venda, ela pode estar faltando no arquivo da adquirente.`
+    case 'pode_ser_antecipacao':
+      return `Confira se você pediu antecipação da venda ligada ao ${credito} ("${c?.descricao}"). Se pediu, não há nada a fazer agora. Se não pediu, pergunte à adquirente.`
+  }
+}
