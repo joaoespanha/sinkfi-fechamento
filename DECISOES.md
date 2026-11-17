@@ -66,6 +66,7 @@ Fontes: a frase de Rodada em Desenho, a busca por recebível (índice GIN, ADR 0
 
 <!--
 Sem frase pronta no doc. Material: rodada imutável e reprocessamento pelo suporte (ADR 0005), versão da regra no hash (ADR 0006), retry e dead letter (ADR 0004), aviso "mudou desde que você terminou".
+Como o cliente fica sabendo fora da tela: o webhook `recebivel.liquidado` (ADR 0008, proposto) é o canal para o ERP do cliente enterprise; hoje a Marina só sabe abrindo o fechamento.
 -->
 
 ## Evoluir
@@ -73,6 +74,7 @@ Sem frase pronta no doc. Material: rodada imutável e reprocessamento pelo supor
 <!--
 - Banco: "O acesso ao banco é síncrono, na api e no worker, porque a api só faz consultas curtas sobre rodadas já calculadas e o trabalho pesado roda fora da requisição. Para atender mais gente, sobem mais cópias da api com um pool de conexões na frente do Postgres. Eu trocaria para assíncrono se a api passasse a esperar um serviço externo lento dentro da requisição, como consultar o Open Finance na hora; o sinal seria o tempo de resposta subir com as threads todas ocupadas e o banco ocioso."
 - Chave mais forte (ADR 0002): relatório de pagamentos da adquirente, código de estabelecimento por loja, QR dinâmico no Pix.
+- Webhook enterprise `recebivel.liquidado` (ADR 0008, proposto; issue #30): o ERP do cliente dá baixa sozinho no recebível que casou certo. Evento no outbox na transação da rodada, retry no Postgres, assinatura Standard Webhooks, SSRF conferido a cada envio. Ficou de fora porque não serve ao trabalho da Marina, que é fechar a semana; entra se aparecer cliente com ERP pedindo integração.
 - Fonte no doc: "Com mais tempo".
 -->
 
