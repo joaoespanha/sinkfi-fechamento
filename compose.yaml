@@ -65,8 +65,9 @@ services:
       DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
       BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       PASTA_DADOS: /dados
-      # Só na demonstração: o corte de 10/11, com que os CSVs batem. Vazio, vale o fechamento vigente.
-      SINKFI_CORTE_FIXO: ${SINKFI_CORTE_FIXO-2026-11-10T18:00:00-03:00}
+      # Só na demonstração (ADR 0007): os cortes andam de 7 em 7 dias a partir de 10/11, com que os CSVs batem.
+      # Vazio, valem o dia e a hora de fechamento do cliente. Igual na api.
+      SINKFI_ANCORA_DOS_CORTES: ${SINKFI_ANCORA_DOS_CORTES-2026-11-10T18:00:00-03:00}
     volumes:
       - ./dados:/dados/cli_marina:ro
     depends_on:
@@ -98,6 +99,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-segredo-da-demonstracao-troque-fora-dela}
       # O reprocessar só enfileira; quem roda é o worker.
       BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      # A mesma âncora do worker: a lista de semanas e o fechamento atual têm que bater com o dele.
+      SINKFI_ANCORA_DOS_CORTES: ${SINKFI_ANCORA_DOS_CORTES-2026-11-10T18:00:00-03:00}
     depends_on:
       migrar:
         condition: service_completed_successfully

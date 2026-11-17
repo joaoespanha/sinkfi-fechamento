@@ -4,6 +4,7 @@ A api importa daqui só a porta `Fila`; as tarefas ficam em `sinkfi.tarefas`, qu
 """
 
 import os
+from datetime import datetime
 from typing import Protocol
 
 from celery import Celery
@@ -46,17 +47,22 @@ app.conf.update(
 class Fila(Protocol):
     def pedir_fechamento(self, cliente_id: str) -> None: ...
 
-    def pedir_reprocessamento(self, cliente_id: str) -> None: ...
+    def pedir_fechamento_da_semana(self, cliente_id: str, corte: datetime) -> None: ...
+
+    def pedir_reprocessamento(self, cliente_id: str, corte: datetime) -> None: ...
 
 
 class FilaCelery:
-    """Publica pelo nome da tarefa, sem importar `sinkfi.tarefas`."""
+    """Publica pelo nome da tarefa, sem importar `sinkfi.tarefas`. O corte vai como texto ISO."""
 
     def pedir_fechamento(self, cliente_id: str) -> None:
         app.send_task("sinkfi.fechar_cliente", args=[cliente_id])
 
-    def pedir_reprocessamento(self, cliente_id: str) -> None:
-        app.send_task("sinkfi.reprocessar_cliente", args=[cliente_id])
+    def pedir_fechamento_da_semana(self, cliente_id: str, corte: datetime) -> None:
+        app.send_task("sinkfi.fechar_semana", args=[cliente_id, corte.isoformat()])
+
+    def pedir_reprocessamento(self, cliente_id: str, corte: datetime) -> None:
+        app.send_task("sinkfi.reprocessar_cliente", args=[cliente_id, corte.isoformat()])
 
 
 def obter_fila() -> Fila:

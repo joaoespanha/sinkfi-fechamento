@@ -6,10 +6,11 @@ O contrato desta API vira `web/src/api.d.ts` (ADR 0004). Mudou um esquema, reger
 from fastapi import FastAPI
 
 from sinkfi.api import clientes, login
+from sinkfi.api.relogio import obter_agora
 from sinkfi.api.sessao import obter_sessao
 
 app = FastAPI(title="sinkfi")
 app.include_router(login.rotas)
 app.include_router(clientes.rotas)
 
-__all__ = ["app", "obter_sessao"]
+__all__ = ["app", "obter_agora", "obter_sessao"]

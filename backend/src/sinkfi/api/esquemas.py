@@ -81,3 +81,22 @@ class EuResposta(BaseModel):
 class LimiteEntrada(BaseModel):
     # None desliga a trava (ADR 0003).
     limite_trava_centavos: int | None = Field(ge=0)
+
+
+class SemanaLida(BaseModel):
+    """Um fechamento da lista (ADR 0007). As contagens são da rodada mais recente; None sem rodada."""
+
+    semana: date
+    corte: datetime
+    atual: bool
+    tem_rodada: bool
+    itens_falta_de_verdade: int | None
+    itens_para_conferir: int | None
+    terminado: bool
+    # Anterior ao atual, com pendência e sem "Terminei" na rodada mais recente.
+    aviso: bool
+
+
+class SemanaEntrada(BaseModel):
+    # A data do corte, como vem em `SemanaLida.semana`.
+    semana: date

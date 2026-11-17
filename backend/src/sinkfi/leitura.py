@@ -1,9 +1,10 @@
-"""O fechamento como a tela lê: a rodada mais recente e o resumo com o limite de agora (ADR 0006).
+"""O fechamento como a tela lê: a rodada mais recente da semana e o resumo com o limite de agora (ADR 0006 e 0007).
 
 A rodada guarda as pendências, não a recomendação: o limite pode mudar depois do cálculo.
 """
 
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -18,22 +19,26 @@ class FechamentoLido:
     resumo: Resumo
     limite_trava_centavos: int | None
     itens: list[ItemRodada]
-    # O "Terminei" mais recente do cliente, de qualquer rodada. A tela compara a rodada dele com a mostrada.
+    # O "Terminei" mais recente das rodadas desta semana. A tela compara a rodada dele com a mostrada.
     ultimo_termino: Termino | None
 
 
-def fechamento_mais_recente(sessao: Session, cliente_id: str) -> FechamentoLido | None:
-    """None quando o cliente ainda não tem rodada."""
-    rodadas = repositorios.rodadas_do_cliente(sessao, cliente_id)
-    if not rodadas:
-        return None
-    return fechamento_da_rodada(sessao, rodadas[0])
+def fechamento_da_semana(sessao: Session, cliente_id: str, data: date) -> FechamentoLido | None:
+    """A rodada mais recente com aquela data de fechamento. None quando a semana não tem rodada."""
+    rodada = next(
+        (r for r in repositorios.rodadas_do_cliente(sessao, cliente_id) if r.data_fechamento == data), None
+    )
+    return fechamento_da_rodada(sessao, rodada) if rodada else None
 
 
 def fechamento_da_rodada(sessao: Session, rodada: Rodada) -> FechamentoLido:
     itens = repositorios.itens_da_rodada(sessao, rodada.id)
     limite = repositorios.limite_do_cliente(sessao, rodada.cliente_id)
-    terminos = repositorios.terminos_do_cliente(sessao, rodada.cliente_id)
+    da_semana = {
+        r.id for r in repositorios.rodadas_do_cliente(sessao, rodada.cliente_id)
+        if r.data_fechamento == rodada.data_fechamento
+    }
+    terminos = [t for t in repositorios.terminos_do_cliente(sessao, rodada.cliente_id) if t.rodada_id in da_semana]
     return FechamentoLido(
         rodada=rodada,
         resumo=resumo(_pendencias(itens), limite),

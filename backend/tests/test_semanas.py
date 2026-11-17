@@ -70,21 +70,17 @@ TRES_CORTES = [em_sao_paulo(11, 10, 18), em_sao_paulo(11, 17, 18), em_sao_paulo(
 
 
 def test_fechamento_atual_e_o_mais_recente_com_recebivel_previsto_ou_credito():
-    # Recebível previsto (data) na semana de 17/11.
+    # Recebível previsto ou crédito lançado na semana de 17/11: os dois chegam como data.
     assert fechamento_atual(TRES_CORTES, [date(2026, 11, 8), date(2026, 11, 15)]) == TRES_CORTES[1]
-    # Crédito lançado (data e hora) na semana de 17/11.
-    assert fechamento_atual(TRES_CORTES, [em_sao_paulo(11, 12, 10)]) == TRES_CORTES[1]
-    # Crédito no dia do corte, mas depois das 18:00: é da semana seguinte.
-    assert fechamento_atual(TRES_CORTES, [em_sao_paulo(11, 10, 19)]) == TRES_CORTES[1]
-    # Recebível previsto para o dia do corte: é daquele corte.
+    # Crédito no dia do corte, mesmo depois das 18:00: é daquele corte. A rodada é que usa o horário.
     assert fechamento_atual(TRES_CORTES, [date(2026, 11, 10)]) == TRES_CORTES[0]
     # Sem dado em nenhum corte (a parcela de 04/12 ainda não tem corte que passou).
     assert fechamento_atual(TRES_CORTES, [date(2026, 12, 4)]) is None
 
 
 def test_dado_de_semana_mais_recente_muda_o_fechamento_atual():
-    dados = [date(2026, 11, 5), em_sao_paulo(11, 10, 11)]
+    dados = [date(2026, 11, 5), date(2026, 11, 10)]
     assert fechamento_atual(TRES_CORTES, dados) == TRES_CORTES[0]
 
     # Chega um crédito na sexta, 20/11.
-    assert fechamento_atual(TRES_CORTES, [*dados, em_sao_paulo(11, 20, 9)]) == TRES_CORTES[2]
+    assert fechamento_atual(TRES_CORTES, [*dados, date(2026, 11, 20)]) == TRES_CORTES[2]
