@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from fechamento import Pendencia, Resumo, resumo
 from sinkfi.banco import repositorios
-from sinkfi.tipos import ItemRodada, Rodada
+from sinkfi.tipos import ItemRodada, Rodada, Termino
 
 
 @dataclass(frozen=True)
@@ -18,6 +18,8 @@ class FechamentoLido:
     resumo: Resumo
     limite_trava_centavos: int | None
     itens: list[ItemRodada]
+    # O "Terminei" mais recente do cliente, de qualquer rodada. A tela compara a rodada dele com a mostrada.
+    ultimo_termino: Termino | None
 
 
 def fechamento_mais_recente(sessao: Session, cliente_id: str) -> FechamentoLido | None:
@@ -25,14 +27,19 @@ def fechamento_mais_recente(sessao: Session, cliente_id: str) -> FechamentoLido 
     rodadas = repositorios.rodadas_do_cliente(sessao, cliente_id)
     if not rodadas:
         return None
-    rodada = rodadas[0]
+    return fechamento_da_rodada(sessao, rodadas[0])
+
+
+def fechamento_da_rodada(sessao: Session, rodada: Rodada) -> FechamentoLido:
     itens = repositorios.itens_da_rodada(sessao, rodada.id)
-    limite = repositorios.limite_do_cliente(sessao, cliente_id)
+    limite = repositorios.limite_do_cliente(sessao, rodada.cliente_id)
+    terminos = repositorios.terminos_do_cliente(sessao, rodada.cliente_id)
     return FechamentoLido(
         rodada=rodada,
         resumo=resumo(_pendencias(itens), limite),
         limite_trava_centavos=limite,
         itens=itens,
+        ultimo_termino=terminos[-1] if terminos else None,
     )
 
 

@@ -8,17 +8,19 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from fechamento import Lancamento, Loja, Motivo, Recebivel, Severidade
+from fechamento import Lancamento, Loja, Motivo, Recebivel, Recomendacao, Resumo, Severidade
 from sinkfi.banco.modelos import (
     LinhaCliente,
     LinhaItemRodada,
     LinhaLancamento,
     LinhaLoja,
+    LinhaMudancaLimite,
     LinhaRecebivel,
     LinhaRodada,
+    LinhaTermino,
     LinhaUsuario,
 )
-from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, Papel, Rodada, Usuario
+from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, MudancaLimite, Papel, Rodada, Termino, Usuario
 
 
 def criar_cliente(
@@ -174,6 +176,12 @@ def _rodada(linha: LinhaRodada) -> Rodada:
     )
 
 
+def rodada_do_cliente(sessao: Session, cliente_id: str, rodada_id: int) -> Rodada | None:
+    """None quando a rodada não existe ou é de outro cliente."""
+    linha = sessao.get(LinhaRodada, rodada_id)
+    return _rodada(linha) if linha and linha.cliente_id == cliente_id else None
+
+
 def rodadas_do_cliente(sessao: Session, cliente_id: str) -> list[Rodada]:
     """Da mais recente para a mais antiga. O `id` desempata rodadas da mesma transação,
     que recebem o mesmo `now()` em `criada_em`."""
@@ -287,3 +295,71 @@ def _usuario(linha: LinhaUsuario) -> Usuario:
         cliente_id=linha.cliente_id,
         ativo=linha.ativo,
     )
+
+
+def gravar_mudanca_limite(
+    sessao: Session, *, cliente_id: str, usuario_id: int, em: datetime, de: int | None, para: int | None
+) -> None:
+    sessao.add(
+        LinhaMudancaLimite(
+            cliente_id=cliente_id, usuario_id=usuario_id, em=em, de_centavos=de, para_centavos=para
+        )
+    )
+    sessao.flush()
+
+
+def mudancas_de_limite(sessao: Session, cliente_id: str) -> list[MudancaLimite]:
+    """Da mais antiga para a mais nova."""
+    linhas = sessao.execute(
+        select(LinhaMudancaLimite, LinhaUsuario.email)
+        .join(LinhaUsuario, LinhaUsuario.id == LinhaMudancaLimite.usuario_id)
+        .where(LinhaMudancaLimite.cliente_id == cliente_id)
+        .order_by(LinhaMudancaLimite.id)
+    ).all()
+    return [
+        MudancaLimite(quem=email, em=m.em, de_centavos=m.de_centavos, para_centavos=m.para_centavos)
+        for m, email in linhas
+    ]
+
+
+def gravar_termino(
+    sessao: Session,
+    *,
+    cliente_id: str,
+    usuario_id: int,
+    em: datetime,
+    rodada_id: int,
+    limite_trava_centavos: int | None,
+    resumo: Resumo,
+) -> None:
+    sessao.add(
+        LinhaTermino(
+            cliente_id=cliente_id,
+            usuario_id=usuario_id,
+            em=em,
+            rodada_id=rodada_id,
+            limite_trava_centavos=limite_trava_centavos,
+            resumo=asdict(resumo) | {"recomendacao": resumo.recomendacao.value},
+        )
+    )
+    sessao.flush()
+
+
+def terminos_do_cliente(sessao: Session, cliente_id: str) -> list[Termino]:
+    """Do mais antigo para o mais novo."""
+    linhas = sessao.execute(
+        select(LinhaTermino, LinhaUsuario.email)
+        .join(LinhaUsuario, LinhaUsuario.id == LinhaTermino.usuario_id)
+        .where(LinhaTermino.cliente_id == cliente_id)
+        .order_by(LinhaTermino.id)
+    ).all()
+    return [
+        Termino(
+            quem=email,
+            em=t.em,
+            rodada_id=t.rodada_id,
+            limite_trava_centavos=t.limite_trava_centavos,
+            resumo=Resumo(**t.resumo | {"recomendacao": Recomendacao(t.resumo["recomendacao"])}),
+        )
+        for t, email in linhas
+    ]

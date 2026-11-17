@@ -43,10 +43,27 @@ class ItemLido(_DeAtributos):
     pendencia_centavos: int | None
 
 
+class TerminoLido(BaseModel):
+    """Um "Terminei": quem, quando, a rodada vista e o resumo daquele momento (com o limite de então)."""
+
+    quem: str
+    em: datetime
+    rodada_id: int
+    limite_trava_centavos: int | None
+    resumo: ResumoLido
+
+
 class FechamentoResposta(BaseModel):
     rodada: RodadaLida
     resumo: ResumoLido
     itens: list[ItemLido]
+    # Se a rodada dele não é a mostrada, chegou fechamento novo depois do "Terminei".
+    ultimo_termino: TerminoLido | None
+
+
+class TermineiEntrada(BaseModel):
+    # A rodada que a tela está mostrando, não a mais recente do banco: pode ter chegado outra no meio.
+    rodada_id: int
 
 
 class LoginEntrada(BaseModel):

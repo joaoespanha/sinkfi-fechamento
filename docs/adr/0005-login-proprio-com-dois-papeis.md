@@ -11,6 +11,7 @@ A `api` faz o próprio login e decide o acesso por dois papéis: a lojista vê s
 | Ver o fechamento e a explicação | Só do próprio cliente | De qualquer cliente |
 | Mudar o limite da trava | Sim | Não |
 | Pedir reprocessamento | Não | Sim |
+| Marcar "Terminei" | Sim | Não |
 
 - Cada lojista pertence a um cliente. O suporte não pertence a nenhum.
 - A senha é guardada com hash (argon2). O login devolve um token JWT em cookie `httpOnly` com `SameSite=Strict`, válido por 8 horas, sem renovação.
@@ -42,5 +43,6 @@ A `api` faz o próprio login e decide o acesso por dois papéis: a lojista vê s
 - `suporte_ve_qualquer_cliente`
 - `lojista_nao_reprocessa`
 - `suporte_nao_muda_o_limite`
+- `suporte_nao_marca_terminei`
 - `rota_sem_token_devolve_401`
 - `usuario_inativo_perde_o_acesso_com_token_valido`
