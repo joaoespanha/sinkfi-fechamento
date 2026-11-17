@@ -4,7 +4,7 @@ O cenário é montado pela `ingerir`, nunca com SQL direto.
 """
 
 import shutil
-from datetime import time
+from datetime import datetime, time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -38,6 +38,17 @@ def dados_com_credito_a_mais(pasta: Path) -> Path:
         extrato.write(
             "ext_99,T-NOVO,,2026-11-10T11:00:00-03:00,12345,STONE PAGAMENTOS,"
             "16501555000100,STN-9999,confirmed,settlement\n"
+        )
+    return pasta
+
+
+def dados_com_credito_na_semana_seguinte(pasta: Path) -> Path:
+    """O lote reenviado: os mesmos CSVs, com um crédito na quinta, 12/11, depois do corte de 10/11."""
+    _copiar_dados(pasta)
+    with (pasta / "extrato.csv").open("a", encoding="utf-8") as extrato:
+        extrato.write(
+            "ext_98,T-SEGUINTE,,2026-11-12T11:00:00-03:00,54321,STONE PAGAMENTOS,"
+            "16501555000100,STN-9998,confirmed,settlement\n"
         )
     return pasta
 
@@ -94,3 +105,21 @@ def entrar(http: TestClient, email: str, senha: str = SENHA) -> None:
     """Login de verdade: o cookie fica no TestClient para as próximas requisições."""
     resposta = http.post("/login", json={"email": email, "senha": senha})
     assert resposta.status_code == 204, resposta.text
+
+
+class FilaFalsa:
+    """Guarda o que seria publicado, no lugar do RabbitMQ."""
+
+    def __init__(self) -> None:
+        self.fechamentos: list[str] = []
+        self.fechamentos_da_semana: list[tuple[str, datetime]] = []
+        self.reprocessamentos: list[tuple[str, datetime]] = []
+
+    def pedir_fechamento(self, cliente_id: str) -> None:
+        self.fechamentos.append(cliente_id)
+
+    def pedir_fechamento_da_semana(self, cliente_id: str, corte: datetime) -> None:
+        self.fechamentos_da_semana.append((cliente_id, corte))
+
+    def pedir_reprocessamento(self, cliente_id: str, corte: datetime) -> None:
+        self.reprocessamentos.append((cliente_id, corte))

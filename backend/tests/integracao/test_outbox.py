@@ -8,21 +8,7 @@ from sinkfi.banco import repositorios
 from sinkfi.ingestao.ingerir import ingerir
 from sinkfi.outbox import publicar_pendentes
 
-from tests.integracao.cenarios import DADOS, MARINA, preparar_marina
-
-
-class FilaFalsa:
-    """Guarda o que seria publicado, no lugar do RabbitMQ."""
-
-    def __init__(self) -> None:
-        self.fechamentos: list[str] = []
-        self.reprocessamentos: list[str] = []
-
-    def pedir_fechamento(self, cliente_id: str) -> None:
-        self.fechamentos.append(cliente_id)
-
-    def pedir_reprocessamento(self, cliente_id: str) -> None:
-        self.reprocessamentos.append(cliente_id)
+from tests.integracao.cenarios import DADOS, MARINA, FilaFalsa, preparar_marina
 
 
 def test_ingestao_grava_dado_e_pedido_na_mesma_transacao(sessao: Session):
