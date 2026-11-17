@@ -1,12 +1,24 @@
 from datetime import datetime
 
-from fechamento.tipos import Fechamento, GrupoDeRecebiveis, Lancamento, Loja, Recebivel
+from fechamento.tipos import (
+    Fechamento,
+    GrupoDeRecebiveis,
+    Lancamento,
+    Loja,
+    Motivo,
+    Pendencia,
+    Recebivel,
+    Severidade,
+)
 
 # A adquirente é reconhecida pelo documento da contraparte, nunca pelo nome.
 DOCUMENTO_DA_ADQUIRENTE = {
     "stone": "16501555000100",
     "pagseguro": "08561701000100",
 }
+
+CANCELADO = "cancelled"
+CHARGEBACK = "chargeback"
 
 
 def fechar(
@@ -16,22 +28,74 @@ def fechar(
     corte: datetime,
 ) -> Fechamento:
     lancamentos = _normalizar(lancamentos)
-    grupos = []
-    for recebivel in recebiveis:
-        creditos = [l for l in lancamentos if _chave_forte(recebivel, l)]
-        ate_o_corte = sum(l.valor_centavos for l in creditos if l.lancado_em <= corte)
-        depois_do_corte = sum(l.valor_centavos for l in creditos if l.lancado_em > corte)
-        grupos.append(
-            GrupoDeRecebiveis(
-                recebiveis=[recebivel],
-                creditos=creditos,
-                esperado_centavos=recebivel.liquido_centavos,
-                caiu_centavos=ate_o_corte,
-                nao_caiu_centavos=0,
-                proximo_fechamento_centavos=depois_do_corte,
-            )
+    creditos = [l for l in lancamentos if l.tipo != CHARGEBACK]
+    desfeitos = {l.transacao_original_id for l in lancamentos if l.tipo == CHARGEBACK}
+
+    vencidos = [r for r in recebiveis if r.liquidacao_prevista <= corte.date()]
+    ativos = [r for r in vencidos if r.status != CANCELADO]
+    cancelados = [r for r in vencidos if r.status == CANCELADO]
+
+    grupos: list[GrupoDeRecebiveis] = []
+    pendencias: list[Pendencia] = []
+    casados: set[str] = set()
+
+    for recebivel in ativos:
+        do_recebivel = [c for c in creditos if _chave_forte(recebivel, c)]
+        casados.update(c.id for c in do_recebivel)
+        valem = [c for c in do_recebivel if c.transacao_id not in desfeitos]
+        estornado = sum(c.valor_centavos for c in do_recebivel if c.transacao_id in desfeitos)
+        caiu = sum(c.valor_centavos for c in valem if c.lancado_em <= corte)
+        proximo = sum(c.valor_centavos for c in valem if c.lancado_em > corte)
+        nao_caiu = max(recebivel.liquido_centavos - caiu - proximo, 0)
+
+        grupo = GrupoDeRecebiveis(
+            recebiveis=[recebivel],
+            creditos=do_recebivel,
+            esperado_centavos=recebivel.liquido_centavos,
+            caiu_centavos=caiu,
+            nao_caiu_centavos=nao_caiu,
+            proximo_fechamento_centavos=proximo,
         )
-    return Fechamento(grupos=grupos)
+        grupos.append(grupo)
+        if nao_caiu:
+            pendencias.append(_falta(grupo, estornado))
+
+    for recebivel in cancelados:
+        for credito in creditos:
+            if _chave_forte(recebivel, credito):
+                casados.add(credito.id)
+                pendencias.append(
+                    Pendencia(
+                        Severidade.FALTA_DE_VERDADE,
+                        Motivo.VENDA_CANCELADA,
+                        credito.valor_centavos,
+                        lancamento=credito,
+                    )
+                )
+
+    for credito in creditos:
+        if credito.id not in casados:
+            pendencias.append(
+                Pendencia(
+                    Severidade.PARA_CONFERIR,
+                    Motivo.ENTRADA_SEM_RECEBIVEL,
+                    credito.valor_centavos,
+                    lancamento=credito,
+                )
+            )
+
+    return Fechamento(grupos=grupos, pendencias=pendencias)
+
+
+def _falta(grupo: GrupoDeRecebiveis, estornado: int) -> Pendencia:
+    """O que não caiu vira uma pendência só, com o motivo que explica a falta."""
+    if estornado:
+        motivo = Motivo.CHARGEBACK
+    elif grupo.caiu_centavos or grupo.proximo_fechamento_centavos:
+        motivo = Motivo.CAIU_EM_PARTE
+    else:
+        motivo = Motivo.NAO_CAIU
+    return Pendencia(Severidade.FALTA_DE_VERDADE, motivo, grupo.nao_caiu_centavos, grupo=grupo)
 
 
 def _chave_forte(recebivel: Recebivel, lancamento: Lancamento) -> bool:
