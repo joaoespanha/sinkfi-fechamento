@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clientes/{cliente_id}/terminei": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marcar Terminei */
+        post: operations["marcar_terminei_clientes__cliente_id__terminei_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clientes/{cliente_id}/reprocessar": {
         parameters: {
             query?: never;
@@ -124,6 +141,7 @@ export interface components {
             resumo: components["schemas"]["ResumoLido"];
             /** Itens */
             itens: components["schemas"]["ItemLido"][];
+            ultimo_termino: components["schemas"]["TerminoLido"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -271,6 +289,29 @@ export interface components {
          * @enum {string}
          */
         Severidade: "falta_de_verdade" | "para_conferir";
+        /** TermineiEntrada */
+        TermineiEntrada: {
+            /** Rodada Id */
+            rodada_id: number;
+        };
+        /**
+         * TerminoLido
+         * @description Um "Terminei": quem, quando, a rodada vista e o resumo daquele momento (com o limite de então).
+         */
+        TerminoLido: {
+            /** Quem */
+            quem: string;
+            /**
+             * Em
+             * Format: date-time
+             */
+            em: string;
+            /** Rodada Id */
+            rodada_id: number;
+            /** Limite Trava Centavos */
+            limite_trava_centavos: number | null;
+            resumo: components["schemas"]["ResumoLido"];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -429,6 +470,43 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    marcar_terminei_clientes__cliente_id__terminei_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermineiEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminoLido"];
+                };
             };
             /** @description Validation Error */
             422: {

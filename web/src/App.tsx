@@ -47,14 +47,19 @@ export default function App() {
             </button>
           </p>
           {estado.eu.papel === 'lojista' && estado.eu.cliente_id && (
-            <TelaFechamento clienteId={estado.eu.cliente_id} aoPerderSessao={perdeuSessao} />
+            <TelaFechamento clienteId={estado.eu.cliente_id} papel={estado.eu.papel} aoPerderSessao={perdeuSessao} />
           )}
           {estado.eu.papel === 'suporte' && (
             <>
               <EscolherCliente aoEscolher={setClienteDoSuporte} />
               {clienteDoSuporte && (
                 // A key recria a tela ao trocar de cliente: volta a "carregando" sem resto do anterior.
-                <TelaFechamento key={clienteDoSuporte} clienteId={clienteDoSuporte} aoPerderSessao={perdeuSessao} />
+                <TelaFechamento
+                  key={clienteDoSuporte}
+                  clienteId={clienteDoSuporte}
+                  papel={estado.eu.papel}
+                  aoPerderSessao={perdeuSessao}
+                />
               )}
             </>
           )}
