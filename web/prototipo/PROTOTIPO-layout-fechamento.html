@@ -1,0 +1,343 @@
+<title>Layout do fechamento sinkfi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Protótipo descartável do #25. Tokens copiados de web/src/index.css; layout: sidebar + faixa de dias + lista. */
+:root {
+  --texto: #1c1b1f; --texto-suave: #5c5966; --fundo: #ffffff; --fundo-suave: #f5f4f7;
+  --borda: #e2e0e6; --ok: #1a7f37; --atencao: #9a6700; --perigo: #c62828;
+  --realce: #3d3a8c; --barra: #1c1b1f; --barra-texto: #ffffff;
+  --fonte: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --texto: #ecebef; --texto-suave: #a9a6b2; --fundo: #141317; --fundo-suave: #1e1d22;
+  --borda: #34323a; --ok: #4ac26b; --atencao: #d4a72c; --perigo: #f47067;
+  --realce: #a9a4ff; --barra: #ecebef; --barra-texto: #141317; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --texto: #ecebef; --texto-suave: #a9a6b2; --fundo: #141317; --fundo-suave: #1e1d22;
+  --borda: #34323a; --ok: #4ac26b; --atencao: #d4a72c; --perigo: #f47067;
+  --realce: #a9a4ff; --barra: #ecebef; --barra-texto: #141317; color-scheme: dark }
+
+body { background: var(--fundo-suave); color: var(--texto); font: 15px/1.5 var(--fonte); }
+.palco { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 96px; }
+.moldura { margin-inline: auto; background: var(--fundo); border: 1px solid var(--borda); border-radius: 6px; overflow: hidden; container-type: inline-size; max-width: 100%; }
+.moldura[data-aparelho="desktop"] { width: 1180px; }
+.moldura[data-aparelho="celular"] { width: 390px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--realce); outline-offset: 2px; }
+
+/* App */
+.app { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: 44rem; }
+.app[data-variante="B"] { grid-template-columns: 12rem minmax(0, 1fr); }
+.lateral { border-inline-end: 1px solid var(--borda); background: var(--fundo-suave); display: flex; flex-direction: column; gap: 1.25rem; padding: 1rem; min-width: 0; }
+.marca { font-weight: 700; letter-spacing: 0.02em; }
+.cliente { display: grid; gap: 0.125rem; }
+.rotulo { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-suave); }
+.nav { display: grid; gap: 0.125rem; }
+.nav button, .semanas button { text-align: start; background: none; border: 0; border-radius: 4px; padding: 0.375rem 0.5rem; display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+.nav button[aria-current="page"], .semanas button[aria-current="true"] { background: var(--fundo); box-shadow: inset 0 0 0 1px var(--borda); font-weight: 600; }
+.semanas { display: grid; gap: 0.125rem; }
+.semanas small { color: var(--texto-suave); font-weight: 400; }
+.ponto { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--atencao); flex: none; }
+.rodape { margin-top: auto; display: grid; gap: 0.25rem; color: var(--texto-suave); font-size: 0.875rem; word-break: break-all; }
+.rodape button { justify-self: start; background: none; border: 1px solid var(--borda); border-radius: 4px; padding: 0.125rem 0.5rem; }
+.conteudo { padding: 1.25rem 1.5rem 2rem; display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.titulo { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: baseline; justify-content: space-between; }
+.titulo h1 { font-size: 1.25rem; margin: 0; text-wrap: balance; }
+.meta { color: var(--texto-suave); font-size: 0.875rem; }
+.setas { display: flex; align-items: center; gap: 0.25rem; }
+.setas button { border: 1px solid var(--borda); background: var(--fundo); border-radius: 4px; padding: 0.25rem 0.625rem; }
+.setas button[disabled] { opacity: 0.4; cursor: default; }
+.setas .atual { font-weight: 600; padding-inline: 0.5rem; font-variant-numeric: tabular-nums; }
+.setas .vizinha { color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+.aviso { border-inline-start: 0.375rem solid var(--atencao); background: var(--fundo-suave); padding: 0.625rem 0.875rem; border-radius: 4px; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; justify-content: space-between; align-items: center; }
+.aviso button { background: none; border: 0; padding: 0; color: var(--realce); text-decoration: underline; }
+.resumo { border-inline-start: 0.375rem solid var(--perigo); background: var(--fundo-suave); padding: 0.875rem 1.125rem; border-radius: 4px; display: grid; gap: 0.125rem; }
+.resumo strong { font-size: 1.25rem; }
+.resumo span { color: var(--texto-suave); }
+
+/* Faixa de dias */
+.faixa-rolagem { overflow-x: auto; }
+.faixa { display: grid; grid-template-columns: repeat(8, minmax(6.5rem, 1fr)); gap: 0.375rem; }
+.dia { border: 1px solid var(--borda); border-radius: 4px; background: var(--fundo); padding: 0.5rem; text-align: start; display: grid; gap: 0.125rem; font-variant-numeric: tabular-nums; position: relative; }
+.dia[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--realce); }
+.dia[data-vazio="true"] { color: var(--texto-suave); background: var(--fundo-suave); }
+.dia .nome { font-weight: 600; font-size: 0.875rem; }
+.dia .linha { font-size: 0.8125rem; color: var(--texto-suave); }
+.dia .marcas { display: flex; gap: 0.25rem; margin-top: 0.25rem; min-height: 1.25rem; flex-wrap: wrap; }
+.chip { font-size: 0.75rem; border-radius: 999px; padding: 0 0.4rem; color: var(--fundo); font-weight: 600; }
+.chip.falta { background: var(--perigo); }
+.chip.conferir { background: var(--atencao); }
+.chip.ok { background: var(--ok); }
+.dia.corte::after { content: "corte"; position: absolute; top: 0.4rem; right: 0.45rem; font-size: 0.6875rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.05em; }
+.filtro { display: flex; gap: 0.75rem; align-items: center; color: var(--texto-suave); font-size: 0.875rem; }
+.filtro button { background: none; border: 0; padding: 0; color: var(--realce); text-decoration: underline; }
+
+/* Lista */
+.lista { display: grid; gap: 0.375rem; }
+.lista h2 { font-size: 1rem; margin: 0.5rem 0 0; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.125rem 1rem; align-items: center; text-align: start; background: var(--fundo); border: 1px solid var(--borda); border-inline-start-width: 0.25rem; border-radius: 4px; padding: 0.5rem 0.75rem; }
+.item[data-sev="falta_de_verdade"] { border-inline-start-color: var(--perigo); }
+.item[data-sev="para_conferir"] { border-inline-start-color: var(--atencao); }
+.item[data-sev="ok"] { border-inline-start-color: var(--ok); }
+.item .motivo { font-weight: 600; }
+.item .origem { color: var(--texto-suave); font-size: 0.875rem; grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+.item .valor { grid-row: 1 / span 2; grid-column: 2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+details.certo > summary { cursor: pointer; font-weight: 600; padding-block: 0.5rem; }
+details.certo .lista { margin-top: 0.25rem; }
+.acoes { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.acoes .primario { background: var(--texto); color: var(--fundo); border: 0; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; }
+.vazio { color: var(--texto-suave); padding: 2rem 0; }
+
+/* Detalhe */
+.voltar { background: none; border: 0; padding: 0; color: var(--realce); justify-self: start; }
+.tempo { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.5rem; }
+.tempo li { border-top: 3px solid var(--borda); padding-top: 0.375rem; font-variant-numeric: tabular-nums; }
+.tempo li.feito { border-top-color: var(--ok); }
+.tempo li.falhou { border-top-color: var(--perigo); }
+.tempo li span { display: block; color: var(--texto-suave); font-size: 0.8125rem; }
+.bloco { display: grid; gap: 0.25rem; }
+.bloco h2 { font-size: 1rem; margin: 0; }
+.bloco ul { margin: 0; padding-inline-start: 1.25rem; }
+.fazer { border: 1px dashed var(--borda); border-radius: 4px; padding: 0.75rem; }
+.fazer .rotulo { display: block; margin-bottom: 0.25rem; }
+
+/* Celular: a lateral vira barra de cima */
+.topo { display: none; }
+@container (width < 700px) {
+  .app, .app[data-variante="B"] { grid-template-columns: minmax(0, 1fr); }
+  .lateral { display: none; }
+  .topo { display: grid; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--borda); background: var(--fundo-suave); }
+  .topo .linha1 { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+  .topo .abas { display: flex; gap: 0.25rem; }
+  .topo .abas button { background: none; border: 0; border-radius: 4px; padding: 0.25rem 0.625rem; }
+  .topo .abas button[aria-current="page"] { background: var(--fundo); box-shadow: inset 0 0 0 1px var(--borda); font-weight: 600; }
+  .topo select { font: inherit; padding: 0.25rem; border: 1px solid var(--borda); border-radius: 4px; background: var(--fundo); color: inherit; max-width: 100%; }
+  .conteudo { padding: 1rem; }
+  .faixa { grid-template-columns: repeat(8, 6.25rem); }
+}
+
+/* Barra do protótipo: não faz parte do design */
+.prototipo { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; align-items: center; background: var(--barra); color: var(--barra-texto); border-radius: 999px; padding: 0.375rem 0.625rem; box-shadow: 0 4px 16px rgb(0 0 0 / 0.25); font-size: 0.8125rem; z-index: 20; max-width: calc(100vw - 24px); }
+.prototipo button { background: none; border: 1px solid currentColor; border-radius: 999px; padding: 0.125rem 0.625rem; color: inherit; }
+.prototipo button[aria-pressed="true"] { background: var(--barra-texto); color: var(--barra); }
+.prototipo .nome { font-weight: 600; padding-inline: 0.25rem; }
+@media (prefers-reduced-motion: no-preference) { .dia, .item { transition: box-shadow 120ms; } }
+</style>
+
+<div class="palco"><div class="moldura" id="moldura" data-aparelho="desktop"><div id="app"></div></div></div>
+<div class="prototipo" role="toolbar" aria-label="Controles do protótipo">
+  <button type="button" id="ant" aria-label="Variante anterior">‹</button>
+  <span class="nome" id="nome-variante"></span>
+  <button type="button" id="prox" aria-label="Próxima variante">›</button>
+  <button type="button" id="b-desktop" aria-pressed="true">Desktop</button>
+  <button type="button" id="b-celular" aria-pressed="false">Celular</button>
+  <button type="button" id="b-aviso" aria-pressed="false">Aviso de exemplo</button>
+</div>
+
+<script>
+const RODADA = {"rodada": {"id": 1, "data_fechamento": "2026-11-10", "corte": "2026-11-10T21:00:00Z", "versao_regra": "1", "criada_em": "2026-11-17T14:47:32.839249Z"}, "resumo": {"recomendacao": "nao_feche", "falta_de_verdade_centavos": 1085933, "itens_falta_de_verdade": 5, "itens_para_conferir": 2, "limite_trava_centavos": 500000}, "itens": [{"recebiveis": [{"id": "rec_1001", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-03", "liquidacao_prevista": "2026-11-05", "liquido_centavos": 147750, "nsu": "STN-1001", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_01", "transacao_id": "T-1001", "transacao_original_id": null, "lancado_em": "2026-11-05T17:02:11Z", "valor_centavos": 147750, "documento_contraparte": "16501555000100", "descricao": "STN-1001", "tipo": "settlement"}], "esperado_centavos": 147750, "caiu_centavos": 147750, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_1002", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-04", "liquidacao_prevista": "2026-11-06", "liquido_centavos": 87714, "nsu": "STN-1002", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_03", "transacao_id": "T-1002", "transacao_original_id": null, "lancado_em": "2026-11-06T18:11:40Z", "valor_centavos": 87714, "documento_contraparte": "16501555000100", "descricao": "vendas stone novembro", "tipo": "settlement"}], "esperado_centavos": 87714, "caiu_centavos": 87714, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_1003", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-06", "liquidacao_prevista": "2026-11-09", "liquido_centavos": 4433, "nsu": "STN-1003", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [], "esperado_centavos": 4433, "caiu_centavos": 0, "nao_caiu_centavos": 4433, "proximo_fechamento_centavos": 0, "severidade": "falta_de_verdade", "motivo": "nao_caiu", "pendencia_centavos": 4433}, {"recebiveis": [{"id": "rec_4812", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-07", "liquidacao_prevista": "2026-11-09", "liquido_centavos": 479000, "nsu": "STN-4812", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_04", "transacao_id": "T-4812", "transacao_original_id": null, "lancado_em": "2026-11-09T13:08:19Z", "valor_centavos": 479000, "documento_contraparte": "16501555000100", "descricao": "STN-4812", "tipo": "settlement"}], "esperado_centavos": 479000, "caiu_centavos": 479000, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_3001", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-08", "liquidacao_prevista": "2026-11-09", "liquido_centavos": 210000, "nsu": "STN-3001", "parcela": 1, "parcelas": 1, "status": "open"}, {"id": "rec_3002", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-08", "liquidacao_prevista": "2026-11-09", "liquido_centavos": 210000, "nsu": "STN-3002", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_05", "transacao_id": "T-3000", "transacao_original_id": null, "lancado_em": "2026-11-09T16:15:00Z", "valor_centavos": 210000, "documento_contraparte": "16501555000100", "descricao": "stone", "tipo": "settlement"}], "esperado_centavos": 420000, "caiu_centavos": 210000, "nao_caiu_centavos": 210000, "proximo_fechamento_centavos": 0, "severidade": "falta_de_verdade", "motivo": "grupo_nao_fecha", "pendencia_centavos": 210000}, {"recebiveis": [{"id": "rec_2001", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "card", "vendido_em": "2026-11-05", "liquidacao_prevista": "2026-11-07", "liquido_centavos": 315200, "nsu": "PAG-2001", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_06", "transacao_id": "T-2001", "transacao_original_id": null, "lancado_em": "2026-11-07T14:20:00Z", "valor_centavos": 315200, "documento_contraparte": "08561701000100", "descricao": "PAG-2001", "tipo": "settlement"}], "esperado_centavos": 315200, "caiu_centavos": 315200, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_6001a", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "card", "vendido_em": "2026-11-04", "liquidacao_prevista": "2026-11-06", "liquido_centavos": 177300, "nsu": "PAG-6001", "parcela": 1, "parcelas": 3, "status": "open"}], "creditos": [{"id": "ext_08", "transacao_id": "T-6001", "transacao_original_id": null, "lancado_em": "2026-11-06T14:47:55Z", "valor_centavos": 177300, "documento_contraparte": "08561701000100", "descricao": "PAG-6001 1/3", "tipo": "settlement"}], "esperado_centavos": 177300, "caiu_centavos": 177300, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_5001", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "card", "vendido_em": "2026-11-04", "liquidacao_prevista": "2026-11-06", "liquido_centavos": 78800, "nsu": "PAG-5001", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_09", "transacao_id": "T-5001", "transacao_original_id": null, "lancado_em": "2026-11-06T15:30:00Z", "valor_centavos": 78800, "documento_contraparte": "08561701000100", "descricao": "PAG-5001", "tipo": "settlement"}], "esperado_centavos": 78800, "caiu_centavos": 0, "nao_caiu_centavos": 78800, "proximo_fechamento_centavos": 0, "severidade": "falta_de_verdade", "motivo": "chargeback", "pendencia_centavos": 78800}, {"recebiveis": [{"id": "rec_5002", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "card", "vendido_em": "2026-11-05", "liquidacao_prevista": "2026-11-07", "liquido_centavos": 24625, "nsu": "PAG-5002", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_11", "transacao_id": "T-5002", "transacao_original_id": null, "lancado_em": "2026-11-07T12:40:12Z", "valor_centavos": 24625, "documento_contraparte": "08561701000100", "descricao": "pagseguro loja", "tipo": "settlement"}], "esperado_centavos": 24625, "caiu_centavos": 24625, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_7001", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-03", "liquidacao_prevista": "2026-11-10", "liquido_centavos": 1477500, "nsu": "STN-7001", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_12", "transacao_id": "T-7001", "transacao_original_id": null, "lancado_em": "2026-11-10T17:55:00Z", "valor_centavos": 1000000, "documento_contraparte": "16501555000100", "descricao": "STN-7001 parcial", "tipo": "settlement"}], "esperado_centavos": 1477500, "caiu_centavos": 1000000, "nao_caiu_centavos": 477500, "proximo_fechamento_centavos": 0, "severidade": "falta_de_verdade", "motivo": "caiu_em_parte", "pendencia_centavos": 477500}, {"recebiveis": [{"id": "rec_7002", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "card", "vendido_em": "2026-11-07", "liquidacao_prevista": "2026-11-10", "liquido_centavos": 64000, "nsu": "PAG-7002", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_13", "transacao_id": "T-7002", "transacao_original_id": null, "lancado_em": "2026-11-10T21:40:00Z", "valor_centavos": 64000, "documento_contraparte": "08561701000100", "descricao": "PAG-7002", "tipo": "settlement"}], "esperado_centavos": 64000, "caiu_centavos": 0, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 64000, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_4002", "loja_id": "loja_centro", "adquirente": "stone", "trilho": "card", "vendido_em": "2026-11-08", "liquidacao_prevista": "2026-11-10", "liquido_centavos": 500000, "nsu": "STN-4002", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_14", "transacao_id": "T-4002", "transacao_original_id": null, "lancado_em": "2026-11-10T21:21:00Z", "valor_centavos": 500000, "documento_contraparte": "16501555000100", "descricao": "STN-4002", "tipo": "settlement"}], "esperado_centavos": 500000, "caiu_centavos": 0, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 500000, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_8002", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "card", "vendido_em": "2026-11-06", "liquidacao_prevista": "2026-11-09", "liquido_centavos": 45000, "nsu": "PAG-8002", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_15", "transacao_id": "T-8002", "transacao_original_id": null, "lancado_em": "2026-11-09T14:51:10Z", "valor_centavos": 45000, "documento_contraparte": "08561701000100", "descricao": "PAG-8002", "tipo": "settlement"}], "esperado_centavos": 45000, "caiu_centavos": 45000, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [{"id": "rec_pix", "loja_id": "loja_savassi", "adquirente": "pagseguro", "trilho": "pix", "vendido_em": "2026-11-09", "liquidacao_prevista": "2026-11-09", "liquido_centavos": 120000, "nsu": "PIX-7001", "parcela": 1, "parcelas": 1, "status": "open"}], "creditos": [{"id": "ext_16", "transacao_id": "T-PIX", "transacao_original_id": null, "lancado_em": "2026-11-09T11:16:03Z", "valor_centavos": 120000, "documento_contraparte": "98765432100", "descricao": "PIX-7001", "tipo": "pix_in"}], "esperado_centavos": 120000, "caiu_centavos": 120000, "nao_caiu_centavos": 0, "proximo_fechamento_centavos": 0, "severidade": null, "motivo": null, "pendencia_centavos": null}, {"recebiveis": [], "creditos": [{"id": "ext_07", "transacao_id": "T-2009", "transacao_original_id": null, "lancado_em": "2026-11-09T20:44:02Z", "valor_centavos": 315200, "documento_contraparte": "08561701000100", "descricao": "PAG-2009", "tipo": "settlement"}], "esperado_centavos": null, "caiu_centavos": null, "nao_caiu_centavos": null, "proximo_fechamento_centavos": null, "severidade": "falta_de_verdade", "motivo": "venda_cancelada", "pendencia_centavos": 315200}, {"recebiveis": [], "creditos": [{"id": "ext_19", "transacao_id": "T-TRAP", "transacao_original_id": null, "lancado_em": "2026-11-09T19:40:00Z", "valor_centavos": 4433, "documento_contraparte": "99999999000199", "descricao": "4433", "tipo": "pix_in"}], "esperado_centavos": null, "caiu_centavos": null, "nao_caiu_centavos": null, "proximo_fechamento_centavos": null, "severidade": "para_conferir", "motivo": "entrada_sem_recebivel", "pendencia_centavos": 4433}, {"recebiveis": [], "creditos": [{"id": "ext_20", "transacao_id": "T-XREF", "transacao_original_id": null, "lancado_em": "2026-11-09T20:05:41Z", "valor_centavos": 147750, "documento_contraparte": "11111111000111", "descricao": "STN-1001", "tipo": "pix_in"}], "esperado_centavos": null, "caiu_centavos": null, "nao_caiu_centavos": null, "proximo_fechamento_centavos": null, "severidade": "para_conferir", "motivo": "entrada_sem_recebivel", "pendencia_centavos": 147750}], "ultimo_termino": null};
+
+const VARIANTES = { A: 'sidebar com a lista de fechamentos', B: 'sidebar só navega, setas na faixa' };
+const st = { variante: 'A', aparelho: 'desktop', aviso: false, tela: 'fechamento', semana: '2026-11-10', dia: null, item: null };
+try { const s = localStorage.getItem('prototipo-sinkfi'); if (s) Object.assign(st, JSON.parse(s), { item: null, dia: null }); } catch (e) {}
+const salvar = () => { try { localStorage.setItem('prototipo-sinkfi', JSON.stringify({ variante: st.variante, aparelho: st.aparelho, aviso: st.aviso })); } catch (e) {} };
+
+const reais = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const brl = (c) => reais.format(c / 100);
+const fmtDia = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+const fmtCurto = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+const fmtHora = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+const diaSP = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(iso));
+const dt = (ymd) => new Date(ymd + 'T00:00:00Z');
+const soma = (ymd, n) => { const d = dt(ymd); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const nomeAdq = (a) => a.charAt(0).toUpperCase() + a.slice(1);
+
+// Fechamentos na lista: do primeiro corte com recebível previsto até o vigente (terças, âncora 10/11).
+const SEMANAS = [
+  { data: '2026-11-17', rodada: false, pendencias: null },
+  { data: '2026-11-10', rodada: true, atual: true },
+];
+
+const TEXTO_MOTIVO = { nao_caiu: 'Não caiu', caiu_em_parte: 'Caiu em parte', grupo_nao_fecha: 'Grupo não fecha', chargeback: 'Chargeback', venda_cancelada: 'Venda cancelada', entrada_sem_recebivel: 'Entrada sem recebível', pode_ser_antecipacao: 'Pode ser antecipação' };
+const EXPLICA = {
+  nao_caiu: 'O recebível tinha liquidação prevista até o fechamento e nenhum crédito dele entrou na conta até o corte.',
+  caiu_em_parte: 'Entrou na conta menos do que o esperado para este recebível. A diferença é o valor da pendência.',
+  grupo_nao_fecha: 'Um crédito serve para mais de um recebível, então eles ficam juntos. O que caiu não cobre o grupo, e não dá para saber qual recebível ficou sem pagar.',
+  chargeback: 'Um lançamento de saída desfez um crédito já casado: o dinheiro deste recebível saiu da conta.',
+  venda_cancelada: 'A venda foi desfeita, mas caiu dinheiro por ela. Esse dinheiro não é seu e deve voltar para a adquirente.',
+  entrada_sem_recebivel: 'Entrou um crédito que não casa com nenhum recebível. Não muda o fechamento, mas vale conferir de onde veio.',
+  pode_ser_antecipacao: 'Entrou um crédito ligado a uma venda cujo recebível não vence neste fechamento. Pode ser uma antecipação.',
+};
+function oQueFazer(it) {
+  const r = it.recebiveis[0], c = it.creditos[0];
+  const adq = r ? nomeAdq(r.adquirente) : 'adquirente';
+  switch (it.motivo) {
+    case 'nao_caiu': return `Confira no portal da ${adq} se a venda NSU ${r.nsu} foi liquidada, e em qual conta. Se ela não pagou, abra um chamado com o NSU e a data prevista, ${fmtCurto.format(dt(r.liquidacao_prevista))}.`;
+    case 'caiu_em_parte': return `Compare com o extrato da ${adq}. A diferença de ${brl(it.pendencia_centavos)} pode ser taxa ou antecipação descontada. Se não tiver explicação, abra um chamado com o NSU e a diferença.`;
+    case 'grupo_nao_fecha': return `Peça à ${adq} o detalhamento do crédito de ${c ? fmtCurto.format(dt(diaSP(c.lancado_em))) : ''}. Com ele dá para saber qual venda ficou sem pagar.`;
+    case 'chargeback': return `Veja no portal da ${adq} o motivo da contestação da venda NSU ${r.nsu}. Se for contestar, junte o comprovante de entrega dentro do prazo da adquirente.`;
+    case 'venda_cancelada': return `Confirme com a adquirente se os ${brl(it.pendencia_centavos)} vão ser descontados de um repasse futuro ou se você precisa devolver.`;
+    case 'entrada_sem_recebivel': return `Confira quem mandou e a descrição (${c.descricao}). Se for uma venda, pode estar faltando no arquivo da adquirente.`;
+    case 'pode_ser_antecipacao': return `Confira se você pediu antecipação desta venda. Se pediu, não há nada a fazer agora. Se não pediu, pergunte à ${adq}.`;
+    default: return null;
+  }
+}
+
+// Dia de cada item: venda no dia previsto (grupo: a última); crédito sozinho no dia em que caiu.
+const CORTE = RODADA.rodada.data_fechamento;
+const INICIO = soma(CORTE, -6);
+const ITENS = RODADA.itens.map((it, i) => {
+  const d = it.recebiveis.length ? it.recebiveis.map((r) => r.liquidacao_prevista).sort().at(-1) : diaSP(it.creditos[0].lancado_em);
+  const chave = it.recebiveis.length ? it.recebiveis[0].id : it.creditos[0].id;
+  return { ...it, i, chave, dia: d < INICIO ? 'antes' : d, sev: it.severidade || 'ok' };
+});
+const DIAS = ['antes', ...Array.from({ length: 7 }, (_, k) => soma(INICIO, k))];
+
+function origem(it) {
+  const [r, ...resto] = it.recebiveis;
+  if (r) return `${nomeAdq(r.adquirente)} · NSU ${r.nsu} · parcela ${r.parcela}/${r.parcelas}${resto.length ? ` e mais ${resto.length}` : ''}`;
+  return it.creditos.map((c) => `crédito de ${fmtCurto.format(dt(diaSP(c.lancado_em)))} · ${c.descricao}`).join(', ');
+}
+function notaDoDia(it) {
+  if (!it.recebiveis.length) return '';
+  if (it.proximo_fechamento_centavos) return ' · entra no próximo fechamento';
+  const outro = it.creditos.map((c) => diaSP(c.lancado_em)).find((d) => d !== it.dia);
+  return outro ? ` · caiu em ${fmtCurto.format(dt(outro))}` : '';
+}
+const valorDo = (it) => it.pendencia_centavos ?? it.esperado_centavos ?? it.creditos.reduce((s, c) => s + c.valor_centavos, 0);
+
+function faixa() {
+  return `<div class="faixa-rolagem"><div class="faixa" role="group" aria-label="Dias do fechamento">${DIAS.map((d) => {
+    const its = ITENS.filter((it) => it.dia === d);
+    const esp = its.reduce((s, it) => s + (it.esperado_centavos || 0), 0);
+    const caiu = its.reduce((s, it) => s + (it.caiu_centavos || 0), 0);
+    const f = its.filter((it) => it.sev === 'falta_de_verdade').length, c = its.filter((it) => it.sev === 'para_conferir').length, ok = its.filter((it) => it.sev === 'ok').length;
+    const nome = d === 'antes' ? 'Antes desta semana' : fmtDia.format(dt(d)).replace('.', '');
+    return `<button type="button" class="dia${d === CORTE ? ' corte' : ''}" data-dia="${d}" aria-pressed="${st.dia === d}" data-vazio="${its.length === 0}">
+      <span class="nome">${nome}</span>
+      <span class="linha">esperado ${brl(esp)}</span><span class="linha">caiu ${brl(caiu)}</span>
+      <span class="marcas">${f ? `<span class="chip falta">${f} falta${f > 1 ? 's' : ''}</span>` : ''}${c ? `<span class="chip conferir">${c} conferir</span>` : ''}${ok ? `<span class="chip ok">${ok} ok</span>` : ''}</span>
+    </button>`;
+  }).join('')}</div></div>`;
+}
+
+function itemHTML(it) {
+  const titulo = it.motivo ? TEXTO_MOTIVO[it.motivo] : 'Casou certo';
+  return `<button type="button" class="item" data-item="${it.i}" data-sev="${it.sev}"><span class="motivo">${titulo}</span><span class="valor">${brl(valorDo(it))}</span><span class="origem">${esc(origem(it))}${notaDoDia(it)}</span></button>`;
+}
+
+function lista() {
+  const its = ITENS.filter((it) => !st.dia || it.dia === st.dia);
+  const pend = its.filter((it) => it.sev !== 'ok').sort((a, b) => (a.sev === b.sev ? 0 : a.sev === 'falta_de_verdade' ? -1 : 1));
+  const ok = its.filter((it) => it.sev === 'ok');
+  const filtro = st.dia ? `<div class="filtro">Mostrando ${st.dia === 'antes' ? 'antes desta semana' : fmtDia.format(dt(st.dia))}<button type="button" data-limpar>ver a semana toda</button></div>` : '';
+  if (!its.length) return filtro + '<p class="vazio">Nada previsto nem caído neste dia.</p>';
+  return `${filtro}<section class="lista"><h2>Pendências (${pend.length})</h2>${pend.map(itemHTML).join('') || '<p class="vazio">Nenhuma pendência.</p>'}</section>
+    <details class="certo"><summary>Casou certo (${ok.length})</summary><div class="lista">${ok.map(itemHTML).join('')}</div></details>`;
+}
+
+function detalhe(it) {
+  const r = it.recebiveis[0], c = it.creditos[0];
+  const passos = [];
+  if (r) passos.push({ t: 'Vendida', d: fmtCurto.format(dt(r.vendido_em)), k: 'feito' });
+  if (r) passos.push({ t: 'Prevista', d: fmtCurto.format(dt(it.recebiveis.map((x) => x.liquidacao_prevista).sort().at(-1))), k: 'feito' });
+  passos.push(c ? { t: 'Caiu', d: fmtHora.format(new Date(c.lancado_em)), k: it.sev === 'falta_de_verdade' ? 'falhou' : 'feito' } : { t: 'Caiu', d: 'não caiu', k: 'falhou' });
+  passos.push({ t: 'Corte', d: fmtHora.format(new Date(RODADA.rodada.corte)), k: '' });
+  const fazer = oQueFazer(it);
+  return `<button type="button" class="voltar" data-voltar>‹ Fechamento de ${fmtCurto.format(dt(CORTE))}</button>
+    <div class="titulo"><h1>${it.motivo ? TEXTO_MOTIVO[it.motivo] : 'Casou certo'} · ${brl(valorDo(it))}</h1><span class="meta">#/fechamento/${CORTE}/item/${it.chave}</span></div>
+    <p>${it.motivo ? EXPLICA[it.motivo] : `Casou pela ${r && c && c.descricao.includes(r.nsu) ? 'chave forte (NSU na descrição do crédito)' : 'chave fraca (adquirente e valor)'}.`}</p>
+    <ol class="tempo">${passos.map((p) => `<li class="${p.k}"><span>${p.t}</span>${p.d}</li>`).join('')}</ol>
+    ${fazer ? `<div class="fazer"><span class="rotulo">O que fazer · rascunho</span>${esc(fazer)}</div>` : ''}
+    ${it.recebiveis.length ? `<div class="bloco"><h2>Recebíveis</h2><ul>${it.recebiveis.map((x) => `<li>${nomeAdq(x.adquirente)} · NSU ${x.nsu} · previsto ${fmtCurto.format(dt(x.liquidacao_prevista))} · ${brl(x.liquido_centavos)}</li>`).join('')}</ul></div>` : ''}
+    <div class="bloco"><h2>Créditos</h2>${it.creditos.length ? `<ul>${it.creditos.map((x) => `<li>${fmtHora.format(new Date(x.lancado_em))} · ${esc(x.descricao)} · ${brl(x.valor_centavos)}</li>`).join('')}</ul>` : '<p>Nenhum crédito casou com este item.</p>'}</div>`;
+}
+
+const resumo = () => {
+  const s = RODADA.resumo;
+  return `<div class="resumo"><strong>Não feche: faltam ${brl(s.falta_de_verdade_centavos)}, acima do seu limite de ${brl(s.limite_trava_centavos)}</strong><span>${s.itens_falta_de_verdade} faltas de verdade · ${s.itens_para_conferir} para conferir</span></div>`;
+};
+function avisoHTML() {
+  if (!st.aviso) return '';
+  return `<div class="aviso" role="status"><span>Você ainda não terminou o fechamento de 03/11: 2 faltas de verdade, 1 para conferir.</span><button type="button">Ver o fechamento de 03/11</button></div>`;
+}
+
+function setas() {
+  const lst = st.aviso ? [...SEMANAS, { data: '2026-11-03', rodada: true, semTermino: true }] : SEMANAS;
+  const idx = lst.findIndex((s) => s.data === st.semana);
+  const ant = lst[idx + 1], prox = lst[idx - 1];
+  return `<div class="setas" role="group" aria-label="Trocar de fechamento">
+    <button type="button" data-semana="${ant ? ant.data : ''}" ${ant ? '' : 'disabled'} aria-label="Fechamento anterior">‹</button>
+    ${ant ? `<span class="vizinha">${fmtCurto.format(dt(ant.data))}</span>${ant.semTermino ? '<span class="ponto" title="Sem término"></span>' : ''}` : ''}
+    <span class="atual">${fmtCurto.format(dt(st.semana))}</span>
+    ${prox ? `<span class="vizinha">${fmtCurto.format(dt(prox.data))}</span>` : ''}
+    <button type="button" data-semana="${prox ? prox.data : ''}" ${prox ? '' : 'disabled'} aria-label="Próximo fechamento">›</button></div>`;
+}
+
+function semanasLista() {
+  const linhas = [...SEMANAS];
+  if (st.aviso) linhas.push({ data: '2026-11-03', rodada: true, semTermino: true });
+  return `<div class="semanas"><span class="rotulo">Fechamentos</span>${linhas.map((s) => `<button type="button" data-semana="${s.data}" aria-current="${st.semana === s.data}">
+    <span>${fmtDia.format(dt(s.data)).replace('.', '')}${s.atual ? ' <small>atual</small>' : ''}${!s.rodada ? ' <small>sem movimento</small>' : ''}</span>${s.semTermino ? '<span class="ponto" title="Sem término"></span>' : ''}</button>`).join('')}</div>`;
+}
+
+function lateral() {
+  return `<aside class="lateral"><span class="marca">sinkfi</span>
+    <div class="cliente"><span class="rotulo">Cliente</span><span>Marina · cli_marina</span></div>
+    <nav class="nav" aria-label="Páginas"><button type="button" data-tela="fechamento" aria-current="${st.tela === 'fechamento' ? 'page' : 'false'}">Fechamento</button><button type="button" data-tela="limite" aria-current="${st.tela === 'limite' ? 'page' : 'false'}">Limite</button></nav>
+    ${st.variante === 'A' ? semanasLista() : ''}
+    <div class="rodape"><span>marina@sinkfi.demo</span><button type="button">Sair</button></div></aside>`;
+}
+
+function topo() {
+  return `<header class="topo"><div class="linha1"><span class="marca">sinkfi</span><span class="meta">Marina · cli_marina</span></div>
+    <div class="linha1"><div class="abas"><button type="button" data-tela="fechamento" aria-current="${st.tela === 'fechamento' ? 'page' : 'false'}">Fechamento</button><button type="button" data-tela="limite" aria-current="${st.tela === 'limite' ? 'page' : 'false'}">Limite</button></div>
+    ${st.variante === 'A' ? `<label class="meta" for="sel-semana">Fechamento <select id="sel-semana">${SEMANAS.map((s) => `<option value="${s.data}" ${st.semana === s.data ? 'selected' : ''}>${fmtCurto.format(dt(s.data))}${s.atual ? ' (atual)' : ''}</option>`).join('')}</select></label>` : ''}</div></header>`;
+}
+
+function conteudo() {
+  if (st.tela === 'limite') return `<div class="titulo"><h1>Limite da trava</h1></div><p class="meta">A tela de Limite recebe o formulário que hoje fica dentro do Fechamento. Fora do escopo deste protótipo.</p>`;
+  if (st.item !== null) return detalhe(ITENS[st.item]);
+  const cab = `<div class="titulo"><h1>Fechamento de ${fmtCurto.format(dt(st.semana))}</h1>${st.variante === 'B' ? setas() : ''}</div>`;
+  if (st.semana !== '2026-11-10') return `${avisoHTML()}${cab}<p class="vazio">Calculando o fechamento de ${fmtCurto.format(dt(st.semana))}… (sem rodada: a tela pede o cálculo e consulta de novo a cada 2 s, por até 30 s)</p>`;
+  return `${avisoHTML()}${cab}<span class="meta">corte ter 10/11 18:00 · calculada em ${fmtHora.format(new Date(RODADA.rodada.criada_em))} · fechamento atual</span>
+    ${resumo()}${faixa()}${lista()}
+    <div class="acoes"><button type="button" class="primario">Terminei</button><span class="meta">Registra que você conferiu esta rodada. Não trava nada.</span></div>`;
+}
+
+function render() {
+  document.getElementById('moldura').dataset.aparelho = st.aparelho;
+  document.getElementById('app').innerHTML = `<div class="app" data-variante="${st.variante}">${lateral()}${topo()}<div class="conteudo">${conteudo()}</div></div>`;
+  document.getElementById('nome-variante').textContent = `${st.variante} · ${VARIANTES[st.variante]}`;
+  document.getElementById('b-desktop').setAttribute('aria-pressed', st.aparelho === 'desktop');
+  document.getElementById('b-celular').setAttribute('aria-pressed', st.aparelho === 'celular');
+  document.getElementById('b-aviso').setAttribute('aria-pressed', st.aviso);
+  salvar();
+}
+
+document.getElementById('app').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.dia) st.dia = st.dia === b.dataset.dia ? null : b.dataset.dia;
+  else if (b.hasAttribute('data-limpar')) st.dia = null;
+  else if (b.dataset.item !== undefined) { st.item = Number(b.dataset.item); }
+  else if (b.hasAttribute('data-voltar')) st.item = null;
+  else if (b.dataset.tela) { st.tela = b.dataset.tela; st.item = null; }
+  else if (b.dataset.semana) { st.semana = b.dataset.semana; st.dia = null; st.item = null; st.tela = 'fechamento'; }
+  else return;
+  render();
+});
+document.getElementById('app').addEventListener('change', (e) => { if (e.target.id === 'sel-semana') { st.semana = e.target.value; st.dia = null; render(); } });
+const ordem = Object.keys(VARIANTES);
+const gira = (n) => { st.variante = ordem[(ordem.indexOf(st.variante) + n + ordem.length) % ordem.length]; render(); };
+document.getElementById('ant').onclick = () => gira(-1);
+document.getElementById('prox').onclick = () => gira(1);
+document.getElementById('b-desktop').onclick = () => { st.aparelho = 'desktop'; render(); };
+document.getElementById('b-celular').onclick = () => { st.aparelho = 'celular'; render(); };
+document.getElementById('b-aviso').onclick = () => { st.aviso = !st.aviso; render(); };
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') gira(-1); if (e.key === 'ArrowRight') gira(1);
+});
+render();
+</script>
