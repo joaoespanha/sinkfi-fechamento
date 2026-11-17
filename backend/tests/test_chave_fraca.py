@@ -100,3 +100,23 @@ def test_chave_fraca_nao_casa_parcela_futura():
     assert pendencia.motivo == Motivo.ENTRADA_SEM_RECEBIVEL
     assert pendencia.severidade == Severidade.PARA_CONFERIR
     assert pendencia.lancamento.id == "ext_x"
+
+
+def test_credito_que_casa_so_com_recebivel_a_vencer_pode_ser_antecipacao():
+    # Caso construído: previsto para 11/11, depois do corte. O crédito cai em 10/11 (D-1).
+    a_vencer = rec_1002(liquidacao_prevista=date(2026, 11, 11), vendido_em=date(2026, 11, 8))
+
+    fechamento = fechar(
+        recebiveis=[a_vencer],
+        lancamentos=[t_1002(em_sao_paulo(11, 10, 10))],
+        lojas=LOJAS,
+        corte=CORTE,
+    )
+
+    # O recebível é a vencer e fica fora dos grupos, mas o crédito não some do relatório.
+    assert fechamento.grupos == []
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.PODE_SER_ANTECIPACAO
+    assert pendencia.severidade == Severidade.PARA_CONFERIR
+    assert pendencia.valor_centavos == 87714
+    assert pendencia.lancamento.id == "ext_03"
