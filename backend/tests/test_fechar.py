@@ -79,6 +79,32 @@ def test_duplicata_nao_vira_pendencia():
     assert fechamento.pendencias == []
 
 
+def test_normalizacao_tira_tarifa_e_transferencia_da_titular():
+    # Tarifa da conta e transferência da própria titular não são crédito (GLOSSARY.md).
+    t_fee = lancamento(
+        "ext_17",
+        transacao_id="T-FEE",
+        lancado_em=em_sao_paulo(11, 10, 23, 59),
+        valor_centavos=350,
+        documento_contraparte="00416968000100",
+        descricao="TARIFA PACOTE",
+        tipo="fee",
+    )
+    t_int = lancamento(
+        "ext_18",
+        transacao_id="T-INT",
+        lancado_em=em_sao_paulo(11, 10, 9, 0),
+        valor_centavos=500000,
+        documento_contraparte="10493827000160",
+        descricao="TRANSFERENCIA MESMA TITULARIDADE",
+        tipo="internal_transfer",
+    )
+
+    fechamento = fechar(recebiveis=[], lancamentos=[t_fee, t_int], lojas=LOJAS, corte=CORTE)
+
+    assert fechamento.pendencias == []
+
+
 # Grupos (ADR 0002)
 
 

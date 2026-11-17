@@ -19,6 +19,8 @@ DOCUMENTO_DA_ADQUIRENTE = {
 
 CANCELADO = "cancelled"
 CHARGEBACK = "chargeback"
+# Tarifa da conta e transferência da própria titular não são crédito.
+NAO_E_CREDITO = {"fee", "internal_transfer"}
 
 
 def fechar(
@@ -107,8 +109,10 @@ def _chave_forte(recebivel: Recebivel, lancamento: Lancamento) -> bool:
 
 
 def _normalizar(lancamentos: list[Lancamento]) -> list[Lancamento]:
-    """Lançamentos repetidos com a mesma transação são um só."""
+    """Lançamentos repetidos com a mesma transação são um só, e o que não é crédito sai."""
     por_transacao: dict[str, Lancamento] = {}
     for lancamento in lancamentos:
+        if lancamento.tipo in NAO_E_CREDITO:
+            continue
         por_transacao.setdefault(lancamento.transacao_id, lancamento)
     return list(por_transacao.values())
