@@ -48,7 +48,7 @@ class GrupoDeRecebiveis:
 
     @property
     def entre_lojas(self) -> bool:
-        raise NotImplementedError
+        return len({r.loja_id for r in self.recebiveis}) > 1
 
 
 class Severidade(Enum):
