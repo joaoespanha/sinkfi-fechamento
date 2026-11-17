@@ -106,3 +106,47 @@ def test_duplicata_nao_vira_pendencia():
     assert grupo.nao_caiu_centavos == 0
     assert grupo.proximo_fechamento_centavos == 0
     assert fechamento.pendencias == []
+
+
+def test_casamento_usa_a_adquirente_do_recebivel():
+    rec_1001 = Recebivel(
+        id="rec_1001",
+        loja_id="loja_centro",
+        adquirente="stone",
+        liquidacao_prevista=date(2026, 11, 5),
+        liquido_centavos=147750,
+        nsu="STN-1001",
+        parcela=1,
+        parcelas=1,
+        status="open",
+    )
+    ext_01 = Lancamento(
+        id="ext_01",
+        transacao_id="T-1001",
+        lancado_em=datetime(2026, 11, 5, 14, 2, 11, tzinfo=SAO_PAULO),
+        valor_centavos=147750,
+        documento_contraparte=STONE,
+        descricao="STN-1001",
+        tipo="settlement",
+    )
+    # T-XREF: Pix de um terceiro que cita o NSU da Stone. Não vem da Stone.
+    ext_20 = Lancamento(
+        id="ext_20",
+        transacao_id="T-XREF",
+        lancado_em=datetime(2026, 11, 9, 17, 5, 41, tzinfo=SAO_PAULO),
+        valor_centavos=147750,
+        documento_contraparte="11111111000111",
+        descricao="STN-1001",
+        tipo="pix_in",
+    )
+
+    fechamento = fechar(
+        recebiveis=[rec_1001],
+        lancamentos=[ext_01, ext_20],
+        lojas=[LOJA_CENTRO],
+        corte=CORTE,
+    )
+
+    [grupo] = fechamento.grupos
+    assert [c.id for c in grupo.creditos] == ["ext_01"]
+    assert grupo.caiu_centavos == 147750
