@@ -7,10 +7,13 @@ import shutil
 from datetime import time
 from pathlib import Path
 
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from sinkfi import usuarios
 from sinkfi.banco import repositorios
 from sinkfi.ingestao.ingerir import ingerir
+from sinkfi.tipos import Papel
 
 DADOS = Path(__file__).resolve().parents[3] / "dados"
 MARINA = "cli_marina"
@@ -57,3 +60,37 @@ def dados_com_recebivel_cancelado(pasta: Path, recebivel_id: str) -> Path:
 def _copiar_dados(pasta: Path) -> None:
     for arquivo in DADOS.glob("*.csv"):
         shutil.copy(arquivo, pasta)
+
+
+SENHA = "senha-de-teste"
+LOJISTA_MARINA = "marina@sinkfi.test"
+SUPORTE = "suporte@sinkfi.test"
+OUTRO = "cli_outro"
+LOJISTA_OUTRO = "outro@sinkfi.test"
+
+
+def criar_lojista(sessao: Session, email: str, cliente_id: str) -> None:
+    usuarios.criar_usuario(sessao, email=email, senha=SENHA, papel=Papel.LOJISTA, cliente_id=cliente_id)
+
+
+def criar_suporte(sessao: Session, email: str = SUPORTE) -> None:
+    usuarios.criar_usuario(sessao, email=email, senha=SENHA, papel=Papel.SUPORTE)
+
+
+def preparar_outro_cliente(sessao: Session) -> None:
+    """Um segundo cliente, sem dados, com a lojista dele."""
+    repositorios.criar_cliente(
+        sessao,
+        id=OUTRO,
+        nome="Outro",
+        dia_fechamento=1,
+        hora_corte=time(18, 0),
+        fuso="America/Sao_Paulo",
+    )
+    criar_lojista(sessao, LOJISTA_OUTRO, OUTRO)
+
+
+def entrar(http: TestClient, email: str, senha: str = SENHA) -> None:
+    """Login de verdade: o cookie fica no TestClient para as próximas requisições."""
+    resposta = http.post("/login", json={"email": email, "senha": senha})
+    assert resposta.status_code == 204, resposta.text

@@ -33,13 +33,22 @@ function pendencias(itens: Item[]): Pendencia[] {
     )
 }
 
-export function TelaFechamento({ clienteId }: { clienteId: string }) {
+export function TelaFechamento({
+  clienteId,
+  aoPerderSessao,
+}: {
+  clienteId: string
+  // 401: o token venceu (8 horas) ou o usuário foi desativado. A tela volta ao login.
+  aoPerderSessao: () => void
+}) {
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' })
 
   useEffect(() => {
     const controle = new AbortController()
     fetch(`/api/clientes/${encodeURIComponent(clienteId)}/fechamento`, { signal: controle.signal })
       .then(async (resposta) => {
+        if (resposta.status === 401) return aoPerderSessao()
+        // 404 também é cliente de outro dono ou inexistente (ADR 0005).
         if (resposta.status === 404) return setEstado({ tipo: 'sem_rodada' })
         if (!resposta.ok) return setEstado({ tipo: 'erro' })
         setEstado({ tipo: 'pronto', fechamento: (await resposta.json()) as Fechamento })
@@ -51,7 +60,7 @@ export function TelaFechamento({ clienteId }: { clienteId: string }) {
         }
       })
     return () => controle.abort()
-  }, [clienteId])
+  }, [clienteId, aoPerderSessao])
 
   switch (estado.tipo) {
     case 'carregando':

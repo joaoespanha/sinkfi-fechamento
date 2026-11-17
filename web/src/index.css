@@ -138,3 +138,31 @@ tbody tr[data-severidade='para_conferir'] th {
   td:nth-child(3)::before { content: 'Origem: '; color: var(--texto-suave); }
   td:nth-child(4)::before { content: 'Valor: '; color: var(--texto-suave); }
 }
+
+.login,
+.escolher-cliente {
+  display: grid;
+  gap: 0.5rem;
+  max-inline-size: 22rem;
+  margin-block-end: 1.5rem;
+
+  h2 { font-size: 1.125rem; margin: 0; }
+  input { font: inherit; padding: 0.5rem; border: 1px solid var(--borda); border-radius: 0.25rem; background: var(--fundo); color: inherit; }
+  button { font: inherit; padding: 0.5rem 1rem; justify-self: start; }
+}
+
+.login-falha {
+  color: var(--perigo);
+  margin: 0;
+  min-block-size: 1.5em;
+}
+
+.sessao {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  color: var(--texto-suave);
+  margin-block: 0 1rem;
+
+  button { font: inherit; }
+}

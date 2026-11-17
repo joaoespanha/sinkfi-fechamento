@@ -2,9 +2,10 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from fechamento import Lancamento, Motivo, Recebivel, Recomendacao, Severidade
+from sinkfi.tipos import Papel
 
 
 class _DeAtributos(BaseModel):
@@ -46,3 +47,20 @@ class FechamentoResposta(BaseModel):
     rodada: RodadaLida
     resumo: ResumoLido
     itens: list[ItemLido]
+
+
+class LoginEntrada(BaseModel):
+    email: str
+    senha: str
+
+
+class EuResposta(BaseModel):
+    email: str
+    papel: Papel
+    # None para o suporte, que não pertence a nenhum cliente.
+    cliente_id: str | None
+
+
+class LimiteEntrada(BaseModel):
+    # None desliga a trava (ADR 0003).
+    limite_trava_centavos: int | None = Field(ge=0)

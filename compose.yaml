@@ -50,6 +50,8 @@ services:
     command: ["uvicorn", "sinkfi.api:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/api"]
     environment:
       DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
+      # Assina o cookie de sessão (ADR 0005). O padrão só serve à demonstração.
+      JWT_SECRET: ${JWT_SECRET:-segredo-da-demonstracao-troque-fora-dela}
     depends_on:
       migrar:
         condition: service_completed_successfully
