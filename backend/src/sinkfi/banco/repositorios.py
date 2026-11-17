@@ -16,8 +16,9 @@ from sinkfi.banco.modelos import (
     LinhaLoja,
     LinhaRecebivel,
     LinhaRodada,
+    LinhaUsuario,
 )
-from sinkfi.tipos import Entrada, ItemRodada, Rodada
+from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, Papel, Rodada, Usuario
 
 
 def criar_cliente(
@@ -51,6 +52,13 @@ def definir_limite(sessao: Session, cliente_id: str, limite_trava_centavos: int 
 
 def limite_do_cliente(sessao: Session, cliente_id: str) -> int | None:
     return sessao.get_one(LinhaCliente, cliente_id).limite_trava_centavos
+
+
+def config_do_cliente(sessao: Session, cliente_id: str) -> ConfigFechamento | None:
+    linha = sessao.get(LinhaCliente, cliente_id)
+    if linha is None:
+        return None
+    return ConfigFechamento(dia_fechamento=linha.dia_fechamento, hora_corte=linha.hora_corte, fuso=linha.fuso)
 
 
 def cliente_existe(sessao: Session, id: str) -> bool:
@@ -245,3 +253,37 @@ def _recebivel_do_json(d: dict[str, Any]) -> Recebivel:
 
 def _lancamento_do_json(d: dict[str, Any]) -> Lancamento:
     return Lancamento(**d | {"lancado_em": datetime.fromisoformat(d["lancado_em"])})
+
+
+def gravar_usuario(
+    sessao: Session, *, email: str, senha_hash: str, papel: Papel, cliente_id: str | None
+) -> Usuario:
+    linha = LinhaUsuario(email=email, senha_hash=senha_hash, papel=papel.value, cliente_id=cliente_id, ativo=True)
+    sessao.add(linha)
+    sessao.flush()
+    return _usuario(linha)
+
+
+def usuario_por_id(sessao: Session, id: int) -> Usuario | None:
+    linha = sessao.get(LinhaUsuario, id)
+    return _usuario(linha) if linha else None
+
+
+def usuario_e_hash_por_email(sessao: Session, email: str) -> tuple[Usuario, str] | None:
+    linha = sessao.scalars(select(LinhaUsuario).where(LinhaUsuario.email == email)).one_or_none()
+    return (_usuario(linha), linha.senha_hash) if linha else None
+
+
+def desativar_usuario(sessao: Session, email: str) -> None:
+    sessao.scalars(select(LinhaUsuario).where(LinhaUsuario.email == email)).one().ativo = False
+    sessao.flush()
+
+
+def _usuario(linha: LinhaUsuario) -> Usuario:
+    return Usuario(
+        id=linha.id,
+        email=linha.email,
+        papel=Papel(linha.papel),
+        cliente_id=linha.cliente_id,
+        ativo=linha.ativo,
+    )

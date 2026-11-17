@@ -40,6 +40,21 @@ def rodar_fechamento(
     return rodada
 
 
+def reprocessar(sessao: Session, cliente_id: str) -> Rodada | None:
+    """Roda de novo o corte da rodada mais recente, com a entrada de agora.
+
+    Sem entrada nova, o hash é o mesmo e a rodada existente volta. None quando o
+    cliente ainda não tem rodada: quem cria a rodada da semana é o agendamento (#10).
+    """
+    rodadas = repositorios.rodadas_do_cliente(sessao, cliente_id)
+    config = repositorios.config_do_cliente(sessao, cliente_id)
+    if not rodadas or config is None:
+        return None
+    # O banco devolve o corte no fuso da conexão; a data do fechamento é a do fuso do cliente.
+    corte = rodadas[0].corte.astimezone(ZoneInfo(config.fuso))
+    return rodar_fechamento(sessao, cliente_id, corte)
+
+
 def hash_da_rodada(entrada: Entrada, corte: datetime, versao: str) -> str:
     conteudo = {
         "recebiveis": _ordenados(entrada.recebiveis),

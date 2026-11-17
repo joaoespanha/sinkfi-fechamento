@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date, datetime, time
+from enum import StrEnum
 
 from fechamento import Lancamento, Loja, Motivo, Recebivel, Severidade
 
@@ -51,3 +52,19 @@ class ConfigFechamento:
     dia_fechamento: int
     hora_corte: time
     fuso: str
+
+
+class Papel(StrEnum):
+    LOJISTA = "lojista"
+    SUPORTE = "suporte"
+
+
+@dataclass(frozen=True)
+class Usuario:
+    """Sem a senha: o hash só sai do repositório para a conferência do login."""
+
+    id: int
+    email: str
+    papel: Papel
+    cliente_id: str | None
+    ativo: bool

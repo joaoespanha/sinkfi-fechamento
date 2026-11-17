@@ -8,7 +8,7 @@ from datetime import date, datetime, time
 
 from typing import Any
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Identity, Index, SmallInteger, Text, Time, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Identity, Index, SmallInteger, Text, Time, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -109,3 +109,23 @@ class LinhaItemRodada(Base):
     pendencia_centavos: Mapped[int | None] = mapped_column(BigInteger)
     recebiveis: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
     creditos: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+
+
+class LinhaUsuario(Base):
+    """A lojista tem cliente; o suporte não (ADR 0005). O CHECK fica no banco."""
+
+    __tablename__ = "usuarios"
+    __table_args__ = (
+        CheckConstraint(
+            "(papel = 'lojista' AND cliente_id IS NOT NULL)"
+            " OR (papel = 'suporte' AND cliente_id IS NULL)",
+            name="ck_usuarios_papel_e_cliente",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    email: Mapped[str] = mapped_column(Text, unique=True)
+    senha_hash: Mapped[str] = mapped_column(Text)
+    papel: Mapped[str] = mapped_column(Text)
+    cliente_id: Mapped[str | None] = mapped_column(ForeignKey("clientes.id"))
+    ativo: Mapped[bool] = mapped_column(Boolean, server_default="true")

@@ -39,7 +39,7 @@ def sessao(engine: Engine) -> Iterator[Session]:
 @pytest.fixture
 def http(sessao: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """Cliente HTTP sem login. https por causa do cookie `Secure` (ADR 0005)."""
-    monkeypatch.setenv("JWT_SECRET", "segredo-so-dos-testes")
+    monkeypatch.setenv("JWT_SECRET", "segredo-so-dos-testes-com-32-bytes-ou-mais")
     app.dependency_overrides[obter_sessao] = lambda: sessao
     yield TestClient(app, base_url="https://testserver")
     app.dependency_overrides.clear()

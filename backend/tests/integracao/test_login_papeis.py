@@ -1,7 +1,6 @@
 """Login e os dois papéis (ADR 0005): quem vê o quê, e o ponto único de checagem."""
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -24,12 +23,12 @@ from tests.integracao.cenarios import (
 
 
 def _rotas_com_cliente() -> list[tuple[str, str]]:
-    """Toda rota com cliente no endereço, lida do app: rota nova entra sozinha no teste."""
+    """Toda rota com cliente no endereço, lida do contrato do app: rota nova entra sozinha no teste."""
     rotas = [
-        (metodo, rota.path)
-        for rota in app.routes
-        if isinstance(rota, APIRoute) and rota.path.startswith("/clientes/{cliente_id}")
-        for metodo in rota.methods
+        (metodo.upper(), caminho)
+        for caminho, operacoes in app.openapi()["paths"].items()
+        if caminho.startswith("/clientes/{cliente_id}")
+        for metodo in operacoes
     ]
     assert ("GET", "/clientes/{cliente_id}/fechamento") in rotas
     return sorted(rotas)
