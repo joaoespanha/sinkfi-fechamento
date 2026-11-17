@@ -7,7 +7,11 @@ authors = [
     { name = "joaoespanha", email = "jpbesr@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "sqlalchemy>=2.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
@@ -16,6 +20,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=9.2.0",
+    "testcontainers[postgres]>=4.9",
 ]
 
 [tool.uv.build-backend]
