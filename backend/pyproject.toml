@@ -1,0 +1,26 @@
+[project]
+name = "sinkfi-backend"
+version = "0.1.0"
+description = "Back-end do fechamento da sinkfi: regra pura, repositórios, api e worker"
+readme = "README.md"
+authors = [
+    { name = "joaoespanha", email = "jpbesr@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.uv.build-backend]
+module-name = "fechamento"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
