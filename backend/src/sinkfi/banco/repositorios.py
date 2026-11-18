@@ -18,6 +18,7 @@ from sinkfi.banco.modelos import (
     LinhaMudancaLimite,
     LinhaPedidoFechamento,
     LinhaRecebivel,
+    LinhaResolucao,
     LinhaRodada,
     LinhaConferencia,
     LinhaUsuario,
@@ -31,6 +32,7 @@ from sinkfi.tipos import (
     MudancaLimite,
     Papel,
     PedidoFechamento,
+    Resolucao,
     Rodada,
     Conferencia,
     Usuario,
@@ -456,6 +458,61 @@ def conferencias_do_cliente(sessao: Session, cliente_id: str) -> list[Conferenci
         )
         for t, email in linhas
     ]
+
+
+def gravar_resolucao(
+    sessao: Session,
+    *,
+    cliente_id: str,
+    lancamento_id: str,
+    usuario_id: int,
+    em: datetime,
+    valor_centavos: int,
+    nota: str,
+) -> None:
+    sessao.add(
+        LinhaResolucao(
+            cliente_id=cliente_id,
+            lancamento_id=lancamento_id,
+            usuario_id=usuario_id,
+            em=em,
+            desfeita=False,
+            valor_centavos=valor_centavos,
+            nota=nota,
+        )
+    )
+    sessao.flush()
+
+
+def gravar_desfeita(sessao: Session, *, cliente_id: str, lancamento_id: str, usuario_id: int, em: datetime) -> None:
+    sessao.add(
+        LinhaResolucao(
+            cliente_id=cliente_id, lancamento_id=lancamento_id, usuario_id=usuario_id, em=em, desfeita=True
+        )
+    )
+    sessao.flush()
+
+
+def resolucoes_do_cliente(sessao: Session, cliente_id: str) -> dict[str, Resolucao]:
+    """As resoluções em vigor, por lançamento: o registro mais recente de cada um, quando não é de desfeita."""
+    linhas = sessao.execute(
+        select(LinhaResolucao, LinhaUsuario.email)
+        .join(LinhaUsuario, LinhaUsuario.id == LinhaResolucao.usuario_id)
+        .where(LinhaResolucao.cliente_id == cliente_id)
+        .order_by(LinhaResolucao.id)
+    ).all()
+    mais_recente = {r.lancamento_id: (r, email) for r, email in linhas}
+    return {
+        lancamento_id: Resolucao(
+            lancamento_id=lancamento_id,
+            valor_centavos=r.valor_centavos,
+            quem=email,
+            em=r.em,
+            nota=r.nota,
+        )
+        for lancamento_id, (r, email) in mais_recente.items()
+        if not r.desfeita and r.valor_centavos is not None and r.nota is not None
+    }
 
 
 def gravar_pedido_fechamento(sessao: Session, cliente_id: str) -> None:

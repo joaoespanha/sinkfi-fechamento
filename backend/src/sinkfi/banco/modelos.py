@@ -168,6 +168,34 @@ class LinhaConferencia(Base):
     resumo: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
 
+class LinhaResolucao(Base):
+    """Só inserção (ADR 0014): desfazer grava um registro com `desfeita`. Vale o mais recente de cada lançamento."""
+
+    __tablename__ = "resolucoes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["cliente_id", "lancamento_id"],
+            ["lancamentos.cliente_id", "lancamentos.id"],
+            name="resolucoes_lancamento_fkey",
+        ),
+        CheckConstraint(
+            "desfeita OR (valor_centavos IS NOT NULL AND nota IS NOT NULL)",
+            name="ck_resolucoes_valor_e_nota",
+        ),
+        Index("ix_resolucoes_cliente_id_lancamento_id", "cliente_id", "lancamento_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"))
+    lancamento_id: Mapped[str] = mapped_column(Text)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    desfeita: Mapped[bool] = mapped_column(Boolean)
+    # O valor da pendência resolvida e a nota. NULL só no registro de desfeita.
+    valor_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    nota: Mapped[str | None] = mapped_column(Text)
+
+
 class LinhaPedidoFechamento(Base):
     """O outbox da ingestão (ADR 0004): nasce na transação do dado; o relay marca `publicado_em`."""
 

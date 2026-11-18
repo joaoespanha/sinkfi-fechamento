@@ -173,6 +173,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clientes/{cliente_id}/resolucoes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolver Pendencia
+         * @description Marca uma pendência para conferir como resolvida (ADR 0014). Vale para o lançamento em todos os fechamentos.
+         */
+        post: operations["resolver_pendencia_clientes__cliente_id__resolucoes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clientes/{cliente_id}/resolucoes/{lancamento_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Desfazer Resolucao
+         * @description Desfaz a resolução em vigor do lançamento, com um registro novo: a pendência volta (ADR 0014).
+         */
+        delete: operations["desfazer_resolucao_clientes__cliente_id__resolucoes__lancamento_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clientes/{cliente_id}/fechamentos": {
         parameters: {
             query?: never;
@@ -378,6 +418,7 @@ export interface components {
             pendencia_centavos: number | null;
             /** Dia */
             dia: string | null;
+            resolucao: components["schemas"]["ResolucaoLida"] | null;
         };
         /** Lancamento */
         Lancamento: {
@@ -510,6 +551,33 @@ export interface components {
          * @enum {string}
          */
         Recomendacao: "pode_fechar" | "faltam" | "nao_feche";
+        /** ResolucaoEntrada */
+        ResolucaoEntrada: {
+            /** Rodada Id */
+            rodada_id: number;
+            /** Lancamento Id */
+            lancamento_id: string;
+            /**
+             * Nota
+             * @description O que a entrada é, como "aporte do sócio". Obrigatória, até 200 caracteres.
+             */
+            nota: string;
+        };
+        /**
+         * ResolucaoLida
+         * @description A resolução em vigor de uma pendência para conferir (ADR 0014). A nota é texto puro.
+         */
+        ResolucaoLida: {
+            /** Quem */
+            quem: string;
+            /**
+             * Em
+             * Format: date-time
+             */
+            em: string;
+            /** Nota */
+            nota: string;
+        };
         /** ResumoLido */
         ResumoLido: {
             recomendacao: components["schemas"]["Recomendacao"];
@@ -917,6 +985,75 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ConferenciaLida"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolver_pendencia_clientes__cliente_id__resolucoes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolucaoEntrada"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolucaoLida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    desfazer_resolucao_clientes__cliente_id__resolucoes__lancamento_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+                lancamento_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

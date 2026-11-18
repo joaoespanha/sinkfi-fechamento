@@ -37,6 +37,11 @@ def _rotas_com_cliente() -> list[tuple[str, str]]:
 ROTAS_COM_CLIENTE = _rotas_com_cliente()
 
 
+def _endereco(caminho: str, rodada_id: int) -> str:
+    """O caminho com ids que existem na Marina: o 404 vem do dono, não da falta do recurso."""
+    return caminho.format(cliente_id=MARINA, rodada_id=rodada_id, lancamento_id="ext_20")
+
+
 @pytest.fixture
 def marina_com_rodada(sessao: Session) -> int:
     """O id da rodada, para as rotas que têm `{rodada_id}` no endereço."""
@@ -52,7 +57,7 @@ def test_lojista_nao_ve_fechamento_de_outro_cliente(
     preparar_outro_cliente(sessao)
     entrar(http, LOJISTA_OUTRO)
 
-    resposta = http.request(metodo, caminho.format(cliente_id=MARINA, rodada_id=marina_com_rodada), json={})
+    resposta = http.request(metodo, _endereco(caminho, marina_com_rodada), json={})
 
     assert resposta.status_code == 404
 
@@ -114,7 +119,7 @@ def test_suporte_com_cliente_que_nao_existe_recebe_404(
 def test_rota_sem_token_devolve_401(
     http: TestClient, marina_com_rodada: int, metodo: str, caminho: str
 ):
-    resposta = http.request(metodo, caminho.format(cliente_id=MARINA, rodada_id=marina_com_rodada), json={})
+    resposta = http.request(metodo, _endereco(caminho, marina_com_rodada), json={})
 
     assert resposta.status_code == 401
 

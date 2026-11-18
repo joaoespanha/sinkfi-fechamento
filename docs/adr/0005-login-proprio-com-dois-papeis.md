@@ -12,6 +12,7 @@ A `api` faz o próprio login e decide o acesso por dois papéis: a lojista vê s
 | Mudar o limite da trava | Sim | Não |
 | Pedir reprocessamento | Não | Sim |
 | Marcar como conferido (ADR 0012) | Sim | Não |
+| Resolver uma pendência para conferir (ADR 0014) | Sim | Não |
 
 - Cada lojista pertence a um cliente. O suporte não pertence a nenhum.
 - A senha é guardada com hash (argon2). O login devolve um token JWT em cookie `httpOnly` com `SameSite=Strict`, válido por 8 horas, sem renovação.

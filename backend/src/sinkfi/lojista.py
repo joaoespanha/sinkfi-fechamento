@@ -1,4 +1,5 @@
-"""O que a lojista faz na tela além de ler: mudar o limite e marcar o fechamento como conferido (ADR 0005, #12).
+"""O que a lojista faz na tela além de ler: mudar o limite, marcar o fechamento como conferido (ADR 0005, #12)
+e resolver uma pendência para conferir (ADR 0014).
 
 Nada aqui cria rodada nem passa pela fila. Cada ação deixa um registro só de inserção.
 Como os outros serviços, não faz commit: quem chama é dono da transação.
@@ -8,9 +9,10 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from fechamento import Severidade
 from sinkfi.banco import repositorios
 from sinkfi.leitura import fechamento_da_rodada
-from sinkfi.tipos import Conferencia, Usuario
+from sinkfi.tipos import Conferencia, Resolucao, Usuario
 
 
 def mudar_limite(sessao: Session, cliente_id: str, usuario: Usuario, limite_trava_centavos: int | None) -> None:
@@ -53,6 +55,63 @@ def conferir(sessao: Session, cliente_id: str, usuario: Usuario, rodada_id: int)
         resumo=conferencia.resumo,
     )
     return conferencia
+
+
+class PendenciaNaoEncontrada(Exception):
+    """A rodada não é do cliente, ou o lançamento não é um item de pendência dela."""
+
+
+class PendenciaNaoSeResolve(Exception):
+    """Só a pendência para conferir se resolve: a falta de verdade, não (ADR 0014)."""
+
+
+def resolver(
+    sessao: Session, cliente_id: str, usuario: Usuario, rodada_id: int, lancamento_id: str, nota: str
+) -> Resolucao:
+    """Grava a resolução presa ao lançamento e ao valor da pendência na rodada que a tela mostra.
+
+    A rodada é procurada dentro do cliente, e o valor e a severidade vêm do item dela, nunca do corpo.
+    """
+    rodada = repositorios.rodada_do_cliente(sessao, cliente_id, rodada_id)
+    item = next(
+        (
+            i
+            for i in (repositorios.itens_da_rodada(sessao, rodada.id) if rodada else [])
+            if not i.recebiveis and i.severidade and [c.id for c in i.creditos] == [lancamento_id]
+        ),
+        None,
+    )
+    if item is None or item.pendencia_centavos is None:
+        raise PendenciaNaoEncontrada
+    if item.severidade is not Severidade.PARA_CONFERIR:
+        raise PendenciaNaoSeResolve
+    resolucao = Resolucao(
+        lancamento_id=lancamento_id,
+        valor_centavos=item.pendencia_centavos,
+        quem=usuario.email,
+        em=_agora(),
+        nota=nota,
+    )
+    repositorios.gravar_resolucao(
+        sessao,
+        cliente_id=cliente_id,
+        lancamento_id=lancamento_id,
+        usuario_id=usuario.id,
+        em=resolucao.em,
+        valor_centavos=resolucao.valor_centavos,
+        nota=nota,
+    )
+    return resolucao
+
+
+def desfazer(sessao: Session, cliente_id: str, usuario: Usuario, lancamento_id: str) -> bool:
+    """Grava a desfeita da resolução em vigor; nada é apagado. False quando o lançamento não tem resolução."""
+    if lancamento_id not in repositorios.resolucoes_do_cliente(sessao, cliente_id):
+        return False
+    repositorios.gravar_desfeita(
+        sessao, cliente_id=cliente_id, lancamento_id=lancamento_id, usuario_id=usuario.id, em=_agora()
+    )
+    return True
 
 
 def _agora() -> datetime:
