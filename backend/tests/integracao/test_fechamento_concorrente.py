@@ -62,7 +62,9 @@ class EmOutraConexao(threading.Thread):
 
 def esperar_ate_bloquear(banco: Engine, outra: threading.Thread) -> bool:
     """Devolve True quando alguma conexão do banco está parada esperando uma trava, e False se `outra` terminou antes."""
-    with banco.connect() as conexao:
+    # Em autocommit, cada consulta é uma transação. Dentro de uma transação só, o Postgres guarda o retrato do
+    # pg_stat_activity da primeira leitura, e a espera que começa depois dela nunca apareceria.
+    with banco.connect().execution_options(isolation_level="AUTOCOMMIT") as conexao:
         for _ in range(100):
             esperando = conexao.execute(
                 text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'")
