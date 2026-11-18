@@ -89,8 +89,8 @@ class MudancaLimite:
 
 
 @dataclass(frozen=True)
-class Termino:
-    """Um "Terminei": a rodada que a lojista viu, com o limite e o resumo daquele momento."""
+class Conferencia:
+    """Uma conferência: a rodada que a lojista viu, com o limite e o resumo daquele momento."""
 
     quem: str
     em: datetime

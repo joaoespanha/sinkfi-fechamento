@@ -16,7 +16,7 @@ Até aqui a tela mostrava só a rodada criada por último, e a demonstração fi
 - **Foto, não recálculo.** Um fechamento já calculado mostra a sua rodada mais recente. Só o atual recebe rodada nova da ingestão; um anterior só muda com "Reprocessar".
 - **Pedido manual com corte.** O pedido da ingestão continua sem corte (#11): o worker calcula o fechamento atual na hora. O pedido de quem escolheu um fechamento, e o "Reprocessar", levam o corte.
 - **Âncora dos cortes na demonstração.** Os CSVs batem com o corte de terça, 10/11, e a Marina fecha na segunda. `SINKFI_ANCORA_DOS_CORTES` faz os cortes da demonstração andarem de 7 em 7 dias a partir de 10/11 às 18:00. Sem ela, valem o dia, a hora e o fuso do cliente.
-- **Término em qualquer fechamento com rodada.** A tela avisa quando um fechamento anterior ao atual tem pendência e não tem término na sua rodada mais recente. O aviso não cria estado de "semana fechada" (ADR 0003): ele só lê os términos.
+- **Conferência em qualquer fechamento com rodada** (o antigo término, ADR 0012). A tela avisa quando um fechamento anterior ao atual tem pendência e não tem conferência na sua rodada mais recente. O aviso não cria estado de "semana fechada" (ADR 0003): ele só lê as conferências.
 
 ## Alternativas recusadas
 
@@ -25,7 +25,7 @@ Até aqui a tela mostrava só a rodada criada por último, e a demonstração fi
 - **Calcular na api.** Mais rápido de fazer, mas quebra o ADR 0004.
 - **Corte do enunciado como semana extra na lista de segundas.** Duas semanas sobrepostas, com um dia de diferença, e os recebíveis de 10/11 mudando de semana conforme a escolha.
 - **Mudar o dia de fechamento da Marina para terça.** O dia é dela.
-- **Término só no fechamento atual.** O aviso de fechamento sem término não teria ação.
+- **Conferência só no fechamento atual.** O aviso de fechamento sem conferência não teria ação.
 
 ## Consequências
 
@@ -41,4 +41,4 @@ Até aqui a tela mostrava só a rodada criada por último, e a demonstração fi
 - `fechamento_atual_e_o_mais_recente_com_recebivel_previsto_ou_credito`
 - `voltar_a_uma_semana_ja_calculada_mostra_a_rodada_dela`
 - `pedir_semana_enfileira_o_corte_daquela_semana`
-- `aviso_mostra_fechamento_anterior_com_pendencia_e_sem_termino`
+- `aviso_mostra_fechamento_anterior_com_pendencia_e_sem_conferencia`

@@ -35,12 +35,12 @@ O ADR 0005 dá ao suporte acesso a qualquer cliente, mas não diz como ele chega
 O suporte vê **a mesma tela da lojista**: num chamado, os dois olham a mesma coisa. Por cima dela fica uma faixa só do suporte, que traz:
 
 - "Você está vendo o fechamento como <cliente> vê";
-- o "Terminei" visto de fora, com o e-mail de quem marcou, quando e em qual rodada, ou "Ninguém terminou este fechamento ainda";
+- a conferência vista de fora (ADR 0012), com o e-mail de quem marcou, quando e em qual rodada, ou "Ninguém conferiu este fechamento ainda";
 - o botão **Pedir rodada nova**, que chama `POST /clientes/{id}/reprocessar` para a semana mostrada.
 
 O pedido vai para a fila. A tela avisa "Pedido enviado" e recarrega uma vez depois de 5 s. Ela não espera a rodada chegar: sem entrada nova, o hash é o mesmo e a rodada que volta é a mesma (ADR 0007), então não há o que esperar.
 
-Os textos de estado que o suporte também lê ficaram sem pronome, para a lojista e para o suporte: "acima do limite de R$ …", "O fechamento de 10/11 ainda não foi terminado" e "mudou desde o último Terminei". O "?" dos termos e o "o que fazer" de cada item continuam falando com a lojista. São instruções que o suporte repassa no chamado.
+Os textos de estado que o suporte também lê ficaram sem pronome, para a lojista e para o suporte: "acima do limite de R$ …", "O fechamento de 10/11 ainda não foi conferido" e "mudou desde a última conferência". O "?" dos termos e o "o que fazer" de cada item continuam falando com a lojista. São instruções que o suporte repassa no chamado.
 
 Ficam fora, como corte de escopo:
 - **o histórico de rodadas na tela**: `GET /rodadas` existe, e a investigação usa `python -m sinkfi.reproduzir`;

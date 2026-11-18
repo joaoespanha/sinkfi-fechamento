@@ -19,7 +19,7 @@ from sinkfi.banco.modelos import (
     LinhaPedidoFechamento,
     LinhaRecebivel,
     LinhaRodada,
-    LinhaTermino,
+    LinhaConferencia,
     LinhaUsuario,
 )
 from sinkfi.tipos import (
@@ -32,7 +32,7 @@ from sinkfi.tipos import (
     Papel,
     PedidoFechamento,
     Rodada,
-    Termino,
+    Conferencia,
     Usuario,
 )
 
@@ -409,7 +409,7 @@ def mudancas_de_limite(sessao: Session, cliente_id: str) -> list[MudancaLimite]:
     ]
 
 
-def gravar_termino(
+def gravar_conferencia(
     sessao: Session,
     *,
     cliente_id: str,
@@ -420,7 +420,7 @@ def gravar_termino(
     resumo: Resumo,
 ) -> None:
     sessao.add(
-        LinhaTermino(
+        LinhaConferencia(
             cliente_id=cliente_id,
             usuario_id=usuario_id,
             em=em,
@@ -432,16 +432,16 @@ def gravar_termino(
     sessao.flush()
 
 
-def terminos_do_cliente(sessao: Session, cliente_id: str) -> list[Termino]:
+def conferencias_do_cliente(sessao: Session, cliente_id: str) -> list[Conferencia]:
     """Do mais antigo para o mais novo."""
     linhas = sessao.execute(
-        select(LinhaTermino, LinhaUsuario.email)
-        .join(LinhaUsuario, LinhaUsuario.id == LinhaTermino.usuario_id)
-        .where(LinhaTermino.cliente_id == cliente_id)
-        .order_by(LinhaTermino.id)
+        select(LinhaConferencia, LinhaUsuario.email)
+        .join(LinhaUsuario, LinhaUsuario.id == LinhaConferencia.usuario_id)
+        .where(LinhaConferencia.cliente_id == cliente_id)
+        .order_by(LinhaConferencia.id)
     ).all()
     return [
-        Termino(
+        Conferencia(
             quem=email,
             em=t.em,
             rodada_id=t.rodada_id,

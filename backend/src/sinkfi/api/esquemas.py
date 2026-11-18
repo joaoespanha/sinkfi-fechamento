@@ -45,8 +45,8 @@ class ItemLido(_DeAtributos):
     dia: date | None
 
 
-class TerminoLido(BaseModel):
-    """Um "Terminei": quem, quando, a rodada vista e o resumo daquele momento (com o limite de então)."""
+class ConferenciaLida(BaseModel):
+    """Uma conferência: quem, quando, a rodada vista e o resumo daquele momento (com o limite de então)."""
 
     quem: str
     em: datetime
@@ -74,12 +74,12 @@ class FechamentoResposta(BaseModel):
     rodada: RodadaLida
     resumo: ResumoLido
     itens: list[ItemLido]
-    # Se a rodada dele não é a mostrada, chegou fechamento novo depois do "Terminei".
-    ultimo_termino: TerminoLido | None
+    # Se a rodada dela não é a mostrada, chegou fechamento novo depois da conferência.
+    ultima_conferencia: ConferenciaLida | None
     atualizacao: AtualizacaoLida
 
 
-class TermineiEntrada(BaseModel):
+class ConferenciaEntrada(BaseModel):
     # A rodada que a tela está mostrando, não a mais recente do banco: pode ter chegado outra no meio.
     rodada_id: int
 
@@ -115,8 +115,8 @@ class SemanaLida(BaseModel):
     tem_rodada: bool
     itens_falta_de_verdade: int | None
     itens_para_conferir: int | None
-    terminado: bool
-    # Anterior ao atual, com pendência e sem "Terminei" na rodada mais recente.
+    conferido: bool
+    # Anterior ao atual, com pendência e sem conferência na rodada mais recente.
     aviso: bool
 
 

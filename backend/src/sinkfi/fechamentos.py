@@ -30,8 +30,8 @@ class Semana:
     # Da rodada mais recente do corte; None sem rodada.
     itens_falta_de_verdade: int | None
     itens_para_conferir: int | None
-    # A rodada mais recente do corte tem "Terminei".
-    terminado: bool
+    # A rodada mais recente do corte tem conferência.
+    conferido: bool
     # Anterior ao atual, com rodada, com pendência e sem término (ADR 0003: não é estado, é leitura).
     aviso: bool
 
@@ -75,7 +75,7 @@ def fechamentos_do_cliente(
     mais_recente = {}
     for rodada in repositorios.rodadas_do_cliente(sessao, cliente_id):
         mais_recente.setdefault(rodada.data_fechamento, rodada)
-    terminadas = {t.rodada_id for t in repositorios.terminos_do_cliente(sessao, cliente_id)}
+    conferidas = {t.rodada_id for t in repositorios.conferencias_do_cliente(sessao, cliente_id)}
 
     semanas = []
     for corte in reversed(lista):
@@ -85,7 +85,7 @@ def fechamentos_do_cliente(
             continue
         resumo = fechamento_da_rodada(sessao, rodada).resumo
         pendencias = resumo.itens_falta_de_verdade + resumo.itens_para_conferir
-        terminado = rodada.id in terminadas
+        conferido = rodada.id in conferidas
         semanas.append(
             Semana(
                 semana=corte.date(),
@@ -94,8 +94,8 @@ def fechamentos_do_cliente(
                 tem_rodada=True,
                 itens_falta_de_verdade=resumo.itens_falta_de_verdade,
                 itens_para_conferir=resumo.itens_para_conferir,
-                terminado=terminado,
-                aviso=atual is not None and corte < atual and pendencias > 0 and not terminado,
+                conferido=conferido,
+                aviso=atual is not None and corte < atual and pendencias > 0 and not conferido,
             )
         )
     return semanas

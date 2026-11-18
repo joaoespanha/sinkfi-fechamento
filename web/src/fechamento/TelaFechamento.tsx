@@ -11,7 +11,7 @@ import {
   diaDaSemana,
   emReais,
   fraseDaFaixa,
-  fraseDoTermino,
+  fraseDaConferencia,
   linhaDaAtualizacao,
   linhaDoResumo,
   PEDIDO_ENVIADO,
@@ -206,7 +206,7 @@ export function TelaFechamento({
                 dia={dia}
                 fechamento={estado.fechamento}
                 clienteId={clienteId}
-                // Só a lojista muda o limite e marca "Terminei" (ADR 0005); o suporte só olha.
+                // Só a lojista muda o limite e marca o fechamento como conferido (ADR 0005); o suporte só olha.
                 lojista={suporte === null}
                 acoes={acoes}
               />
@@ -217,12 +217,12 @@ export function TelaFechamento({
   )
 }
 
-/** Fechamentos anteriores ao atual com pendência e sem "Terminei". Lê os términos; não é estado (ADR 0003). */
+/** Fechamentos anteriores ao atual com pendência e sem conferência. Lê as conferências; não é estado (ADR 0003). */
 function Avisos({ semanas }: { semanas: Semana[] }) {
   const comAviso = semanas.filter((s) => s.aviso)
   if (comAviso.length === 0) return null
   return (
-    <section className="avisos" aria-label="Fechamentos sem término">
+    <section className="avisos" aria-label="Fechamentos sem conferência">
       {comAviso.map((s) => (
         <p key={s.semana}>
           {textoDoAviso(s)}{' '}
@@ -298,9 +298,9 @@ function Detalhe({
 
   return (
     <>
-      <AvisoDoTermino fechamento={fechamento} lojista={lojista} />
+      <AvisoDaConferencia fechamento={fechamento} lojista={lojista} />
 
-      {/* O resumo é um cartão (#32): a linha, o corte e a trava com o "?", a barra do esperado e o "Terminei". */}
+      {/* O resumo é um cartão (#32): a linha, o corte e a trava com o "?", a barra do esperado e o "Marcar como conferido". */}
       <section className="resumo" data-recomendacao={resumo.recomendacao} aria-label="Resumo do fechamento">
         <p className="resumo-linha">
           {linhaDoResumo(resumo)}
@@ -332,7 +332,7 @@ function Detalhe({
         <BarraDoEsperado fechamento={fechamento} />
         {lojista && (
           <div className="acoes" role="group" aria-label="O que fazer com este fechamento">
-            <Terminei clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
+            <Conferir clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
             <p className="ajuda">
               Registra que você conferiu esta rodada. Não trava nada. O limite da trava fica em{' '}
               <a href={hashDa({ tela: 'limite' })}>Limite</a>.
@@ -348,28 +348,28 @@ function Detalhe({
 }
 
 /**
- * O "Terminei" mais recente: na mesma rodada só informa; com rodada nova, mostra o antes e o agora.
+ * A conferência mais recente: na mesma rodada só informa; com rodada nova, mostra o antes e o agora.
  * Para o suporte, quem e quando já estão na faixa; aqui fica só o antes e o agora.
  */
-function AvisoDoTermino({ fechamento, lojista }: { fechamento: Fechamento; lojista: boolean }) {
-  const termino = fechamento.ultimo_termino
-  if (!termino) return null
-  if (termino.rodada_id === fechamento.rodada.id) {
+function AvisoDaConferencia({ fechamento, lojista }: { fechamento: Fechamento; lojista: boolean }) {
+  const conferencia = fechamento.ultima_conferencia
+  if (!conferencia) return null
+  if (conferencia.rodada_id === fechamento.rodada.id) {
     if (!lojista) return null
     return (
-      <p className="termino" role="status">
-        {termino.quem} terminou este fechamento em {quando(termino.em)}.
+      <p className="conferencia" role="status">
+        {conferencia.quem} conferiu este fechamento em {quando(conferencia.em)}.
       </p>
     )
   }
   return (
-    <div className="termino termino-mudou" role="status">
+    <div className="conferencia conferencia-mudou" role="status">
       <p>
-        <strong>O fechamento mudou desde o último Terminei</strong>, em {quando(termino.em)}.
+        <strong>O fechamento mudou desde a última conferência</strong>, em {quando(conferencia.em)}.
       </p>
       <dl>
         <dt>Antes</dt>
-        <dd>{linhaDoResumo(termino.resumo)}</dd>
+        <dd>{linhaDoResumo(conferencia.resumo)}</dd>
         <dt>Agora</dt>
         <dd>{linhaDoResumo(fechamento.resumo)}</dd>
       </dl>
@@ -377,16 +377,16 @@ function AvisoDoTermino({ fechamento, lojista }: { fechamento: Fechamento; lojis
   )
 }
 
-function Terminei({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId: number; acoes: Acoes }) {
+function Conferir({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId: number; acoes: Acoes }) {
   const [enviando, setEnviando] = useState(false)
   const [falhou, setFalhou] = useState(false)
 
-  async function terminar() {
+  async function conferir() {
     setEnviando(true)
     setFalhou(false)
     try {
       // A rodada que a tela mostra, não a mais recente do banco: pode ter chegado outra no meio.
-      const resposta = await enviar(`/clientes/${encodeURIComponent(clienteId)}/terminei`, 'POST', {
+      const resposta = await enviar(`/clientes/${encodeURIComponent(clienteId)}/conferencias`, 'POST', {
         rodada_id: rodadaId,
       })
       if (resposta.status === 401) return acoes.aoPerderSessao()
@@ -401,9 +401,9 @@ function Terminei({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId:
   }
 
   return (
-    <div className="terminei">
-      <button type="button" onClick={terminar} disabled={enviando}>
-        Terminei
+    <div className="conferir">
+      <button type="button" onClick={conferir} disabled={enviando}>
+        Marcar como conferido
       </button>
       <p role="status">{falhou ? 'Não foi possível registrar. Tente de novo.' : ''}</p>
     </div>
@@ -416,7 +416,7 @@ const RECARREGAR_DEPOIS_DO_PEDIDO_MS = 5_000
 
 /**
  * Só o suporte vê: a tela embaixo é a da lojista, para os dois olharem a mesma coisa num chamado.
- * Mostra o "Terminei" visto de fora e pede uma rodada nova da semana mostrada.
+ * Mostra a conferência vista de fora e pede uma rodada nova da semana mostrada.
  */
 function FaixaDoSuporte({
   nomeDoCliente,
@@ -458,7 +458,7 @@ function FaixaDoSuporte({
         <p>
           <strong>{fraseDaFaixa(nomeDoCliente)}</strong>
         </p>
-        {fechamento && <p>{fraseDoTermino(fechamento.ultimo_termino, fechamento.rodada.id)}</p>}
+        {fechamento && <p>{fraseDaConferencia(fechamento.ultima_conferencia, fechamento.rodada.id)}</p>}
       </div>
       {/* O reprocessamento só existe para semana com rodada; antes dela, a tela já pede o cálculo. */}
       {fechamento && (

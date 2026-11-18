@@ -73,8 +73,8 @@ def _semanas(http: TestClient) -> dict[str, dict]:
     return {s["semana"]: s for s in resposta.json()}
 
 
-def _terminei(http: TestClient, rodada: Rodada) -> None:
-    resposta = http.post(f"/clientes/{MARINA}/terminei", json={"rodada_id": rodada.id})
+def _conferir(http: TestClient, rodada: Rodada) -> None:
+    resposta = http.post(f"/clientes/{MARINA}/conferencias", json={"rodada_id": rodada.id})
     assert resposta.status_code == 201, resposta.text
 
 
@@ -177,20 +177,20 @@ def anterior_com_rodada(sessao: Session, marina: TestClient, tmp_path: Path) -> 
     return rodada
 
 
-def test_termino_vale_em_fechamento_anterior(
+def test_conferencia_vale_em_fechamento_anterior(
     sessao: Session, marina: TestClient, anterior_com_rodada: Rodada
 ):
     da_17 = rodar_fechamento(sessao, MARINA, CORTE_17)
 
-    _terminei(marina, anterior_com_rodada)
+    _conferir(marina, anterior_com_rodada)
 
-    assert _fechamento(marina, "2026-11-10")["ultimo_termino"]["rodada_id"] == anterior_com_rodada.id
+    assert _fechamento(marina, "2026-11-10")["ultima_conferencia"]["rodada_id"] == anterior_com_rodada.id
     # O término de 10/11 não aparece no fechamento de 17/11.
     assert _fechamento(marina, "2026-11-17")["rodada"]["id"] == da_17.id
-    assert _fechamento(marina, "2026-11-17")["ultimo_termino"] is None
+    assert _fechamento(marina, "2026-11-17")["ultima_conferencia"] is None
 
 
-def test_aviso_mostra_fechamento_anterior_com_pendencia_e_sem_termino(
+def test_aviso_mostra_fechamento_anterior_com_pendencia_e_sem_conferencia(
     marina: TestClient, anterior_com_rodada: Rodada
 ):
     semanas = _semanas(marina)
@@ -202,21 +202,21 @@ def test_aviso_mostra_fechamento_anterior_com_pendencia_e_sem_termino(
         "tem_rodada": True,
         "itens_falta_de_verdade": 5,
         "itens_para_conferir": 2,
-        "terminado": False,
+        "conferido": False,
         "aviso": True,
     }
     assert semanas["2026-11-17"]["atual"] is True
     assert semanas["2026-11-17"]["aviso"] is False
 
 
-def test_termino_no_fechamento_anterior_tira_ele_do_aviso(
+def test_conferencia_no_fechamento_anterior_tira_ele_do_aviso(
     marina: TestClient, anterior_com_rodada: Rodada
 ):
-    _terminei(marina, anterior_com_rodada)
+    _conferir(marina, anterior_com_rodada)
 
     semana = _semanas(marina)["2026-11-10"]
 
-    assert semana["terminado"] is True
+    assert semana["conferido"] is True
     assert semana["aviso"] is False
 
 

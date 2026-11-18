@@ -154,10 +154,10 @@ class LinhaMudancaLimite(Base):
     para_centavos: Mapped[int | None] = mapped_column(BigInteger)
 
 
-class LinhaTermino(Base):
-    """Só inserção (#12): cada "Terminei" com a rodada vista, o limite e o resumo do momento."""
+class LinhaConferencia(Base):
+    """Só inserção (#12): cada conferência com a rodada vista, o limite e o resumo do momento."""
 
-    __tablename__ = "terminos"
+    __tablename__ = "conferencias"
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"), index=True)

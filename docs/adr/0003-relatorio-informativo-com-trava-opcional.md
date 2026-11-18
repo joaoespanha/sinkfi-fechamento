@@ -18,7 +18,7 @@ O enunciado diz que ninguém definiu a partir de qual diferença o fechamento tr
 
 - Cada pendência é falta de verdade ou para conferir, e só a falta de verdade entra na soma da trava. Próximo fechamento não é pendência.
 - A regra é pura: (pendências, limite) → resumo. Não existe estado de "semana fechada".
-- Sem uma ação de fechar, o monitoramento perde o sinal direto de que a lojista terminou. Esse sinal (um botão "Terminei" que só registra o momento, ou um sinal indireto) se decide na seção Monitorar do `DECISOES.md`.
+- Sem uma ação de fechar, o monitoramento perde o sinal direto de que a lojista terminou. Esse sinal (um botão que só registra o momento, ou um sinal indireto) se decide na seção Monitorar do `DECISOES.md`. Virou a conferência (ADR 0012).
 
 ## Testes que garantem
 

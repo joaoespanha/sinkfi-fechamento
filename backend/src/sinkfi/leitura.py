@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from fechamento import Pendencia, Resumo, resumo
 from sinkfi.banco import repositorios
 from sinkfi.semanas import dia_do_item
-from sinkfi.tipos import ItemRodada, Rodada, Termino
+from sinkfi.tipos import ItemRodada, Rodada, Conferencia
 
 
 @dataclass(frozen=True)
@@ -28,8 +28,8 @@ class FechamentoLido:
     resumo: Resumo
     limite_trava_centavos: int | None
     itens: list[ItemDoDia]
-    # O "Terminei" mais recente das rodadas desta semana. A tela compara a rodada dele com a mostrada.
-    ultimo_termino: Termino | None
+    # A conferência mais recente das rodadas desta semana. A tela compara a rodada dela com a mostrada.
+    ultima_conferencia: Conferencia | None
     # A última ingestão do cliente (ADR 0011), não a hora da rodada. None = nunca teve ingestão.
     ultima_ingestao_em: datetime | None
 
@@ -51,13 +51,13 @@ def fechamento_da_rodada(sessao: Session, rodada: Rodada) -> FechamentoLido:
         r.id for r in repositorios.rodadas_do_cliente(sessao, rodada.cliente_id)
         if r.data_fechamento == rodada.data_fechamento
     }
-    terminos = [t for t in repositorios.terminos_do_cliente(sessao, rodada.cliente_id) if t.rodada_id in da_semana]
+    conferencias = [t for t in repositorios.conferencias_do_cliente(sessao, rodada.cliente_id) if t.rodada_id in da_semana]
     return FechamentoLido(
         rodada=rodada,
         resumo=resumo(_pendencias(itens), limite),
         limite_trava_centavos=limite,
         itens=[ItemDoDia(i, dia_do_item(i, rodada.corte, fuso)) for i in itens],
-        ultimo_termino=terminos[-1] if terminos else None,
+        ultima_conferencia=conferencias[-1] if conferencias else None,
         ultima_ingestao_em=repositorios.ultima_ingestao_do_cliente(sessao, rodada.cliente_id),
     )
 
