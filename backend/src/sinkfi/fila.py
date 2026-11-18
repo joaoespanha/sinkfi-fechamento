@@ -37,6 +37,13 @@ app.conf.update(
     # Confirma só depois de rodar: se o worker cair no meio, a mensagem volta para a fila.
     task_acks_late=True,
     task_reject_on_worker_lost=True,
+    # Mas o processo que morre conta como tentativa: acabadas as tentativas, vai para a dead letter.
+    # Sem isso, a mensagem que derruba o processo (falta de memória, por exemplo) volta para sempre.
+    task_retry_on_worker_lost=True,
+    # O limite brando lança `SoftTimeLimitExceeded` dentro da tarefa, e ela vai para a dead letter.
+    # O duro mata o processo e a mensagem recebe ack, sem dead letter: é só a rede de segurança.
+    task_soft_time_limit=120,
+    task_time_limit=150,
     # Falhou de vez (erro que não é passageiro, ou acabaram as tentativas): rejeita e vai para a dead letter.
     task_acks_on_failure=False,
     worker_prefetch_multiplier=1,
