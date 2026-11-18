@@ -68,6 +68,10 @@ class Fila(Protocol):
         """Quantas mensagens esperam na fila morta. `None` quando o broker não responde."""
         ...
 
+    def broker_responde(self) -> bool:
+        """O broker aceita conexão e login (`/health`)."""
+        ...
+
 
 class FilaCelery:
     """Publica pelo nome da tarefa, sem importar `sinkfi.tarefas`. O corte vai como texto ISO.
@@ -99,6 +103,15 @@ class FilaCelery:
             except (BrokerFora, *conexao.connection_errors, *conexao.channel_errors):
                 # Fora do ar, porta recusada ou login recusado (`AccessRefused`, que é erro de canal).
                 return None
+
+    def broker_responde(self) -> bool:
+        # A mesma tentativa única de até 2s da contagem: a sonda do compose não pode travar.
+        with app.connection_for_write(self._broker, connect_timeout=2) as conexao:
+            try:
+                conexao.ensure_connection(max_retries=0)
+                return True
+            except (BrokerFora, *conexao.connection_errors, *conexao.channel_errors):
+                return False
 
 
 def obter_fila() -> Fila:

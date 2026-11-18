@@ -127,6 +127,7 @@ class FilaFalsa:
         self.reprocessamentos: list[tuple[str, datetime]] = []
         # O que a fila morta teria; `None` é o RabbitMQ fora do ar.
         self.dead_letter: int | None = 0
+        self.broker_no_ar = True
 
     def pedir_fechamento(self, cliente_id: str) -> None:
         self.fechamentos.append(cliente_id)
@@ -139,3 +140,6 @@ class FilaFalsa:
 
     def mensagens_na_dead_letter(self) -> int | None:
         return self.dead_letter
+
+    def broker_responde(self) -> bool:
+        return self.broker_no_ar
