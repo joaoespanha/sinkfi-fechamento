@@ -139,11 +139,32 @@ select {
   box-shadow: var(--sombra);
 }
 
-/* Antes do login: sem sidebar. */
+/* Antes do login: sem sidebar, um cartão centralizado com a marca no topo. */
 .sozinha {
-  max-inline-size: 60rem;
-  margin-inline: auto;
+  box-sizing: border-box;
+  min-block-size: 100dvh;
+  display: grid;
+  place-items: center;
   padding: var(--espaco-4) var(--espaco-3);
+
+  & > section {
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 24rem;
+    display: grid;
+    gap: var(--espaco-4);
+    padding: 2rem var(--espaco-4);
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-cartao);
+    box-shadow: var(--sombra);
+  }
+
+  /* No celular, a regra da sidebar põe a .marca numa área do grid; aqui ela fica no fluxo. */
+  & .marca { grid-area: auto; margin: 0; }
+
+  & > section > p { margin: 0; color: var(--texto-suave); }
+  & > section > p[role='alert'] { color: var(--perigo); }
 }
 
 /* ───────── Casca (#25, variação B): a sidebar só navega; o conteúdo ocupa o resto. ───────── */
@@ -871,15 +892,43 @@ select {
 }
 
 /* ───────── Login e escolha de cliente ───────── */
+/* Campos e botão na largura toda do cartão; o botão é o primário da tela. */
 .login {
   display: grid;
-  gap: var(--espaco-2);
-  max-inline-size: 22rem;
-  margin-block: var(--espaco-3) var(--espaco-4);
+  gap: var(--espaco-1);
 
-  h2 { font-size: 1.125rem; margin: 0; }
-  input { padding: var(--espaco-2); }
-  button { padding: var(--espaco-2) var(--espaco-3); justify-self: start; }
+  h2 { font-size: 1.375rem; margin: 0; }
+
+  .login-sub {
+    margin: 0 0 var(--espaco-3);
+    color: var(--texto-suave);
+  }
+
+  label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-block-start: var(--espaco-2);
+  }
+
+  input {
+    box-sizing: border-box;
+    inline-size: 100%;
+    padding: 0.625rem 0.75rem;
+    transition: border-color 0.15s;
+
+    &:focus-visible { border-color: var(--realce); }
+  }
+
+  button {
+    margin-block-start: var(--espaco-1);
+    padding: 0.625rem var(--espaco-3);
+    background: var(--realce);
+    color: var(--realce-texto);
+    border-color: transparent;
+    font-weight: 600;
+
+    &:hover { background: color-mix(in oklab, var(--realce), black 12%); }
+  }
 }
 
 /* Na sidebar: o campo e o botão numa linha só, sem passar da largura dela; os resultados embaixo (ADR 0010). */
@@ -945,7 +994,8 @@ select {
 
 .login-falha {
   color: var(--perigo);
-  margin: 0;
+  font-size: 0.875rem;
+  margin: var(--espaco-2) 0 0;
   min-block-size: 1.5em;
 }
 

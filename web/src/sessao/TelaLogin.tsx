@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { entrar } from './sessao'
 
 const MENSAGENS = {
-  recusado: 'Email ou senha inválidos.',
+  recusado: 'E-mail ou senha incorretos.',
   erro: 'Não foi possível entrar agora. Tente de novo em instantes.',
 } as const
 
@@ -29,8 +29,9 @@ export function TelaLogin({ aoEntrar }: { aoEntrar: () => void }) {
 
   return (
     <form className="login" onSubmit={enviar} aria-describedby={falha ? 'login-falha' : undefined}>
-      <h2>Entrar</h2>
-      <label htmlFor="email">Email</label>
+      <h2>Entrar na sinkfi</h2>
+      <p className="login-sub">Use o e-mail e a senha da sua conta.</p>
+      <label htmlFor="email">E-mail</label>
       <input id="email" name="email" type="email" autoComplete="username" spellCheck={false} required />
       <label htmlFor="senha">Senha</label>
       <input
