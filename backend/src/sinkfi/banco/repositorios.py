@@ -410,6 +410,16 @@ def travar_pedidos_pendentes(sessao: Session, limite: int) -> list[PedidoFechame
     return [PedidoFechamento(id=l.id, cliente_id=l.cliente_id) for l in linhas]
 
 
+def pedidos_parados(sessao: Session) -> tuple[int, datetime | None]:
+    """Quantos pedidos esperam o relay, e quando nasceu o mais antigo. Usa o índice dos pendentes."""
+    quantos, mais_antigo = sessao.execute(
+        select(func.count(), func.min(LinhaPedidoFechamento.criado_em)).where(
+            LinhaPedidoFechamento.publicado_em.is_(None)
+        )
+    ).one()
+    return quantos, mais_antigo
+
+
 def marcar_publicados(sessao: Session, ids: list[int]) -> None:
     sessao.execute(
         update(LinhaPedidoFechamento).where(LinhaPedidoFechamento.id.in_(ids)).values(publicado_em=func.now())

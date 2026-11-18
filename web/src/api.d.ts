@@ -213,6 +213,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/operacao": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ler Operacao
+         * @description Pedido parado é o relay fora do ar; mensagem na fila morta é um fechamento que não rodou.
+         */
+        get: operations["ler_operacao_operacao_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -311,6 +331,27 @@ export interface components {
          * @enum {string}
          */
         Motivo: "nao_caiu" | "caiu_em_parte" | "grupo_nao_fecha" | "chargeback" | "venda_cancelada" | "entrada_sem_recebivel" | "pode_ser_antecipacao" | "caiu_a_mais";
+        /**
+         * OperacaoLida
+         * @description A saúde da fila (Monitorar): o que ficou parado sem chegar ao fechamento.
+         */
+        OperacaoLida: {
+            /**
+             * Pedidos Parados
+             * @description Pedidos de fechamento gravados que o relay do outbox ainda não publicou.
+             */
+            pedidos_parados: number;
+            /**
+             * Idade Do Mais Antigo Segundos
+             * @description Há quanto tempo o mais antigo espera. Sem pedido parado, null.
+             */
+            idade_do_mais_antigo_segundos: number | null;
+            /**
+             * Mensagens Na Dead Letter
+             * @description Mensagens em `fechamento.morta`: fechamentos que falharam de vez. Com o RabbitMQ fora do ar, null.
+             */
+            mensagens_na_dead_letter: number | null;
+        };
         /**
          * Papel
          * @enum {string}
@@ -852,6 +893,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_operacao_operacao_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperacaoLida"];
+                };
             };
             /** @description Validation Error */
             422: {

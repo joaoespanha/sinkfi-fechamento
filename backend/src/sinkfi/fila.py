@@ -7,8 +7,10 @@ import os
 from datetime import datetime
 from typing import Protocol
 
+from amqp.exceptions import NotFound
 from celery import Celery
 from kombu import Exchange, Queue
+from kombu.exceptions import OperationalError as BrokerFora
 
 FILA = "fechamento"
 FILA_MORTA = "fechamento.morta"
@@ -61,9 +63,19 @@ class Fila(Protocol):
 
     def pedir_reprocessamento(self, cliente_id: str, corte: datetime) -> None: ...
 
+    def mensagens_na_dead_letter(self) -> int | None:
+        """Quantas mensagens esperam na fila morta. `None` quando o broker não responde."""
+        ...
+
 
 class FilaCelery:
-    """Publica pelo nome da tarefa, sem importar `sinkfi.tarefas`. O corte vai como texto ISO."""
+    """Publica pelo nome da tarefa, sem importar `sinkfi.tarefas`. O corte vai como texto ISO.
+
+    `broker` troca a URL só da contagem da fila morta: é para os testes contra um RabbitMQ descartável.
+    """
+
+    def __init__(self, broker: str | None = None) -> None:
+        self._broker = broker
 
     def pedir_fechamento(self, cliente_id: str) -> None:
         app.send_task("sinkfi.fechar_cliente", args=[cliente_id])
@@ -73,6 +85,18 @@ class FilaCelery:
 
     def pedir_reprocessamento(self, cliente_id: str, corte: datetime) -> None:
         app.send_task("sinkfi.reprocessar_cliente", args=[cliente_id, corte.isoformat()])
+
+    def mensagens_na_dead_letter(self) -> int | None:
+        # `passive` só pergunta: não cria a fila nem consome. Uma tentativa de até 2s, para a rota não travar.
+        with app.connection_for_write(self._broker, connect_timeout=2) as conexao:
+            try:
+                conexao.ensure_connection(max_retries=0)
+                return conexao.default_channel.queue_declare(FILA_MORTA, passive=True).message_count
+            except NotFound:
+                # O worker declara a fila ao subir (`tarefas._declarar_fila_morta`). Sem ela, nada se perdeu.
+                return 0
+            except (BrokerFora, *conexao.connection_errors):
+                return None
 
 
 def obter_fila() -> Fila:
