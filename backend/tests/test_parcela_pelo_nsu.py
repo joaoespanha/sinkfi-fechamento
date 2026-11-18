@@ -135,3 +135,27 @@ def test_nsu_conhecido_sem_parcela_vencida_vira_pendencia_ligada_a_venda():
     assert pendencia.severidade == Severidade.PARA_CONFERIR
     assert pendencia.valor_centavos == 177300
     assert pendencia.lancamento.id == "ext_b"
+
+
+def test_data_na_descricao_nao_e_parcela():
+    # "06/11" é a data, não a parcela 6 de 11: a venda tem 3 parcelas.
+    parcelas = [parcela_6001(1, date(2026, 11, 6)), parcela_6001(2, date(2026, 12, 4))]
+    credito = credito_6001("ext_08", em_sao_paulo(11, 6), "PAG-6001 ref 06/11")
+
+    fechamento = fechar(recebiveis=parcelas, lancamentos=[credito], lojas=LOJAS, corte=CORTE)
+
+    assert grupo_da_parcela(fechamento, 1).caiu_centavos == 177300
+    assert fechamento.pendencias == []
+
+
+def test_parcela_indicada_inexistente_fica_ligada_a_venda():
+    # O arquivo da adquirente só tem a 1/3 e a 2/3, e cai um crédito da 3/3.
+    parcelas = [parcela_6001(1, date(2026, 11, 6)), parcela_6001(2, date(2026, 12, 4))]
+    credito_1 = credito_6001("ext_08", em_sao_paulo(11, 6), "PAG-6001 1/3")
+    terceira = credito_6001("ext_c", em_sao_paulo(11, 9), "PAG-6001 3/3")
+
+    fechamento = fechar(recebiveis=parcelas, lancamentos=[credito_1, terceira], lojas=LOJAS, corte=CORTE)
+
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.PODE_SER_ANTECIPACAO
+    assert pendencia.lancamento.id == "ext_c"

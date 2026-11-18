@@ -175,6 +175,23 @@ def test_casamento_usa_a_adquirente_do_recebivel():
     assert grupo.caiu_centavos == 147750
 
 
+def test_nsu_nao_casa_dentro_de_outro_nsu():
+    # "STN-12" cita a venda STN-12, não a STN-1.
+    stn_1 = recebivel("rec_1", liquidacao_prevista=date(2026, 11, 9), liquido_centavos=10000, nsu="STN-1")
+    stn_12 = recebivel("rec_12", liquidacao_prevista=date(2026, 11, 9), liquido_centavos=10000, nsu="STN-12")
+    credito = lancamento(
+        "ext_80", transacao_id="T-80", lancado_em=em_sao_paulo(11, 9, 10), valor_centavos=10000, descricao="STN-12"
+    )
+
+    fechamento = fechar(recebiveis=[stn_1, stn_12], lancamentos=[credito], lojas=LOJAS, corte=CORTE)
+
+    [casou] = [g for g in fechamento.grupos if g.creditos]
+    assert [r.id for r in casou.recebiveis] == ["rec_12"]
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.NAO_CAIU
+    assert [r.id for r in pendencia.grupo.recebiveis] == ["rec_1"]
+
+
 def test_empate_na_chave_fraca_gera_um_grupo_com_os_dois_recebiveis():
     # rec_3001 e rec_3002: mesma loja, mesma adquirente, mesmo líquido, mesma data.
     rec_3001 = recebivel(
