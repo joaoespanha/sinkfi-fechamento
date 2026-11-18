@@ -53,7 +53,7 @@ O suporte também usa o produto, para atender um chamado: acha o cliente por e-m
 **Trade-offs que aceitei.**
 
 - *Mais peças do que o problema pede.* Um fechamento é um cálculo de milissegundos por cliente por semana; a regra chamada pela rota bastaria. A fila e o outbox entraram pelas garantias de produção (retry, dead letter, trabalho fora da requisição), ao custo de seis serviços para subir e entender. O plano de corte é chamar a mesma função de forma síncrona.
-- *Dados duplicados a cada rodada.* É o preço de a rodada antiga nunca mudar. O modelo mais limpo, versionar recebíveis e lançamentos, custava meio dia na ingestão.
+- *Dados duplicados a cada rodada.* É o preço de a rodada antiga nunca mudar. O modelo mais limpo seria versionar recebíveis e lançamentos, mas isso mudaria a ingestão inteira.
 - *A ingestão não apaga.* Ela atualiza cada linha pelo `id`, então uma linha que some do CSV continua no banco. Aceitei porque a fonte corrige com um evento novo, como um estorno ou um chargeback, e não apagando a linha. Se uma fonte passar a remover linhas, a ingestão precisa comparar o lote inteiro e marcar o que sumiu.
 - *Dois serviços, um contrato.* Os tipos do `web` são gerados do OpenAPI da `api`, e a CI falha se divergirem.
 
