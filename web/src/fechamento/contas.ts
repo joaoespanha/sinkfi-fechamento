@@ -11,8 +11,9 @@ function soma(itens: Item[], campo: (i: Item) => number | null): number {
   return itens.reduce((s, i) => s + (campo(i) ?? 0), 0)
 }
 
+/** A resolvida (ADR 0014) não conta: nem como pendência, nem como "casou certo". */
 function contar(itens: Item[], s: Severidade): number {
-  return itens.filter((i) => severidade(i) === s).length
+  return itens.filter((i) => i.resolucao == null && severidade(i) === s).length
 }
 
 /** Esperado = Caiu + Não caiu + Próximo fechamento (GLOSSARY). */
@@ -72,10 +73,15 @@ const ORDENS: Record<Filtro['ordem'], (a: Item, b: Item) => number> = {
 /** As pendências do dia escolhido (ou da semana), com os filtros da lista. */
 export function pendencias(itens: Item[], filtro: Filtro): Item[] {
   return itens
-    .filter((i) => i.severidade != null)
+    .filter((i) => i.severidade != null && i.resolucao == null)
     .filter((i) => filtro.severidade === 'todas' || i.severidade === filtro.severidade)
     .filter((i) => filtro.adquirente === 'todas' || adquirenteDo(i) === filtro.adquirente)
     .sort(ORDENS[filtro.ordem])
+}
+
+/** As pendências que a lojista marcou como resolvidas (ADR 0014): fora da lista, mas não somem. */
+export function resolvidas(itens: Item[]): Item[] {
+  return itens.filter((i) => i.resolucao != null)
 }
 
 /** A largura de uma parte, para o `style` de uma barra. */

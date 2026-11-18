@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { hashDa, hashDaSemana } from '../navegacao'
-import { type Filtro, SEM_FILTRO, adquirentes, fracao, pendencias, porDia, severidade } from './contas'
+import { type Filtro, SEM_FILTRO, adquirentes, fracao, pendencias, porDia, resolvidas, severidade } from './contas'
 import {
   ABAS,
   type Fechamento,
@@ -95,6 +95,7 @@ export function Lista({ fechamento, dia }: { fechamento: Fechamento; dia: string
   const lista = pendencias(itens, filtro)
   const doDia = pendencias(itens, SEM_FILTRO).length
   const certos = itens.filter((i) => i.severidade == null)
+  const resolvidasDoDia = resolvidas(itens)
   const contagem = Object.fromEntries(
     ABAS.map((a) => [a.valor, pendencias(itens, { ...filtro, severidade: a.valor }).length]),
   ) as Record<Filtro['severidade'], number>
@@ -127,6 +128,16 @@ export function Lista({ fechamento, dia }: { fechamento: Fechamento; dia: string
                 <LinhaDoItem key={`${filtro.ordem}-${chaveDoItem(i)}`} item={i} semana={semana} />
               ))}
             </ul>
+          )}
+          {resolvidasDoDia.length > 0 && (
+            <details className="certos">
+              <summary>Resolvidas ({resolvidasDoDia.length})</summary>
+              <ul className="linhas">
+                {resolvidasDoDia.map((i) => (
+                  <LinhaDoItem key={chaveDoItem(i)} item={i} semana={semana} />
+                ))}
+              </ul>
+            </details>
           )}
           {certos.length > 0 && (
             <details className="certos">
@@ -207,11 +218,13 @@ function Filtros({
 
 function LinhaDoItem({ item, semana }: { item: Item; semana: string }) {
   const nota = notaDoDia(item)
-  const s = severidade(item)
+  // A resolvida (ADR 0014) leva a marca de resolvida no lugar da severidade.
+  const s = item.resolucao ? 'ok' : severidade(item)
+  const marca = item.resolucao ? 'Resolvida' : item.severidade ? textoDaSeveridade(item.severidade) : 'Casou certo'
   return (
     <li className="linha">
       <a data-severidade={s} href={hashDa({ tela: 'fechamento', semana, dia: null, item: chaveDoItem(item) })}>
-        <Marca s={s}>{item.severidade ? textoDaSeveridade(item.severidade) : 'Casou certo'}</Marca>
+        <Marca s={s}>{marca}</Marca>
         <span className="linha-motivo">{item.motivo ? textoDoMotivo(item.motivo) : 'Casou certo'}</span>
         <span className="linha-origem">
           {origem(item)}

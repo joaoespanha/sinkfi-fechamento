@@ -6,6 +6,8 @@ import {
   chaveDoItem,
   fraseDoConferido,
   podeConferir,
+  podeResolver,
+  fraseDaResolucao,
   fraseDaFaixa,
   fraseDaConferencia,
   type Item,
@@ -54,6 +56,7 @@ function casado(nsu: string, descricao: string): Item {
     severidade: null,
     motivo: null,
     pendencia_centavos: null,
+    resolucao: null,
     dia: '2026-11-09',
   }
 }
@@ -239,6 +242,37 @@ describe('linha da atualização', () => {
     // Sem a última para comparar o dia, a próxima vai sempre com o dia.
     expect(linhaDaAtualizacao({ ...nada, proxima_prevista_em: '2026-11-19T00:00:00Z' })).toBe(
       'Ainda sem atualização · primeira prevista 18/11 às 21:00',
+    )
+  })
+})
+
+describe('resolução (ADR 0014)', () => {
+  const credito = (campos: Partial<Item>): Item => ({
+    ...casado('1', 'PIX RECEBIDO'),
+    recebiveis: [],
+    esperado_centavos: null,
+    caiu_centavos: null,
+    nao_caiu_centavos: null,
+    proximo_fechamento_centavos: null,
+    severidade: 'para_conferir',
+    motivo: 'entrada_sem_recebivel',
+    pendencia_centavos: 10000,
+    ...campos,
+  })
+
+  it('só a pendência para conferir pode ser resolvida', () => {
+    expect(podeResolver(credito({}))).toBe(true)
+    expect(podeResolver(credito({ motivo: 'pode_ser_antecipacao' }))).toBe(true)
+    expect(podeResolver(credito({ severidade: 'falta_de_verdade', motivo: 'venda_cancelada' }))).toBe(false)
+    expect(podeResolver(credito({ severidade: null, motivo: null, pendencia_centavos: null }))).toBe(false)
+    // Grupo com recebível: a resolução é presa ao lançamento, então o grupo fica de fora.
+    expect(podeResolver({ ...credito({}), recebiveis: casado('1', 'x').recebiveis })).toBe(false)
+    expect(podeResolver(credito({ resolucao: { quem: 'a@b.c', em: '2026-11-10T15:00:00Z', nota: 'x' } }))).toBe(false)
+  })
+
+  it('a frase diz quem resolveu e quando', () => {
+    expect(fraseDaResolucao({ quem: 'marina@loja.com', em: '2026-11-10T15:00:00Z', nota: 'aporte' })).toBe(
+      'Resolvida por marina@loja.com em 10/11/2026, 12:00',
     )
   })
 })

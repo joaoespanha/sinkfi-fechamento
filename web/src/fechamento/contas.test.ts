@@ -1,6 +1,6 @@
 // As contas da interface (#32): o que os gráficos e os filtros mostram sai daqui.
 import { describe, expect, it } from 'vitest'
-import { SEM_FILTRO, adquirentes, pendencias, porDia, totais } from './contas'
+import { SEM_FILTRO, adquirentes, pendencias, porDia, resolvidas, totais } from './contas'
 import { ANTES, type Fechamento, type Item, dicaDoDia, emPorcento } from './textos'
 
 let ids = 0
@@ -33,6 +33,7 @@ function item(campos: Partial<Item> & { adquirente?: string } = {}): Item {
     severidade: null,
     motivo: null,
     pendencia_centavos: null,
+    resolucao: null,
     dia: '2026-11-05',
     ...resto,
   }
@@ -166,6 +167,25 @@ describe('pendencias', () => {
     const terca = falta(100, { dia: '2026-11-03' })
     const antes = falta(100, { dia: null })
     expect(pendencias([sexta, terca, antes], { ...SEM_FILTRO, ordem: 'dia' })).toEqual([antes, terca, sexta])
+  })
+})
+
+describe('resolução (ADR 0014)', () => {
+  const resolucao = { quem: 'marina@loja.com', em: '2026-11-10T15:00:00Z', nota: 'aporte do sócio' }
+
+  it('a pendência resolvida sai da lista e vai para Resolvidas', () => {
+    const aberta = conferir(100)
+    const resolvida = conferir(200, { recebiveis: [], resolucao })
+    expect(pendencias([aberta, resolvida], SEM_FILTRO)).toEqual([aberta])
+    expect(pendencias([aberta, resolvida], { ...SEM_FILTRO, severidade: 'para_conferir' })).toEqual([aberta])
+    expect(resolvidas([aberta, resolvida, item()])).toEqual([resolvida])
+  })
+
+  it('a resolvida não conta nas abas nem na faixa', () => {
+    const dia = porDia(
+      fechamento([conferir(100, { dia: '2026-11-05' }), conferir(200, { dia: '2026-11-05', recebiveis: [], resolucao })]),
+    ).find((d) => d.casa === '2026-11-05')
+    expect(dia).toMatchObject({ conferir: 1, faltas: 0, certos: 0 })
   })
 })
 

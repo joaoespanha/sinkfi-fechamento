@@ -203,7 +203,16 @@ export function TelaFechamento({
           case 'erro':
             return <p role="alert">Não foi possível carregar o fechamento. Tente de novo em instantes.</p>
           case 'pronto':
-            if (item !== null) return <DetalheDoItem fechamento={estado.fechamento} chave={item} />
+            if (item !== null)
+              return (
+                <DetalheDoItem
+                  fechamento={estado.fechamento}
+                  chave={item}
+                  clienteId={clienteId}
+                  lojista={suporte === null}
+                  acoes={acoes}
+                />
+              )
             return (
               <Detalhe
                 dia={dia}
