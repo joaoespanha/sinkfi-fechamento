@@ -155,12 +155,12 @@ _Evitar_: veredito, status
 Limite opcional que a lojista define sobre a soma das faltas de verdade. Acima dele, o resumo recomenda não fechar. Ela só muda o resumo e nunca impede o fechamento. Vem desligada.
 _Evitar_: bloqueio, materialidade
 
-**Término**:
-O registro de que a lojista terminou um fechamento: quem, quando, qual rodada viu e o resumo daquele momento. Não trava nada, e ela pode registrar de novo se o fechamento mudar. Na tela, o botão "Terminei".
-_Evitar_: fechar, concluir, fechamento concluído
+**Conferência**:
+O registro de que a lojista conferiu um fechamento: quem, quando, qual rodada viu e o resumo daquele momento. Não trava nada e não resolve os itens para conferir. Ela pode registrar de novo se o fechamento mudar. Na tela, "Marcar como conferido".
+_Evitar_: término, Terminei, fechar, concluir, fechamento concluído
 
 **Aviso**:
-A marca de um fechamento anterior ao atual que tem pendência e cuja rodada mais recente não tem término. Só lê os términos e não cria estado de semana fechada (ADR 0007). Não confundir com "Para conferir", que é uma severidade de pendência.
+A marca de um fechamento anterior ao atual que tem pendência e cuja rodada mais recente não tem conferência. Só lê as conferências e não cria estado de semana fechada (ADR 0007). Não confundir com "Para conferir", que é uma severidade de pendência.
 _Evitar_: alerta, semana fechada, semana em aberto
 
 ## Integração com o ERP

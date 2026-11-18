@@ -375,7 +375,7 @@ select {
   }
 }
 
-/* ───────── Resumo: um cartão com a linha, a barra do esperado e o "Terminei" ───────── */
+/* ───────── Resumo: um cartão com a linha, a barra do esperado e o "Marcar como conferido" ───────── */
 .resumo {
   display: grid;
   gap: var(--espaco-3);
@@ -494,7 +494,7 @@ select {
   background: var(--cor-parte);
 }
 
-/* Ação da lojista, dentro do cartão: "Terminei" e a explicação ao lado. */
+/* Ação da lojista, dentro do cartão: "Marcar como conferido" e a explicação ao lado. */
 .acoes {
   display: flex;
   flex-wrap: wrap;
@@ -508,7 +508,7 @@ select {
 
 .acoes p[role='status']:empty { display: none; }
 
-.terminei button {
+.conferir button {
   background: var(--realce);
   color: var(--realce-texto);
   border-color: transparent;
@@ -896,7 +896,7 @@ select {
 
 /* ───────── Avisos ───────── */
 
-/* Fechamentos anteriores sem "Terminei" (ADR 0007), no topo da tela; o ponto nas setas repete a marca. */
+/* Fechamentos anteriores sem conferência (ADR 0007), no topo da tela; o ponto nas setas repete a marca. */
 .avisos {
   margin-block: 0 1rem;
   padding: 0.625rem 0.875rem;
@@ -909,8 +909,7 @@ select {
   & p + p { margin-block-start: 0.25rem; }
 }
 
-/* Aviso do "Terminei": neutro na mesma rodada, destacado quando chegou rodada nova. */
-/* Faixa do suporte: diz que a tela é a da lojista, o "Terminei" visto de fora e o pedido de rodada nova. */
+/* Faixa do suporte: diz que a tela é a da lojista, a conferência vista de fora e o pedido de rodada nova. */
 .faixa-do-suporte {
   display: flex;
   flex-wrap: wrap;
@@ -938,7 +937,8 @@ select {
   & p:empty { display: none; }
 }
 
-.termino {
+/* Aviso da conferência: neutro na mesma rodada, destacado quando chegou rodada nova. */
+.conferencia {
   margin-block: 0 1rem;
   padding: 0.625rem 0.875rem;
   border-radius: var(--raio);
@@ -948,7 +948,7 @@ select {
   & p { margin: 0; }
 }
 
-.termino-mudou {
+.conferencia-mudou {
   color: var(--texto);
   background: var(--cartao);
   border: 1px solid var(--borda);

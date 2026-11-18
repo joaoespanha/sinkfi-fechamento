@@ -6,10 +6,10 @@ Os exemplos usam a demonstração: `docker compose up`, a tela em `http://localh
 
 ## 1. Qual rodada ela viu
 
-Entre como suporte (`suporte@sinkfi.demo`) e abra o fechamento da cliente. O aviso do "Terminei" diz quem terminou, quando e sobre qual rodada.
+Entre como suporte (`suporte@sinkfi.demo`) e abra o fechamento da cliente. O aviso da conferência diz quem conferiu, quando e sobre qual rodada.
 
 - **Mesma rodada da tela:** ela viu o que você está vendo. Siga para o passo 2.
-- **"O fechamento mudou desde que você terminou":** a tela mostra o resumo de antes e o de agora. A primeira pergunta é se a diferença vem dessa mudança, como um crédito que chegou depois do "Terminei". Para ver os itens da rodada antiga, use o passo 3.
+- **"O fechamento mudou desde a última conferência":** a tela mostra o resumo de antes e o de agora. A primeira pergunta é se a diferença vem dessa mudança, como um crédito que chegou depois da conferência. Para ver os itens da rodada antiga, use o passo 3.
 
 ## 2. Qual item
 

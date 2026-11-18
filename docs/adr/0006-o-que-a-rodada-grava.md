@@ -15,7 +15,7 @@ O fechamento da segunda às 18:00 é da Marina, não do sistema. Outros clientes
 - **Cópia em JSONB por item.** `rodadas` e `itens_rodada` guardam os valores, a severidade, o motivo e a chave em colunas, e os recebíveis e créditos do item em JSONB, como estavam na hora do cálculo. Um índice GIN atende "em quais rodadas o `rec_7001` apareceu".
 - **Versão da regra no hash.** Sem ela, a mesma entrada depois de um bug corrigido devolveria a rodada antiga, calculada com o bug.
 - **Corte como entrada.** A regra recebe o corte com fuso e não sabe o que é "segunda". Dia, hora e fuso do fechamento são configuração do cliente. `fechamento_vigente(config, agora)` escolhe o corte, e um fechamento continua recebendo rodadas até passar o corte seguinte, para pegar o crédito atrasado e o chargeback depois das 18:00.
-- **Limite fora do hash.** O limite é uma preferência da lojista, não um dado do fechamento. Mudá-lo não cria rodada nem passa pela fila. O término grava o limite e o resumo daquele momento, e cada mudança de limite fica registrada.
+- **Limite fora do hash.** O limite é uma preferência da lojista, não um dado do fechamento. Mudá-lo não cria rodada nem passa pela fila. A conferência (ADR 0012) grava o limite e o resumo daquele momento, e cada mudança de limite fica registrada.
 
 ## Alternativas recusadas
 
@@ -28,7 +28,7 @@ O fechamento da segunda às 18:00 é da Marina, não do sistema. Outros clientes
 ## Consequências
 
 - Os dados ficam duplicados a cada rodada nova.
-- O resumo de uma rodada antiga é lido com o limite atual. O que a lojista viu ao terminar está no término.
+- O resumo de uma rodada antiga é lido com o limite atual. O que a lojista viu ao conferir está na conferência (ADR 0012).
 - Mudar a versão da regra faz todo cliente ganhar uma rodada nova no lote seguinte, mesmo sem dado novo.
 - Fechamento mensal ou quinzenal exigiria trocar o dia do fechamento por uma regra de periodicidade.
 

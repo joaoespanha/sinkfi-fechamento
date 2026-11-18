@@ -1,4 +1,4 @@
-"""O que a lojista faz na tela além de ler: mudar o limite e marcar "Terminei" (ADR 0005, #12).
+"""O que a lojista faz na tela além de ler: mudar o limite e marcar o fechamento como conferido (ADR 0005, #12).
 
 Nada aqui cria rodada nem passa pela fila. Cada ação deixa um registro só de inserção.
 Como os outros serviços, não faz commit: quem chama é dono da transação.
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from sinkfi.banco import repositorios
 from sinkfi.leitura import fechamento_da_rodada
-from sinkfi.tipos import Termino, Usuario
+from sinkfi.tipos import Conferencia, Usuario
 
 
 def mudar_limite(sessao: Session, cliente_id: str, usuario: Usuario, limite_trava_centavos: int | None) -> None:
@@ -27,7 +27,7 @@ def mudar_limite(sessao: Session, cliente_id: str, usuario: Usuario, limite_trav
     )
 
 
-def terminar(sessao: Session, cliente_id: str, usuario: Usuario, rodada_id: int) -> Termino | None:
+def conferir(sessao: Session, cliente_id: str, usuario: Usuario, rodada_id: int) -> Conferencia | None:
     """Grava a rodada que a lojista viu, com o limite e o resumo de agora.
 
     None quando a rodada não é do cliente. Não bloqueia rodada nova.
@@ -36,23 +36,23 @@ def terminar(sessao: Session, cliente_id: str, usuario: Usuario, rodada_id: int)
     if rodada is None:
         return None
     lido = fechamento_da_rodada(sessao, rodada)
-    termino = Termino(
+    conferencia = Conferencia(
         quem=usuario.email,
         em=_agora(),
         rodada_id=rodada.id,
         limite_trava_centavos=lido.limite_trava_centavos,
         resumo=lido.resumo,
     )
-    repositorios.gravar_termino(
+    repositorios.gravar_conferencia(
         sessao,
         cliente_id=cliente_id,
         usuario_id=usuario.id,
-        em=termino.em,
-        rodada_id=termino.rodada_id,
-        limite_trava_centavos=termino.limite_trava_centavos,
-        resumo=termino.resumo,
+        em=conferencia.em,
+        rodada_id=conferencia.rodada_id,
+        limite_trava_centavos=conferencia.limite_trava_centavos,
+        resumo=conferencia.resumo,
     )
-    return termino
+    return conferencia
 
 
 def _agora() -> datetime:

@@ -1,4 +1,4 @@
-"""Limite da trava e "Terminei" (#12): cada mudança e cada término ficam registrados, e nada disso cria rodada."""
+"""Limite da trava e conferência (#12): cada mudança e cada conferência ficam registrados, e nada disso cria rodada."""
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -55,8 +55,8 @@ def _mudar_limite(http: TestClient, centavos: int | None) -> None:
     assert resposta.status_code == 204, resposta.text
 
 
-def _terminei(http: TestClient, rodada_id: int) -> dict:
-    resposta = http.post(f"/clientes/{MARINA}/terminei", json={"rodada_id": rodada_id})
+def _conferir(http: TestClient, rodada_id: int) -> dict:
+    resposta = http.post(f"/clientes/{MARINA}/conferencias", json={"rodada_id": rodada_id})
     assert resposta.status_code == 201, resposta.text
     return resposta.json()
 
@@ -110,19 +110,19 @@ def test_le_o_limite_sem_fechamento(sessao: Session, http: TestClient):
 # Término
 
 
-def test_terminei_grava_quem_quando_e_a_rodada_vista(lojista: TestClient, rodada: Rodada):
-    termino = _terminei(lojista, rodada.id)
+def test_conferencia_grava_quem_quando_e_a_rodada_vista(lojista: TestClient, rodada: Rodada):
+    conferencia = _conferir(lojista, rodada.id)
 
-    assert termino["quem"] == LOJISTA_MARINA
-    assert termino["rodada_id"] == rodada.id
-    assert _agora(termino["em"])
-    assert lojista.get(f"/clientes/{MARINA}/fechamento").json()["ultimo_termino"] == termino
+    assert conferencia["quem"] == LOJISTA_MARINA
+    assert conferencia["rodada_id"] == rodada.id
+    assert _agora(conferencia["em"])
+    assert lojista.get(f"/clientes/{MARINA}/fechamento").json()["ultima_conferencia"] == conferencia
 
 
-def test_terminei_nao_bloqueia_rodada_nova(
+def test_conferencia_nao_bloqueia_rodada_nova(
     sessao: Session, lojista: TestClient, rodada: Rodada, tmp_path: Path
 ):
-    _terminei(lojista, rodada.id)
+    _conferir(lojista, rodada.id)
 
     nova = _rodada_nova(sessao, tmp_path)
 
@@ -130,47 +130,47 @@ def test_terminei_nao_bloqueia_rodada_nova(
     assert lojista.get(f"/clientes/{MARINA}/fechamento").json()["rodada"]["id"] == nova.id
 
 
-def test_rodada_nova_depois_do_terminei_mostra_o_que_mudou(
+def test_rodada_nova_depois_da_conferencia_mostra_o_que_mudou(
     sessao: Session, lojista: TestClient, rodada: Rodada, tmp_path: Path
 ):
-    _terminei(lojista, rodada.id)
+    _conferir(lojista, rodada.id)
     nova = _rodada_nova(sessao, tmp_path)
 
     corpo = lojista.get(f"/clientes/{MARINA}/fechamento").json()
 
     # A tela compara as duas rodadas e mostra o resumo de antes e o de agora.
     assert corpo["rodada"]["id"] == nova.id
-    assert corpo["ultimo_termino"]["rodada_id"] == rodada.id
-    assert corpo["ultimo_termino"]["resumo"]["itens_para_conferir"] == 2
+    assert corpo["ultima_conferencia"]["rodada_id"] == rodada.id
+    assert corpo["ultima_conferencia"]["resumo"]["itens_para_conferir"] == 2
     assert corpo["resumo"]["itens_para_conferir"] == 3
 
 
-def test_terminei_de_novo_guarda_os_dois_registros(
+def test_conferencia_de_novo_guarda_os_dois_registros(
     sessao: Session, lojista: TestClient, rodada: Rodada
 ):
-    primeiro = _terminei(lojista, rodada.id)
+    primeiro = _conferir(lojista, rodada.id)
     _mudar_limite(lojista, 200000)
-    segundo = _terminei(lojista, rodada.id)
+    segundo = _conferir(lojista, rodada.id)
 
-    terminos = repositorios.terminos_do_cliente(sessao, MARINA)
+    conferencias = repositorios.conferencias_do_cliente(sessao, MARINA)
 
     # Do mais antigo para o mais novo; o segundo não sobrescreve o primeiro.
-    assert [t.limite_trava_centavos for t in terminos] == [None, 200000]
+    assert [t.limite_trava_centavos for t in conferencias] == [None, 200000]
     assert primeiro != segundo
-    assert lojista.get(f"/clientes/{MARINA}/fechamento").json()["ultimo_termino"] == segundo
+    assert lojista.get(f"/clientes/{MARINA}/fechamento").json()["ultima_conferencia"] == segundo
 
 
-def test_terminei_guarda_limite_e_resumo_do_momento(lojista: TestClient, rodada: Rodada):
+def test_conferencia_guarda_limite_e_resumo_do_momento(lojista: TestClient, rodada: Rodada):
     _mudar_limite(lojista, 200000)
-    _terminei(lojista, rodada.id)
+    _conferir(lojista, rodada.id)
 
     # O limite muda depois do término: o registro continua com o de antes.
     _mudar_limite(lojista, None)
     corpo = lojista.get(f"/clientes/{MARINA}/fechamento").json()
 
-    termino = corpo["ultimo_termino"]
-    assert termino["limite_trava_centavos"] == 200000
-    assert termino["resumo"] == {
+    conferencia = corpo["ultima_conferencia"]
+    assert conferencia["limite_trava_centavos"] == 200000
+    assert conferencia["resumo"] == {
         "recomendacao": "nao_feche",
         "falta_de_verdade_centavos": 1085933,
         "itens_falta_de_verdade": 5,
@@ -183,24 +183,24 @@ def test_terminei_guarda_limite_e_resumo_do_momento(lojista: TestClient, rodada:
 # Extras aprovados junto com as decisões do #12
 
 
-def test_suporte_nao_marca_terminei(sessao: Session, http: TestClient, rodada: Rodada):
+def test_suporte_nao_marca_conferido(sessao: Session, http: TestClient, rodada: Rodada):
     criar_suporte(sessao)
     entrar(http, SUPORTE)
 
-    resposta = http.post(f"/clientes/{MARINA}/terminei", json={"rodada_id": rodada.id})
+    resposta = http.post(f"/clientes/{MARINA}/conferencias", json={"rodada_id": rodada.id})
 
     assert resposta.status_code == 403
-    assert repositorios.terminos_do_cliente(sessao, MARINA) == []
+    assert repositorios.conferencias_do_cliente(sessao, MARINA) == []
 
 
-def test_terminei_com_rodada_que_nao_e_do_cliente_devolve_404(sessao: Session, lojista: TestClient):
-    resposta = lojista.post(f"/clientes/{MARINA}/terminei", json={"rodada_id": 999_999})
+def test_conferencia_com_rodada_que_nao_e_do_cliente_devolve_404(sessao: Session, lojista: TestClient):
+    resposta = lojista.post(f"/clientes/{MARINA}/conferencias", json={"rodada_id": 999_999})
 
     assert resposta.status_code == 404
-    assert repositorios.terminos_do_cliente(sessao, MARINA) == []
+    assert repositorios.conferencias_do_cliente(sessao, MARINA) == []
 
 
-def test_fechamento_sem_terminei_vem_com_ultimo_termino_nulo(lojista: TestClient):
+def test_fechamento_sem_conferencia_vem_com_ultima_conferencia_nula(lojista: TestClient):
     corpo = lojista.get(f"/clientes/{MARINA}/fechamento").json()
 
-    assert corpo["ultimo_termino"] is None
+    assert corpo["ultima_conferencia"] is None

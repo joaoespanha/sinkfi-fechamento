@@ -4,12 +4,12 @@ import {
   acharItem,
   chaveDoItem,
   fraseDaFaixa,
-  fraseDoTermino,
+  fraseDaConferencia,
   type Item,
   linhaDaAtualizacao,
   linhaDoResumo,
   textoDaChave,
-  type Termino,
+  type Conferencia,
   textoDoAviso,
 } from './textos'
 
@@ -109,10 +109,10 @@ describe('textos de estado sem pronome', () => {
       tem_rodada: true,
       itens_falta_de_verdade: 1,
       itens_para_conferir: 2,
-      terminado: false,
+      conferido: false,
       aviso: true,
     }
-    expect(textoDoAviso(semana)).toBe('O fechamento de 10/11 ainda não foi terminado: 1 falta de verdade, 2 para conferir.')
+    expect(textoDoAviso(semana)).toBe('O fechamento de 10/11 ainda não foi conferido: 1 falta de verdade, 2 para conferir.')
   })
 })
 
@@ -121,7 +121,7 @@ describe('faixa do suporte', () => {
     expect(fraseDaFaixa('Marina')).toBe('Você está vendo o fechamento como Marina vê.')
   })
 
-  const termino = (rodada_id: number): Termino => ({
+  const conferencia = (rodada_id: number): Conferencia => ({
     quem: 'marina@sinkfi.demo',
     em: '2026-11-17T21:02:00Z',
     rodada_id,
@@ -135,17 +135,17 @@ describe('faixa do suporte', () => {
     },
   })
 
-  it('sem "Terminei", diz que ninguém terminou', () => {
-    expect(fraseDoTermino(null, 12)).toBe('Ninguém terminou este fechamento ainda.')
+  it('sem conferência, diz que ninguém conferiu', () => {
+    expect(fraseDaConferencia(null, 12)).toBe('Ninguém conferiu este fechamento ainda.')
   })
 
-  it('com "Terminei" na rodada mostrada, diz quem e quando', () => {
-    expect(fraseDoTermino(termino(12), 12)).toBe('marina@sinkfi.demo terminou em 17/11/2026, 18:02, nesta rodada.')
+  it('com conferência na rodada mostrada, diz quem e quando', () => {
+    expect(fraseDaConferencia(conferencia(12), 12)).toBe('marina@sinkfi.demo conferiu em 17/11/2026, 18:02, nesta rodada.')
   })
 
-  it('com "Terminei" numa rodada anterior, diz as duas rodadas', () => {
-    expect(fraseDoTermino(termino(11), 12)).toBe(
-      'marina@sinkfi.demo terminou em 17/11/2026, 18:02, na rodada 11. Esta é a rodada 12.',
+  it('com conferência numa rodada anterior, diz as duas rodadas', () => {
+    expect(fraseDaConferencia(conferencia(11), 12)).toBe(
+      'marina@sinkfi.demo conferiu em 17/11/2026, 18:02, na rodada 11. Esta é a rodada 12.',
     )
   })
 })

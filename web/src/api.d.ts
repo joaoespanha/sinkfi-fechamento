@@ -124,7 +124,7 @@ export interface paths {
         };
         /**
          * Ler Rodada
-         * @description Uma rodada qualquer, inclusive a que já não é a mais recente: a que ela viu no "Terminei" (Debugar).
+         * @description Uma rodada qualquer, inclusive a que já não é a mais recente: a que ela viu na conferência (Debugar).
          */
         get: operations["ler_rodada_clientes__cliente_id__rodadas__rodada_id__get"];
         put?: never;
@@ -156,7 +156,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clientes/{cliente_id}/terminei": {
+    "/clientes/{cliente_id}/conferencias": {
         parameters: {
             query?: never;
             header?: never;
@@ -165,8 +165,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Marcar Terminei */
-        post: operations["marcar_terminei_clientes__cliente_id__terminei_post"];
+        /** Registrar Conferencia */
+        post: operations["registrar_conferencia_clientes__cliente_id__conferencias_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -293,6 +293,29 @@ export interface components {
             /** Lojas */
             lojas: components["schemas"]["LojaEncontradaLida"][];
         };
+        /** ConferenciaEntrada */
+        ConferenciaEntrada: {
+            /** Rodada Id */
+            rodada_id: number;
+        };
+        /**
+         * ConferenciaLida
+         * @description Uma conferência: quem, quando, a rodada vista e o resumo daquele momento (com o limite de então).
+         */
+        ConferenciaLida: {
+            /** Quem */
+            quem: string;
+            /**
+             * Em
+             * Format: date-time
+             */
+            em: string;
+            /** Rodada Id */
+            rodada_id: number;
+            /** Limite Trava Centavos */
+            limite_trava_centavos: number | null;
+            resumo: components["schemas"]["ResumoLido"];
+        };
         /** EuResposta */
         EuResposta: {
             /** Email */
@@ -307,7 +330,7 @@ export interface components {
             resumo: components["schemas"]["ResumoLido"];
             /** Itens */
             itens: components["schemas"]["ItemLido"][];
-            ultimo_termino: components["schemas"]["TerminoLido"] | null;
+            ultima_conferencia: components["schemas"]["ConferenciaLida"] | null;
             atualizacao: components["schemas"]["AtualizacaoLida"];
         };
         /** HTTPValidationError */
@@ -525,8 +548,8 @@ export interface components {
             itens_falta_de_verdade: number | null;
             /** Itens Para Conferir */
             itens_para_conferir: number | null;
-            /** Terminado */
-            terminado: boolean;
+            /** Conferido */
+            conferido: boolean;
             /** Aviso */
             aviso: boolean;
         };
@@ -535,29 +558,6 @@ export interface components {
          * @enum {string}
          */
         Severidade: "falta_de_verdade" | "para_conferir";
-        /** TermineiEntrada */
-        TermineiEntrada: {
-            /** Rodada Id */
-            rodada_id: number;
-        };
-        /**
-         * TerminoLido
-         * @description Um "Terminei": quem, quando, a rodada vista e o resumo daquele momento (com o limite de então).
-         */
-        TerminoLido: {
-            /** Quem */
-            quem: string;
-            /**
-             * Em
-             * Format: date-time
-             */
-            em: string;
-            /** Rodada Id */
-            rodada_id: number;
-            /** Limite Trava Centavos */
-            limite_trava_centavos: number | null;
-            resumo: components["schemas"]["ResumoLido"];
-        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -865,7 +865,7 @@ export interface operations {
             };
         };
     };
-    marcar_terminei_clientes__cliente_id__terminei_post: {
+    registrar_conferencia_clientes__cliente_id__conferencias_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -878,7 +878,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TermineiEntrada"];
+                "application/json": components["schemas"]["ConferenciaEntrada"];
             };
         };
         responses: {
@@ -888,7 +888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TerminoLido"];
+                    "application/json": components["schemas"]["ConferenciaLida"];
                 };
             };
             /** @description Validation Error */

@@ -3,7 +3,7 @@ import type { components } from '../api'
 type Esquemas = components['schemas']
 export type Fechamento = Esquemas['FechamentoResposta']
 export type Item = Esquemas['ItemLido']
-export type Termino = Esquemas['TerminoLido']
+export type Conferencia = Esquemas['ConferenciaLida']
 export type Semana = Esquemas['SemanaLida']
 export type Atualizacao = Esquemas['AtualizacaoLida']
 type Resumo = Esquemas['ResumoLido']
@@ -95,7 +95,7 @@ export function rotuloDaSemana(s: Semana): string {
   return marcas.length ? `${diaDaSemana(s.semana)} (${marcas.join(', ')})` : diaDaSemana(s.semana)
 }
 
-/** O aviso de fechamento anterior com pendência e sem "Terminei" (ADR 0007). Sem "você": o suporte também lê. */
+/** O aviso de fechamento anterior com pendência e sem conferência (ADR 0007). Sem "você": o suporte também lê. */
 export function textoDoAviso(s: Semana): string {
   const faltas = s.itens_falta_de_verdade ?? 0
   const conferir = s.itens_para_conferir ?? 0
@@ -103,22 +103,22 @@ export function textoDoAviso(s: Semana): string {
     faltas > 0 && (faltas === 1 ? '1 falta de verdade' : `${faltas} faltas de verdade`),
     conferir > 0 && `${conferir} para conferir`,
   ].filter(Boolean)
-  return `O fechamento de ${diaDaSemana(s.semana)} ainda não foi terminado: ${partes.join(', ')}.`
+  return `O fechamento de ${diaDaSemana(s.semana)} ainda não foi conferido: ${partes.join(', ')}.`
 }
 
-// A faixa do suporte: a tela é a da lojista, e a faixa diz isso e mostra o "Terminei" visto de fora.
+// A faixa do suporte: a tela é a da lojista, e a faixa diz isso e mostra a conferência vista de fora.
 
 export function fraseDaFaixa(nomeDoCliente: string): string {
   return `Você está vendo o fechamento como ${nomeDoCliente} vê.`
 }
 
-/** O "Terminei" mais recente, para o suporte: quem (o e-mail), quando e em qual rodada. */
-export function fraseDoTermino(termino: Termino | null, rodadaId: number): string {
-  if (!termino) return 'Ninguém terminou este fechamento ainda.'
-  const quem = `${termino.quem} terminou em ${quando(termino.em)}`
-  return termino.rodada_id === rodadaId
+/** A conferência mais recente, para o suporte: quem (o e-mail), quando e em qual rodada. */
+export function fraseDaConferencia(conferencia: Conferencia | null, rodadaId: number): string {
+  if (!conferencia) return 'Ninguém conferiu este fechamento ainda.'
+  const quem = `${conferencia.quem} conferiu em ${quando(conferencia.em)}`
+  return conferencia.rodada_id === rodadaId
     ? `${quem}, nesta rodada.`
-    : `${quem}, na rodada ${termino.rodada_id}. Esta é a rodada ${rodadaId}.`
+    : `${quem}, na rodada ${conferencia.rodada_id}. Esta é a rodada ${rodadaId}.`
 }
 
 export const PEDIDO_ENVIADO = 'Pedido enviado. Se a entrada mudou, a rodada nova aparece em instantes.'
