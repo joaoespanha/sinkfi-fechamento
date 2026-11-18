@@ -4,10 +4,11 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
-from sinkfi.api import app, obter_agora
+from sinkfi.api import app
+from sinkfi.banco.modelos import LinhaPedidoFechamento
 from sinkfi.fila import obter_fila
 from sinkfi.ingestao.ingerir import ingerir
 from sinkfi.outbox import publicar_pendentes
@@ -38,23 +39,26 @@ def suporte(sessao: Session, http: TestClient, fila: FilaFalsa) -> TestClient:
     return http
 
 
-def test_operacao_conta_pedidos_parados_e_a_idade_do_mais_antigo(
+def test_operacao_conta_pedidos_pendentes_e_a_idade_do_mais_antigo(
     sessao: Session, suporte: TestClient, fila: FilaFalsa
 ):
-    # Um pedido publicado e dois parados: o relay não rodou depois das duas últimas ingestões.
+    # Um pedido publicado e dois pendentes: o relay não rodou depois das duas últimas ingestões.
     preparar_marina(sessao)
     publicar_pendentes(sessao, fila)
     ingerir(sessao, MARINA, DADOS)
     ingerir(sessao, MARINA, DADOS)
-    # O pedido nasce com a hora do banco; a api olha 10 minutos depois.
-    gravado_em = sessao.scalar(select(func.now()))
-    app.dependency_overrides[obter_agora] = lambda: gravado_em + timedelta(minutes=10)
+    # A idade sai só do relógio do banco: o pedido nasceu 10 minutos antes do `now()` desta transação.
+    sessao.execute(
+        update(LinhaPedidoFechamento)
+        .where(LinhaPedidoFechamento.publicado_em.is_(None))
+        .values(criado_em=func.now() - timedelta(minutes=10))
+    )
 
     resposta = suporte.get("/operacao")
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    assert corpo["pedidos_parados"] == 2
+    assert corpo["pedidos_pendentes"] == 2
     assert corpo["idade_do_mais_antigo_segundos"] == 600
 
 
@@ -64,9 +68,19 @@ def test_operacao_mostra_mensagens_na_dead_letter(suporte: TestClient, fila: Fil
     corpo = suporte.get("/operacao").json()
 
     assert corpo["mensagens_na_dead_letter"] == 3
-    # Sem pedido parado, não há idade.
-    assert corpo["pedidos_parados"] == 0
+    # Sem pedido pendente, não há idade.
+    assert corpo["pedidos_pendentes"] == 0
     assert corpo["idade_do_mais_antigo_segundos"] is None
+
+
+def test_operacao_com_o_rabbitmq_fora_mostra_dead_letter_nula(suporte: TestClient, fila: FilaFalsa):
+    fila.dead_letter = None
+
+    resposta = suporte.get("/operacao")
+
+    # A rota não cai: o resto da saúde continua visível, e `null` diz que a fila não respondeu.
+    assert resposta.status_code == 200
+    assert resposta.json()["mensagens_na_dead_letter"] is None
 
 
 def test_lojista_nao_ve_operacao(sessao: Session, http: TestClient):

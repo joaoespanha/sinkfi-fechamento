@@ -10,13 +10,14 @@ from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from celery.exceptions import SoftTimeLimitExceeded
+from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
+from celery.signals import task_failure
 from celery.schedules import maybe_schedule
 from celery.utils.time import get_exponential_backoff_interval
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from sinkfi import tarefas
-from sinkfi.fila import fila_morta
+from sinkfi.fila import FilaCelery, fila_morta
 from sinkfi.pedidos import ClienteDesconhecido
 
 TAREFAS_COM_RETRY = [tarefas.ingerir_cliente, tarefas.fechar_cliente, tarefas.fechar_semana, tarefas.reprocessar_cliente]
@@ -213,3 +214,33 @@ def test_nova_tentativa_nao_registra_dead_letter(reprocessamento_que_falha, capl
 
     assert resultado.successful()
     assert _dead_letters(caplog) == []
+
+
+def _falhar(tarefa, exception: Exception, *args: str) -> None:
+    """Dispara o `task_failure` como o worker: o limite duro não acontece com `apply()`."""
+    task_failure.send(sender=tarefa, task_id="t1", exception=exception, args=list(args), kwargs={}, traceback=None, einfo=None)
+
+
+def test_limite_duro_nao_registra_dead_letter(caplog):
+    # O limite duro mata o processo e a mensagem recebe ack: não está na fila morta, e a linha não pode dizer que está.
+    _falhar(tarefas.reprocessar_cliente, TimeLimitExceeded(150), "cli_marina", CORTE_ISO)
+
+    assert _dead_letters(caplog) == []
+    [registro] = [r for r in caplog.records if r.getMessage().startswith("limite duro:")]
+    assert registro.levelno == logging.ERROR
+    assert "cli_marina" in registro.getMessage()
+    assert CORTE_ISO in registro.getMessage()
+
+
+def test_dead_letter_sem_corte_nao_registra_corte(caplog):
+    # O pedido da ingestão não tem corte: a linha mostra só o que a tarefa recebeu.
+    _falhar(tarefas.fechar_cliente, ValueError("dado ruim"), "cli_marina")
+
+    [registro] = _dead_letters(caplog)
+    assert "cli_marina" in registro.getMessage()
+    assert "corte" not in registro.getMessage()
+
+
+def test_dead_letter_com_o_rabbitmq_fora_vem_nula():
+    # Porta recusada: responde na hora, sem esperar o `connect_timeout`.
+    assert FilaCelery("amqp://guest:guest@127.0.0.1:1//").mensagens_na_dead_letter() is None

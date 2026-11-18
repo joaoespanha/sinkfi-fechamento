@@ -48,3 +48,8 @@ def test_dead_letter_conta_as_mensagens_da_fila(broker: str):
     assert fila.mensagens_na_dead_letter() == 2
     # Contar não consome: as mensagens continuam lá para o suporte olhar.
     assert fila.mensagens_na_dead_letter() == 2
+
+
+def test_dead_letter_com_credencial_errada_vem_nula(broker: str):
+    # O RabbitMQ responde, mas recusa o login: para a rota, é o mesmo que fora do ar.
+    assert FilaCelery(broker.replace("guest:guest", "guest:errada")).mensagens_na_dead_letter() is None
