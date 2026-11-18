@@ -68,6 +68,17 @@ def dados_com_recebivel_cancelado(pasta: Path, recebivel_id: str) -> Path:
     return pasta
 
 
+def dados_com_mesmo_id_na_pagseguro(pasta: Path, liquido_centavos: int = 49250) -> Path:
+    """O lote reenviado: os mesmos CSVs, com um recebível da PagSeguro que usa o id `rec_1002`, da Stone."""
+    _copiar_dados(pasta)
+    with (pasta / "recebiveis.csv").open("a", encoding="utf-8") as recebiveis:
+        recebiveis.write(
+            f"rec_1002,loja_savassi,pagseguro,card,2026-11-04,2026-11-06,50000,750,0,{liquido_centavos},"
+            "PAG-1002,1,1,open\n"
+        )
+    return pasta
+
+
 def _copiar_dados(pasta: Path) -> None:
     for arquivo in DADOS.glob("*.csv"):
         shutil.copy(arquivo, pasta)

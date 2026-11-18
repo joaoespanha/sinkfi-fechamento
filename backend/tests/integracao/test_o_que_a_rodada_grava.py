@@ -15,6 +15,7 @@ from tests.construtores import CORTE
 from tests.integracao.cenarios import (
     MARINA,
     dados_com_credito_a_mais,
+    dados_com_mesmo_id_na_pagseguro,
     dados_com_recebivel_cancelado,
     preparar_marina,
 )
@@ -66,9 +67,23 @@ def test_busca_rodadas_por_recebivel(sessao: Session, tmp_path: Path):
     ingerir(sessao, MARINA, dados_com_credito_a_mais(tmp_path))
     nova = rodar_fechamento(sessao, MARINA, CORTE)
 
-    rodadas = repositorios.rodadas_com_recebivel(sessao, MARINA, "rec_1002")
+    rodadas = repositorios.rodadas_com_recebivel(sessao, MARINA, "stone", "rec_1002")
 
     assert [r.id for r in rodadas] == [nova.id, anterior.id]
+
+
+def test_busca_rodadas_pelo_recebivel_da_adquirente(sessao: Session, tmp_path: Path):
+    # O `rec_1002` da PagSeguro só entra na segunda rodada; o da Stone está nas duas.
+    preparar_marina(sessao)
+    so_stone = rodar_fechamento(sessao, MARINA, CORTE)
+    ingerir(sessao, MARINA, dados_com_mesmo_id_na_pagseguro(tmp_path))
+    com_as_duas = rodar_fechamento(sessao, MARINA, CORTE)
+
+    da_pagseguro = repositorios.rodadas_com_recebivel(sessao, MARINA, "pagseguro", "rec_1002")
+    da_stone = repositorios.rodadas_com_recebivel(sessao, MARINA, "stone", "rec_1002")
+
+    assert [r.id for r in da_pagseguro] == [com_as_duas.id]
+    assert [r.id for r in da_stone] == [com_as_duas.id, so_stone.id]
 
 
 def test_rodada_guarda_o_corte_usado(sessao: Session):

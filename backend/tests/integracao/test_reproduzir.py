@@ -13,7 +13,12 @@ from sinkfi.reproduzir import reproduzir
 from sinkfi.rodadas import rodar_fechamento
 
 from tests.construtores import CORTE
-from tests.integracao.cenarios import MARINA, dados_com_recebivel_cancelado, preparar_marina
+from tests.integracao.cenarios import (
+    MARINA,
+    dados_com_mesmo_id_na_pagseguro,
+    dados_com_recebivel_cancelado,
+    preparar_marina,
+)
 
 
 def test_reproduzir_com_a_mesma_entrada_decide_igual(sessao: Session):
@@ -37,7 +42,23 @@ def test_reproduzir_depois_da_ingestao_aponta_o_que_mudou(sessao: Session, tmp_p
     r = reproduzir(sessao, MARINA, rodada.id)
 
     assert not r.mesma_entrada
-    assert r.mudaram == ["rec_1002"]
+    assert r.mudaram == ["rec_1002 (stone)"]
+
+
+def test_reproduzir_aponta_o_recebivel_da_adquirente_que_mudou(sessao: Session, tmp_path: Path):
+    # A Stone e a PagSeguro usam o id `rec_1002`; só o da PagSeguro muda de valor.
+    antes, depois = tmp_path / "antes", tmp_path / "depois"
+    antes.mkdir()
+    depois.mkdir()
+    preparar_marina(sessao)
+    ingerir(sessao, MARINA, dados_com_mesmo_id_na_pagseguro(antes))
+    rodada = rodar_fechamento(sessao, MARINA, CORTE)
+    ingerir(sessao, MARINA, dados_com_mesmo_id_na_pagseguro(depois, liquido_centavos=49000))
+
+    r = reproduzir(sessao, MARINA, rodada.id)
+
+    assert not r.mesma_entrada
+    assert r.mudaram == ["rec_1002 (pagseguro)"]
 
 
 def test_reproduzir_rodada_de_versao_antiga_avisa(sessao: Session):

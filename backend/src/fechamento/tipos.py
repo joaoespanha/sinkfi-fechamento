@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
 
+# O recebível pela adquirente e pelo id: o id sozinho pode ser de duas adquirentes (ADR 0009).
+Identidade = tuple[str, str]
+
 
 @dataclass(frozen=True)
 class Loja:
@@ -23,6 +26,11 @@ class Recebivel:
     parcela: int
     parcelas: int
     status: str
+
+    @property
+    def identidade(self) -> Identidade:
+        """O id vem da adquirente: duas adquirentes podem usar o mesmo (ADR 0009)."""
+        return (self.adquirente, self.id)
 
 
 @dataclass(frozen=True)

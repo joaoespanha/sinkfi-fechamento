@@ -77,7 +77,9 @@ def hash_da_rodada(entrada: Entrada, corte: datetime, versao: str) -> str:
 
 
 def _ordenados(itens: list) -> list[dict]:
-    return sorted((asdict(i) for i in itens), key=lambda d: d["id"])
+    # A adquirente desempata recebíveis com o mesmo id (ADR 0009). Vem depois do id para que
+    # a ordem, e o hash, das entradas sem id repetido não mudem.
+    return sorted((asdict(i) for i in itens), key=lambda d: (d["id"], d.get("adquirente", "")))
 
 
 def _serializar(valor: object) -> str:

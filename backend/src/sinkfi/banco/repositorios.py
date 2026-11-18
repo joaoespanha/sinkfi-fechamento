@@ -103,16 +103,16 @@ def _upsert(sessao: Session, modelo: type, linhas: list[dict[str, Any]]) -> None
     """O reenvio traz o lote inteiro: linha nova entra, linha conhecida é sobrescrita."""
     if not linhas:
         return
+    # A chave é a do modelo (ADR 0009): o conflito é com a linha do mesmo cliente, nunca com a de outro.
+    chave = [c.name for c in modelo.__table__.primary_key]
     comando = insert(modelo)
-    colunas = {c: comando.excluded[c] for c in linhas[0] if c != "id"}
-    sessao.execute(comando.on_conflict_do_update(index_elements=["id"], set_=colunas), linhas)
+    colunas = {c: comando.excluded[c] for c in linhas[0] if c not in chave}
+    sessao.execute(comando.on_conflict_do_update(index_elements=chave, set_=colunas), linhas)
 
 
 def entrada_do_cliente(sessao: Session, cliente_id: str) -> Entrada:
     lojas = sessao.scalars(select(LinhaLoja).where(LinhaLoja.cliente_id == cliente_id)).all()
-    recebiveis = sessao.scalars(
-        select(LinhaRecebivel).join(LinhaLoja).where(LinhaLoja.cliente_id == cliente_id)
-    ).all()
+    recebiveis = sessao.scalars(select(LinhaRecebivel).where(LinhaRecebivel.cliente_id == cliente_id)).all()
     lancamentos = sessao.scalars(
         select(LinhaLancamento).where(LinhaLancamento.cliente_id == cliente_id)
     ).all()
@@ -253,9 +253,12 @@ def itens_da_rodada(sessao: Session, rodada_id: int) -> list[ItemRodada]:
     ]
 
 
-def rodadas_com_recebivel(sessao: Session, cliente_id: str, recebivel_id: str) -> list[Rodada]:
-    """Mesma ordem de `rodadas_do_cliente`. O filtro usa o índice GIN dos itens."""
-    return _rodadas_com(sessao, cliente_id, {"id": recebivel_id})
+def rodadas_com_recebivel(sessao: Session, cliente_id: str, adquirente: str, recebivel_id: str) -> list[Rodada]:
+    """Mesma ordem de `rodadas_do_cliente`. O filtro usa o índice GIN dos itens.
+
+    O recebível é a adquirente com o id: o id sozinho pode ser de duas adquirentes (ADR 0009).
+    """
+    return _rodadas_com(sessao, cliente_id, {"adquirente": adquirente, "id": recebivel_id})
 
 
 def rodadas_com_nsu(sessao: Session, cliente_id: str, nsu: str) -> list[Rodada]:

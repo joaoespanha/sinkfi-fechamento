@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, tzinfo
 from fechamento.tipos import (
     Fechamento,
     GrupoDeRecebiveis,
+    Identidade,
     Lancamento,
     Loja,
     Motivo,
@@ -66,12 +67,12 @@ def fechar(
 
     pendencias = [_falta(g, desfeitos) for g in grupos if g.nao_caiu_centavos]
     pendencias += [_a_mais(g, sobra) for g in grupos if (sobra := _sobra(g, desfeitos))]
-    ids_esperados = {r.id for r in esperados}
+    identidades_esperadas = {r.identidade for r in esperados}
     for credito in creditos:
         fica = _valor_que_fica(credito, desfeitos)
         if fica == 0:
             continue  # Entrou e saiu inteiro por chargeback: não há o que conferir.
-        motivo = _motivo_da_entrada(credito, casamento, ids_esperados)
+        motivo = _motivo_da_entrada(credito, casamento, identidades_esperadas)
         if motivo:
             pendencias.append(_entrada(credito, motivo, fica))
 
@@ -105,11 +106,11 @@ class _Casamento:
 
     recebiveis_do_credito: dict[str, list[Recebivel]] = field(default_factory=dict)
     ligados_a_venda: set[str] = field(default_factory=set)
-    pagos: set[str] = field(default_factory=set)
+    pagos: set[Identidade] = field(default_factory=set)
 
     def casa(self, credito: Lancamento, recebiveis: list[Recebivel]) -> None:
         self.recebiveis_do_credito[credito.id] = recebiveis
-        self.pagos.update(r.id for r in recebiveis)
+        self.pagos.update(r.identidade for r in recebiveis)
 
 
 def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo | None) -> _Casamento:
@@ -142,7 +143,7 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
             r
             for r in parcelas
             if r.liquidacao_prevista <= dia
-            and r.id not in casamento.pagos
+            and r.identidade not in casamento.pagos
             and r.liquido_centavos == credito.valor_centavos
         ]
         if abertas:
@@ -154,18 +155,18 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
     # Créditos com os mesmos candidatos são um empate só: até um crédito por candidato casa
     # com todos eles, num grupo (ADR 0002). O crédito que passa disso fica sem recebível.
     pagos_pela_chave_forte = set(casamento.pagos)
-    empates: dict[frozenset[str], tuple[list[Recebivel], list[Lancamento]]] = {}
+    empates: dict[frozenset[Identidade], tuple[list[Recebivel], list[Lancamento]]] = {}
     for credito in sem_nsu:
         dia = _dia(credito, fuso)
         candidatos = [
             r
             for r in recebiveis
-            if r.status != CANCELADO and r.id not in pagos_pela_chave_forte and _chave_fraca(r, credito, dia)
+            if r.status != CANCELADO and r.identidade not in pagos_pela_chave_forte and _chave_fraca(r, credito, dia)
         ]
         if candidatos:
-            empates.setdefault(frozenset(r.id for r in candidatos), (candidatos, []))[1].append(credito)
+            empates.setdefault(frozenset(r.identidade for r in candidatos), (candidatos, []))[1].append(credito)
     for candidatos, creditos_do_empate in empates.values():
-        livres = [r for r in candidatos if r.id not in casamento.pagos]
+        livres = [r for r in candidatos if r.identidade not in casamento.pagos]
         for credito in sorted(creditos_do_empate, key=lambda c: c.lancado_em)[: len(livres)]:
             casamento.casa(credito, livres)
 
@@ -217,29 +218,29 @@ def _agrupar(
     esperados: list[Recebivel], creditos: list[Lancamento], casamento: _Casamento
 ) -> list[tuple[list[Recebivel], list[Lancamento]]]:
     """Recebíveis ligados por um mesmo crédito ficam num grupo só (ADR 0002)."""
-    dono = {r.id: r.id for r in esperados}
+    dono: dict[Identidade, Identidade] = {r.identidade: r.identidade for r in esperados}
 
-    def raiz(id: str) -> str:
-        while dono[id] != id:
-            id = dono[id]
-        return id
+    def raiz(identidade: Identidade) -> Identidade:
+        while dono[identidade] != identidade:
+            identidade = dono[identidade]
+        return identidade
 
     for recebiveis in casamento.recebiveis_do_credito.values():
-        ids = [r.id for r in recebiveis if r.id in dono]
-        for outro in ids[1:]:
-            dono[raiz(outro)] = raiz(ids[0])
+        ligados = [r.identidade for r in recebiveis if r.identidade in dono]
+        for outro in ligados[1:]:
+            dono[raiz(outro)] = raiz(ligados[0])
 
-    por_raiz: dict[str, list[Recebivel]] = {}
+    por_raiz: dict[Identidade, list[Recebivel]] = {}
     for recebivel in esperados:
-        por_raiz.setdefault(raiz(recebivel.id), []).append(recebivel)
+        por_raiz.setdefault(raiz(recebivel.identidade), []).append(recebivel)
 
     grupos = []
     for recebiveis in por_raiz.values():
-        ids = {r.id for r in recebiveis}
+        identidades_do_grupo = {r.identidade for r in recebiveis}
         do_grupo = [
             c
             for c in creditos
-            if any(r.id in ids for r in casamento.recebiveis_do_credito.get(c.id, []))
+            if any(r.identidade in identidades_do_grupo for r in casamento.recebiveis_do_credito.get(c.id, []))
         ]
         grupos.append((recebiveis, do_grupo))
     return grupos
@@ -301,14 +302,16 @@ def _a_mais(grupo: GrupoDeRecebiveis, sobra: int) -> Pendencia:
     return Pendencia(Severidade.FALTA_DE_VERDADE, Motivo.CAIU_A_MAIS, sobra, grupo=grupo)
 
 
-def _motivo_da_entrada(credito: Lancamento, casamento: _Casamento, ids_esperados: set[str]) -> Motivo | None:
+def _motivo_da_entrada(
+    credito: Lancamento, casamento: _Casamento, identidades_esperadas: set[Identidade]
+) -> Motivo | None:
     """Crédito que não paga nenhum recebível esperado deste fechamento."""
     if credito.id in casamento.ligados_a_venda:
         return Motivo.PODE_SER_ANTECIPACAO
     recebiveis = casamento.recebiveis_do_credito.get(credito.id)
     if not recebiveis:
         return Motivo.ENTRADA_SEM_RECEBIVEL
-    if any(r.id in ids_esperados for r in recebiveis):
+    if any(r.identidade in identidades_esperadas for r in recebiveis):
         return None
     if all(r.status == CANCELADO for r in recebiveis):
         return Motivo.VENDA_CANCELADA

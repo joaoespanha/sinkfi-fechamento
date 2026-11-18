@@ -196,17 +196,25 @@ export function casaDoItem(item: Item): string {
   return item.dia ?? ANTES
 }
 
-/** O id do endereço do item: o da primeira venda, ou o do crédito. É do domínio, então sobrevive a um reprocessamento. */
+/**
+ * O id do endereço do item: o do primeiro recebível, ou o do crédito. É do domínio, então sobrevive a um reprocessamento.
+ */
 export function chaveDoItem(item: Item): string {
-  return item.recebiveis[0]?.id ?? item.creditos[0]?.id ?? ''
+  const primeiro = item.recebiveis[0]
+  return primeiro ? chaveDoRecebivel(primeiro) : (item.creditos[0]?.id ?? '')
 }
 
-/** O item de uma chave: o grupo que tem a venda, ou o item de crédito com aquele crédito. */
+/** O item de uma chave: o grupo que tem o recebível, ou o item de crédito com aquele crédito. */
 export function acharItem(itens: Item[], chave: string): Item | undefined {
   return (
-    itens.find((i) => i.recebiveis.some((r) => r.id === chave)) ??
+    itens.find((i) => i.recebiveis.some((r) => chaveDoRecebivel(r) === chave)) ??
     itens.find((i) => i.recebiveis.length === 0 && i.creditos.some((c) => c.id === chave))
   )
+}
+
+/** O id do recebível só é único dentro da adquirente, então a chave leva as duas coisas (ADR 0009). */
+export function chaveDoRecebivel(r: Item['recebiveis'][number]): string {
+  return `${r.adquirente}:${r.id}`
 }
 
 /** O valor que a lista mostra: a pendência, ou o esperado do grupo, ou o que caiu no item de crédito. */

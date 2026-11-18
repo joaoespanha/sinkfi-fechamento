@@ -1,6 +1,6 @@
 // Os textos que dependem da regra: o que a tela diz precisa bater com o que o backend fez.
 import { describe, expect, it } from 'vitest'
-import { type Item, textoDaChave } from './textos'
+import { acharItem, chaveDoItem, type Item, textoDaChave } from './textos'
 
 /** Um grupo com um recebível de NSU `nsu`, pago por um crédito com a descrição `descricao`. */
 function casado(nsu: string, descricao: string): Item {
@@ -52,5 +52,17 @@ describe('textoDaChave', () => {
   it('NSU dentro de outro NSU não é chave forte', () => {
     // A regra não lê "STN-12" como a venda STN-1: se casou, foi pela chave fraca.
     expect(textoDaChave(casado('STN-1', 'STN-12'))).toMatch(/chave fraca/)
+  })
+})
+
+describe('endereço do item', () => {
+  it('o mesmo id em duas adquirentes abre o item de cada uma', () => {
+    // O id do recebível vem da adquirente: a Stone e a PagSeguro podem usar o mesmo (ADR 0009).
+    const daStone = casado('STN-1', 'STN-1')
+    const base = casado('PAG-1', 'PAG-1')
+    const daPagseguro: Item = { ...base, recebiveis: [{ ...base.recebiveis[0], adquirente: 'pagseguro' }] }
+
+    expect(chaveDoItem(daStone)).not.toBe(chaveDoItem(daPagseguro))
+    expect(acharItem([daStone, daPagseguro], chaveDoItem(daPagseguro))).toBe(daPagseguro)
   })
 })

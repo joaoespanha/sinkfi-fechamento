@@ -27,7 +27,7 @@ _Evitar_: admin, operador
 ## O que deveria cair
 
 **Recebível**:
-Valor líquido que uma adquirente deve depositar por uma venda ou por uma parcela dela, numa data prevista.
+Valor líquido que uma adquirente deve depositar por uma venda ou por uma parcela dela, numa data prevista. É identificado pela adquirente junto com o id que ela deu: duas adquirentes podem usar o mesmo id.
 _Evitar_: venda, transação, agenda
 
 **Liquidação prevista**:
