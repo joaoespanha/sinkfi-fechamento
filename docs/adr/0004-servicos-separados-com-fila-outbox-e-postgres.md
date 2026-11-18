@@ -26,12 +26,15 @@ A primeira decisão era um serviço sem fila: um fechamento é um cálculo de mi
 
 ## Consequências
 
-- O outbox pode publicar o mesmo pedido duas vezes, e o Celery pode reentregar. A rodada idempotente absorve os dois casos.
+- O outbox pode publicar o mesmo pedido duas vezes, e o Celery pode reentregar. A rodada idempotente absorve os dois casos, mesmo quando as duas cópias rodam ao mesmo tempo: a rodada e a ingestão travam o cliente no Postgres (`pg_advisory_xact_lock`), e a segunda espera a primeira e acha a rodada pelo hash. A mesma trava impede a rodada de ler a entrada no meio de uma ingestão.
+- O retry cobre uma queda do Postgres de até uns 13 minutos (10 tentativas, com espera de até 300 s). Uma queda maior manda o pedido para a dead letter, e como o outbox já o deu por publicado, o fechamento só volta na ingestão seguinte. A espera máxima fica abaixo do `consumer_timeout` do RabbitMQ (30 min), porque a tentativa agendada fica no worker sem ack.
+- O relay do outbox só marca o pedido como publicado depois que o RabbitMQ confirma que guardou a mensagem (`confirm_publish`).
+- O processo que morre conta como tentativa, e a tarefa presa passa por um limite de tempo: as duas terminam na dead letter, em vez de voltar para a fila sem fim. O limite duro, que só existe como rede de segurança, perde a mensagem sem dead letter.
 - O outbox não resolve o atraso do dado bancário (o crédito de sexta que só aparece no domingo). Ele só garante que todo dado novo vire um pedido de rodada. Quem resolve o caso é o casamento separado do corte (ADR 0001) e a rodada nova.
-- O `beat` precisa ter exatamente uma cópia. `api` e `worker` não guardam estado e podem ter várias.
+- O `beat` precisa ter exatamente uma cópia. `api` e `worker` não guardam estado e podem ter várias. A ingestão segue o relógio (0, 6, 12 e 18h UTC), e não a hora em que o `beat` subiu: assim um deploy não a adia.
 - O primeiro limite de escala é o Postgres: a escrita tem um nó só, e muitos workers pedem um pool de conexões.
 - Acesso síncrono ao banco basta enquanto a `api` só fizer consultas curtas. Se ela passar a esperar um serviço externo dentro da requisição, vale trocar para assíncrono.
-- O Docker Compose tem seis serviços ligados (`postgres`, `rabbitmq`, `api`, `worker`, `beat`, `web`) e um que roda uma vez (`preparar`: migrações, seed e primeira ingestão).
+- O Docker Compose tem seis serviços ligados (`postgres`, `rabbitmq`, `api`, `worker`, `beat`, `web`) e dois que rodam uma vez: `migrar` (as migrações) e `semear` (o seed e a primeira ingestão, só na demonstração).
 
 ## Testes que garantem
 
@@ -40,3 +43,11 @@ A primeira decisão era um serviço sem fila: um fechamento é um cálculo de mi
 - `ingestao_grava_dado_e_pedido_na_mesma_transacao`
 - `relay_nao_publica_o_mesmo_pedido_em_duas_execucoes`
 - `pedido_repetido_nao_duplica_rodada`
+- `dois_pedidos_ao_mesmo_tempo_devolvem_a_mesma_rodada`
+- `rodada_espera_a_ingestao_em_andamento`
+- `banco_fora_do_ar_tenta_de_novo` e `erro_que_nao_e_passageiro_falha_de_primeira`
+- `aguenta_dez_minutos_de_banco_fora_do_ar`
+- `reiniciar_o_beat_nao_adia_a_ingestao`
+- `publicar_espera_o_rabbitmq_confirmar`
+- `mensagem_que_derruba_o_processo_nao_volta_para_sempre`
+- `trabalho_que_falha_de_vez_cai_na_fila_morta`
