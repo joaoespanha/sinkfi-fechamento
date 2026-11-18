@@ -141,6 +141,28 @@ export function podeConferir(conferencia: Conferencia | null, rodadaId: number, 
   return CAMPOS_DO_RESUMO.some((campo) => conferencia.resumo[campo] !== resumo[campo])
 }
 
+/** A linha do aviso: a do resumo e a contagem para conferir, que resolver e desfazer mudam (ADR 0014). */
+function linhaDoAviso(resumo: Resumo): string {
+  const conferir = paraConferir(resumo)
+  return conferir ? `${linhaDoResumo(resumo)} · ${conferir}` : linhaDoResumo(resumo)
+}
+
+/**
+ * O que o aviso da conferência que já não vale mostra: o antes e o agora, ou, quando as linhas seriam iguais,
+ * por que ela deixou de valer. Rodada nova com o mesmo resumo acontece quando a versão da regra muda.
+ */
+export function mudancaDaConferencia(
+  conferencia: Conferencia,
+  rodadaId: number,
+  resumo: Resumo,
+): { antes: string; agora: string } | { mesmoResumo: string } {
+  const antes = linhaDoAviso(conferencia.resumo)
+  const agora = linhaDoAviso(resumo)
+  if (antes !== agora) return { antes, agora }
+  const motivo = conferencia.rodada_id !== rodadaId ? 'O fechamento foi recalculado' : 'O limite da trava mudou'
+  return { mesmoResumo: `${motivo}, e o resumo continua o mesmo: ${agora}.` }
+}
+
 /** O estado no lugar do botão. */
 export function fraseDoConferido(conferencia: Conferencia): string {
   return `Conferido por ${conferencia.quem} em ${quando(conferencia.em)}`

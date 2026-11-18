@@ -13,6 +13,7 @@ import {
   type Item,
   linhaDaAtualizacao,
   linhaDoResumo,
+  mudancaDaConferencia,
   textoDaChave,
   type Conferencia,
   textoDoAviso,
@@ -206,6 +207,58 @@ describe('conferência', () => {
 
   it('a confirmação sem itens para conferir só diz que nada trava', () => {
     expect(avisoDaConfirmacao({ ...resumo, itens_para_conferir: 0 })).toBe('Nada trava.')
+  })
+})
+
+// O aviso da conferência que já não vale: precisa mostrar o que mudou, e não duas linhas iguais.
+describe('aviso da conferência', () => {
+  const resumo = {
+    recomendacao: 'faltam' as const,
+    falta_de_verdade_centavos: 1_085_933,
+    itens_falta_de_verdade: 5,
+    itens_para_conferir: 2,
+    limite_trava_centavos: null,
+  }
+  const conferida = (rodada_id: number, r: typeof resumo | Conferencia['resumo'] = resumo): Conferencia => ({
+    quem: 'marina@sinkfi.demo',
+    em: '2026-11-17T21:02:00Z',
+    rodada_id,
+    limite_trava_centavos: r.limite_trava_centavos,
+    resumo: r,
+  })
+
+  it('quando só a contagem para conferir mudou, antes e agora dizem a contagem', () => {
+    expect(mudancaDaConferencia(conferida(12, { ...resumo, itens_para_conferir: 1 }), 12, resumo)).toEqual({
+      antes: 'Faltam R$\u00a010.859,33 em 5 itens · 1 item para conferir',
+      agora: 'Faltam R$\u00a010.859,33 em 5 itens · 2 itens para conferir',
+    })
+  })
+
+  it('sem itens para conferir, a linha é só a do resumo', () => {
+    const antes = conferida(12, { ...resumo, itens_para_conferir: 1 })
+    expect(mudancaDaConferencia(antes, 12, { ...resumo, itens_para_conferir: 0 })).toEqual({
+      antes: 'Faltam R$\u00a010.859,33 em 5 itens · 1 item para conferir',
+      agora: 'Faltam R$\u00a010.859,33 em 5 itens',
+    })
+  })
+
+  it('rodada nova com o mesmo resumo diz que recalculou, em vez de repetir a linha', () => {
+    expect(mudancaDaConferencia(conferida(11), 12, { ...resumo })).toEqual({
+      mesmoResumo:
+        'O fechamento foi recalculado, e o resumo continua o mesmo: Faltam R$\u00a010.859,33 em 5 itens · 2 itens para conferir.',
+    })
+  })
+
+  it('o limite mudou sem mudar a linha, e o aviso diz isso', () => {
+    const semFalta = {
+      ...resumo,
+      recomendacao: 'pode_fechar' as const,
+      falta_de_verdade_centavos: 0,
+      itens_falta_de_verdade: 0,
+    }
+    expect(mudancaDaConferencia(conferida(12, { ...semFalta, limite_trava_centavos: 500_000 }), 12, semFalta)).toEqual({
+      mesmoResumo: 'O limite da trava mudou, e o resumo continua o mesmo: Pode fechar · 2 itens para conferir.',
+    })
   })
 })
 
