@@ -40,6 +40,9 @@ app.conf.update(
     # Falhou de vez (erro que não é passageiro, ou acabaram as tentativas): rejeita e vai para a dead letter.
     task_acks_on_failure=False,
     worker_prefetch_multiplier=1,
+    # Publicar espera o RabbitMQ confirmar que guardou a mensagem; se ele recusar, `send_task` lança.
+    # Sem isso, o relay do outbox marcaria como publicado um pedido perdido no caminho.
+    broker_transport_options={"confirm_publish": True},
     timezone="UTC",
 )
 
