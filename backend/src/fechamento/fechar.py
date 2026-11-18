@@ -36,7 +36,8 @@ PENDENTE = "pending"
 # Tarifa da conta e transferência da própria titular não são crédito.
 NAO_E_CREDITO = {"fee", "internal_transfer"}
 
-PARCELA_NA_DESCRICAO = re.compile(r"(\d+)/(\d+)")
+# "n/m" solto: não pega pedaço de data como "10/11/2026" nem de um número maior.
+PARCELA_NA_DESCRICAO = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])")
 
 
 def fechar(
@@ -119,16 +120,19 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
     # 1. Chave forte: um recebível com o NSU, ou a parcela que a descrição indica.
     for credito in creditos:
         candidatos = [r for r in recebiveis if _chave_forte(r, credito)]
-        parcela = PARCELA_NA_DESCRICAO.search(credito.descricao)
+        parcela = _parcela_indicada(credito.descricao, candidatos)
         if len(candidatos) == 1:
             casamento.casa(credito, candidatos)
         elif candidatos and parcela:
-            indicada = [r for r in candidatos if r.parcela == int(parcela.group(1))]
+            indicada = [r for r in candidatos if r.parcela == parcela]
             if indicada:
                 casamento.casa(credito, indicada)
+            else:
+                # A parcela indicada não existe: o crédito é da venda, mas não paga nenhum recebível dela.
+                casamento.ligados_a_venda.add(credito.id)
         elif candidatos:
             sem_parcela.append((credito, candidatos))
-        elif not any(r.nsu in credito.descricao for r in recebiveis):
+        elif not any(_cita_nsu(r.nsu, credito.descricao) for r in recebiveis):
             sem_nsu.append(credito)
 
     # 2. NSU de venda parcelada sem "n/m": parcelas vencidas até o crédito, sem crédito, mesmo líquido.
@@ -168,9 +172,23 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
     return casamento
 
 
+def _cita_nsu(nsu: str, descricao: str) -> bool:
+    """O NSU aparece inteiro na descrição: "STN-1" não está em "STN-12"."""
+    return re.search(rf"(?<![0-9A-Za-z]){re.escape(nsu)}(?![0-9A-Za-z])", descricao) is not None
+
+
+def _parcela_indicada(descricao: str, candidatos: list[Recebivel]) -> int | None:
+    """O "n/m" da descrição cujo m é o número de parcelas da venda."""
+    parcelas = {r.parcelas for r in candidatos}
+    for achado in PARCELA_NA_DESCRICAO.finditer(descricao):
+        if int(achado.group(2)) in parcelas:
+            return int(achado.group(1))
+    return None
+
+
 def _chave_forte(recebivel: Recebivel, lancamento: Lancamento) -> bool:
     """NSU citado na descrição de um crédito da adquirente do recebível, ou Pix para recebível Pix."""
-    if recebivel.nsu not in lancamento.descricao:
+    if not _cita_nsu(recebivel.nsu, lancamento.descricao):
         return False
     if recebivel.trilho == PIX:
         return lancamento.tipo == PIX_RECEBIDO

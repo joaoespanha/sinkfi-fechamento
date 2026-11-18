@@ -222,12 +222,18 @@ export function notaDoDia(item: Item): string | null {
   return outro ? `caiu em ${diaDaSemana(outro)}` : null
 }
 
+/** O NSU aparece inteiro na descrição, com a mesma fronteira da regra: "STN-1" não está em "STN-12". */
+function citaNsu(nsu: string, descricao: string): boolean {
+  const escapado = nsu.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![0-9A-Za-z])${escapado}(?![0-9A-Za-z])`).test(descricao)
+}
+
 /**
  * Por qual chave o item casou (GLOSSARY: Chave forte, Chave fraca). A chave fraca só vale para crédito
  * que não cita o NSU de nenhum recebível; então NSU na descrição quer dizer chave forte.
  */
 export function textoDaChave(item: Item): string {
-  const forte = item.creditos.some((c) => item.recebiveis.some((r) => c.descricao.includes(r.nsu)))
+  const forte = item.creditos.some((c) => item.recebiveis.some((r) => citaNsu(r.nsu, c.descricao)))
   return forte
     ? 'Casou pela chave forte: o NSU da venda está na descrição do crédito.'
     : 'Casou pela chave fraca: mesma adquirente e mesmo valor líquido, dentro da janela.'
