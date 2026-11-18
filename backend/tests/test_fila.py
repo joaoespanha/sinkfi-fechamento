@@ -4,9 +4,12 @@ Sem RabbitMQ e sem Postgres. A tarefa roda com `apply()`, que faz as novas tenta
 sem esperar; o serviço que ela chama é trocado por um que falha.
 """
 
+import copy
 from contextlib import nullcontext
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from celery.schedules import maybe_schedule
 from celery.utils.time import get_exponential_backoff_interval
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -92,3 +95,21 @@ def test_aguenta_dez_minutos_de_banco_fora_do_ar(tarefa):
     assert sum(esperas) >= 10 * 60
     # A tentativa agendada fica no worker sem ack até a hora; mais que o `consumer_timeout`, o RabbitMQ a devolve.
     assert max(esperas) < CONSUMER_TIMEOUT
+
+
+INGESTAO = tarefas.app.conf.beat_schedule["ingestao-a-cada-6-horas"]
+
+
+def test_reiniciar_o_beat_nao_adia_a_ingestao():
+    # O beat sem o arquivo de agenda (container recriado) conta a última execução a partir de quando subiu.
+    subiu = datetime(2026, 11, 18, 5, 59, tzinfo=UTC)
+    agenda = copy.copy(maybe_schedule(INGESTAO["schedule"], app=tarefas.app))
+    agenda.nowfun = lambda: subiu
+
+    # A ingestão segue o relógio (0, 6, 12 e 18h UTC), não a hora em que o beat subiu.
+    assert agenda.remaining_estimate(subiu) <= timedelta(minutes=1)
+
+
+def test_ingestao_agendada_com_o_worker_fora_expira_antes_da_proxima():
+    # Sem expirar, as ingestões se acumulam na fila e rodam todas juntas quando o worker volta.
+    assert 0 < INGESTAO["options"]["expires"] <= 6 * 60 * 60
