@@ -46,6 +46,17 @@ A ingestão lê `dados/`: `lojas.csv`, `recebiveis.csv` e `extrato.csv`, com as 
   Em uns 20 segundos, a tela mostra uma rodada nova, depois de recarregar. Sem esse comando, o `beat` ingere às 0, 6, 12 e 18h UTC.
 - **Trocar o conjunto inteiro.** A ingestão sobrescreve a linha pela chave da fonte (`cliente_id` e `id`, mais a adquirente no recebível; ADR 0009), mas não apaga: uma linha tirada do CSV continua no banco. Para começar de um conjunto novo, apague o banco com `docker compose down -v` e suba de novo.
 - **Outras datas.** Os cortes andam de 7 em 7 dias a partir de 10/11 às 18:00, a data com que os CSVs do desafio batem (ADR 0007). Dados de outra semana caem nesses cortes, e a tela navega entre elas. Se o corte for em outro dia ou hora, troque a âncora, por exemplo `SINKFI_ANCORA_DOS_CORTES=2026-11-16T18:00:00-03:00 docker compose up -d --wait`. Com ela vazia, vale o dia de fechamento do cliente.
+- **Lotes de teste prontos (opcional).** [`dados-teste/`](dados-teste/LEIA.md) traz dois lotes com mais casos: a semana de 03/11, a de 17/11 e, no lote 2, o que chega depois. A aplicação não lê essa pasta: ela só lê os três nomes fixos de `dados/`. Para usar um lote, copie os arquivos por cima e comece do zero:
+
+  ```sh
+  cp dados-teste/lote1/*.csv dados/   # PowerShell: Copy-Item dados-teste\lote1\*.csv dados\ -Force
+  docker compose down -v
+  docker compose up -d --build --wait
+  ```
+
+  Com a stack de pé, dá para copiar e pedir a ingestão na hora, com o comando do primeiro item. O lote 2 contém o lote 1, então o caminho sugerido é: lote 1, ingestão, conferir na tela; depois lote 2, ingestão, e ver o que mudou desde a última conferência. Para voltar à demonstração padrão: `git checkout -- dados`, `docker compose down -v` e subir de novo. Os casos e os números esperados estão em [`dados-teste/LEIA.md`](dados-teste/LEIA.md). Não abra os CSVs no Excel: ele grava BOM e `;`, e a ingestão cai na dead letter.
+
+  O fechamento "atual" é o último corte que já passou, então a semana de 17/11 deixa de ser a atual em datas posteriores; as outras continuam na navegação. Hoje o fechamento de 03/11 mostra mais itens do que deveria: créditos lançados depois do corte entram em fechamentos anteriores (ver `dados-teste/LEIA.md`).
 
 O `backend/README.md` tem mais detalhes sobre a fila, o worker e a dead letter.
 
