@@ -3,6 +3,7 @@ import {
   type Fechamento,
   type Item,
   acharItem,
+  chaveDoRecebivel,
   diaDaSemana,
   emReais,
   explicacaoDoMotivo,
@@ -107,7 +108,7 @@ export function DetalheDoItem({ fechamento, chave }: { fechamento: Fechamento; c
           <h2>Recebíveis</h2>
           <ul>
             {item.recebiveis.map((r) => (
-              <li key={r.id}>
+              <li key={chaveDoRecebivel(r)}>
                 {linhaDoRecebivel(r)} · <span className="valor">{emReais(r.liquido_centavos)}</span>
               </li>
             ))}

@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react'
 /**
  * As telas do app, pelo hash da URL. Sem router.
  * - `#/fechamento?semana=AAAA-MM-DD&dia=AAAA-MM-DD`: a lista, filtrada por um dia da faixa (#26). `dia=antes` é "Antes desta semana".
- * - `#/fechamento/AAAA-MM-DD/item/<chave>`: o detalhe de um item. A chave é `<adquirente>:<id>` da primeira venda,
+ * - `#/fechamento/AAAA-MM-DD/item/<chave>`: o detalhe de um item. A chave é `<adquirente>:<id>` do primeiro recebível,
  *   ou o id do crédito (#26, ADR 0009).
  * - `#/limite` (#25).
  */
