@@ -17,7 +17,7 @@ export function EscolherCliente({
   aoPerderSessao: () => void
 }) {
   const [estado, setEstado] = useState<Estado>({ tipo: 'parado' })
-  const [aberto, setAberto] = useState<string | null>(null)
+  const [nomeAberto, setNomeAberto] = useState<string | null>(null)
   const formulario = useRef<HTMLFormElement>(null)
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -36,7 +36,7 @@ export function EscolherCliente({
   }
 
   function escolher(cliente: ClienteEncontrado) {
-    setAberto(cliente.nome)
+    setNomeAberto(cliente.nome)
     setEstado({ tipo: 'parado' })
     formulario.current?.reset()
     aoEscolher(cliente.id)
@@ -46,7 +46,7 @@ export function EscolherCliente({
 
   return (
     <div className="escolher-cliente">
-      {aberto !== null && <span className="cliente-aberto">{aberto}</span>}
+      {nomeAberto !== null && <span className="cliente-aberto">{nomeAberto}</span>}
       <form ref={formulario} role="search" onSubmit={enviar}>
         <label htmlFor="busca-cliente" className="so-leitor">
           E-mail, CNPJ ou nome do cliente

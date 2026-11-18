@@ -64,6 +64,11 @@ def test_suporte_acha_o_cliente_pelo_nome(sessao: Session, suporte_com_marina: T
     assert _ids(suporte_com_marina.get("/clientes", params={"busca": "savassi"})) == [MARINA]
 
 
+def test_suporte_nao_aparece_na_busca(suporte_com_marina: TestClient):
+    # O e-mail do suporte casa com o termo, mas ele não tem cliente: só a lojista leva à Marina.
+    assert _ids(suporte_com_marina.get("/clientes", params={"busca": "sinkfi.test"})) == [MARINA]
+
+
 def test_busca_devolve_so_o_cliente_que_bate(sessao: Session, suporte_com_marina: TestClient):
     preparar_outro_cliente(sessao)
 
