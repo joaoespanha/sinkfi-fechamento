@@ -23,6 +23,7 @@ O suporte também usa o produto, para atender um chamado: acha o cliente por e-m
 - O bloqueio progressivo da conta depois de tentativas de login erradas.
 - A evolução semana a semana.
 - O fechamento mensal ou quinzenal.
+- Uma tela de operação para o suporte, com o que a `/operacao` devolve. Hoje ela só se lê pela API.
 
 ## A regra de fechamento
 
@@ -36,8 +37,8 @@ O suporte também usa o produto, para atender um chamado: acha o cliente por e-m
 
 1. **Depois que a tela diz "pode fechar", o que você ainda confere na mão?** Se ela ainda abre o extrato, a aposta não pagou, e a resposta mostra o que falta.
 2. **Das pendências da semana, quais você resolveu sozinha com o próximo passo da tela, e quais virariam chamado?** Diz se a pendência virou tarefa ou continua sendo uma linha vermelha.
-3. **A partir de qual diferença você não fecharia?** Ninguém definiu essa materialidade, e a trava vem desligada. A resposta dela é o primeiro valor padrão para quem nunca mexeu no limite.
-4. **Para onde vai o fechamento depois que você termina: planilha, contador, sistema da loja?** Se alguém ainda redigita o que casou, o próximo passo é o webhook para o ERP (ADR 0008), não mais uma tela.
+3. **Por que o fechamento é na segunda? O contador pede o mês fechado?** O fechamento é semanal, e o mensal ou quinzenal ficou de fora. Se o ritmo de segunda é só quando sobra tempo e quem recebe pede o mês, o próximo passo é deixar ela escolher o período.
+4. **Para onde vai o fechamento depois que você termina: planilha, contador, sistema da loja?** A resposta escolhe o próximo passo. Se alguém redigita o que casou num sistema, é o webhook para o ERP (ADR 0008). Se vai para o contador ou para uma planilha, é o fechamento em PDF ou num arquivo estruturado. Nos dois casos, não é mais uma tela.
 5. **Quanto tempo levava o fechamento de segunda antes, e quanto levou com a tela?** É a medida mais direta de que o trabalho ficou menor, e a base do sinal em Monitorar.
 6. **Quando a tela diz "falta de verdade", "para conferir" e "próximo fechamento", o que você entende por cada um?** São nomes que nós escolhemos. Se ela lê algum de outro jeito, a tela informa errado mesmo com o número certo, e foi por não entender que um cliente voltou para a planilha.
 
@@ -65,13 +66,48 @@ O suporte também usa o produto, para atender um chamado: acha o cliente por e-m
 
 ## Monitorar
 
-**O fechamento rodou.** Toda ingestão deixa um pedido de fechamento no Postgres, e todo pedido deve virar uma rodada para aquele cliente e corte. Observo três coisas: pedidos parados sem publicar, sinal de que a publicação ou o RabbitMQ parou; um cliente com ingestão nova e sem rodada nova para o fechamento vigente; e, principalmente, uma mensagem em `fechamento.morta`. Essa é o alarme: um fechamento que não rodou. O da semana atual volta na próxima ingestão, até 6 horas depois; o de um corte antigo só volta com um reprocessamento pelo suporte. Como só cai ali o que falhou de verdade (ver Desenho), uma mensagem na dead letter nunca é ruído.
+**O fechamento rodou.** Toda ingestão deixa um pedido de fechamento no Postgres, e todo pedido deve virar uma rodada para aquele cliente e corte. O alarme é uma mensagem em `fechamento.morta`: um fechamento que não rodou. O da semana atual volta na próxima ingestão, até 6 horas depois; o de um corte antigo só volta com um reprocessamento pelo suporte. Como só cai ali o que falhou de verdade (ver Desenho), uma mensagem na dead letter nunca é ruído. O beat parado não deixa pedido pendente nem mensagem na fila morta, por isso também conto os clientes sem ingestão há mais de 12 horas.
 
-**Ela conferiu.** O botão "Marcar como conferido" registra quem, quando e qual rodada ela viu, sem travar nada. Ele se chamava "Terminei", mas o nome soava como fechar o período e não dizia o que fica gravado, por isso virou conferência em tudo, da tela à tabela (ADR 0012). Toda terça de manhã olho três números: quantos clientes conferiram, quantos conferiram uma rodada que depois mudou e quem conferiu mais de uma vez na mesma semana.
+**Ela conferiu.** O botão "Marcar como conferido" registra quem, quando e qual rodada ela viu, sem travar nada. Ele se chamava "Terminei", mas o nome soava como fechar o período e não dizia o que fica gravado, por isso virou conferência em tudo, da tela à tabela (ADR 0012). Toda terça de manhã olho os números de uso da tabela abaixo.
+
+**O valor da trava.** A trava vem desligada, porque ninguém definiu a partir de qual diferença não se fecha. Em vez de perguntar, olho o que quem ligou a trava gravou: a conferência guarda o limite daquele momento. A mediana, em percentual do total do fechamento, vira o valor padrão para quem nunca mexeu no limite. Em reais, a média misturaria lojas de tamanhos diferentes. E se quase ninguém liga a trava, ela não é a resposta.
 
 **O que muda antes do chamado.** O chamado começa quando o número não convence, e isso aparece antes no uso: ela confere de novo na mesma semana; uma rodada nova muda um fechamento que ela já tinha conferido (o crédito de sexta que só aparece no domingo), e a tela avisa o que mudou, mas só quando ela abre; um fechamento anterior fica com pendência e sem conferência, e a tela lembra na semana seguinte. Nos três casos, o suporte pode olhar antes de ela escrever.
 
-**Onde olhar e o que falta.** O beat parado não deixa pedido pendente, então o `/operacao` também conta os clientes sem ingestão há mais de 12 horas. Quem consulta é o suporte ou a engenharia, pelo `/api/docs`; a saúde das peças responde em `/api/health`, sem login. A rota `/operacao`, só do suporte, devolve os pedidos pendentes, a idade do mais antigo pelo relógio do banco e as mensagens na dead letter (`null` quando o RabbitMQ não responde ou recusa o login). Cada falha definitiva sai no log do worker como `dead letter:`, com a tarefa, o cliente, o corte e o erro, inclusive o processo que morreu depois de acabarem as tentativas. A tarefa que passa do limite duro é morta e confirmada: não chega à fila morta e sai como `limite duro:`. Os números de terça ainda são consultas nas tabelas. Com mais tempo, passaria os logs para JSON, levaria as contagens para o Prometheus com um alerta na dead letter, poria o contador na tela do suporte e gravaria quantas vezes ela abre a mesma pendência. O Rafa disse que quem fica reabrindo a tela cancela, e esse é o único sinal que ainda não registramos.
+**As métricas.** Três perguntas, cada uma com seus números: se o trabalho dela ficou menor, se o fechamento rodou e se as peças estão de pé.
+
+*Uso: o trabalho dela ficou menor.*
+
+| Métrica | O que indica | Onde se mede hoje | Sinal |
+|---|---|---|---|
+| Clientes que conferiram na semana | Ela fecha pela tela | Consulta nas tabelas | Queda |
+| Conferências de uma rodada que depois mudou | Ela conferiu um número velho | Consulta nas tabelas | Qualquer uma: o suporte escreve antes |
+| Clientes que conferiram mais de uma vez na semana | O número não convenceu | Consulta nas tabelas | Chamado a caminho |
+| Parcela do valor que a regra casou sem pendência, por adquirente | A regra resolve, ou a chave fraca virou o gargalo (ver Evoluir) | Consulta nas rodadas | Queda numa adquirente |
+| Clientes com a trava ligada e mediana do limite em % | O valor padrão da trava | Consulta nas conferências | Quase ninguém liga |
+| Vezes que ela reabre a mesma pendência | Quem fica reabrindo cancela | Não registrado | — |
+
+*Operação: o fechamento rodou.*
+
+| Métrica | O que indica | Onde se mede hoje | Sinal |
+|---|---|---|---|
+| Mensagens em `fechamento.morta` | Um fechamento que não rodou | `/operacao` | Qualquer uma |
+| Pedidos pendentes e idade do mais antigo | A publicação ou o RabbitMQ parou | `/operacao` | Idade passando de minutos |
+| Clientes sem ingestão há mais de 12 horas | O beat parou, ou a fonte não respondeu | `/operacao` (ADR 0011) | Qualquer um |
+| Cliente com ingestão nova e sem rodada nova | O worker não está consumindo | Consulta nas tabelas | Qualquer um |
+| `limite duro:` no log | Uma tarefa travou e foi morta | Log do worker | Qualquer um |
+
+*Infraestrutura: as peças estão de pé.*
+
+| Métrica | Onde se mede hoje |
+|---|---|
+| Postgres e broker respondem | `/api/health` |
+| Mensagens na fila principal e consumers ativos | Painel do RabbitMQ, sem alerta |
+| Taxa de 5xx e latência da API | Com mais tempo |
+| Duração e tentativas da tarefa do worker | Com mais tempo |
+| Disco e conexões do Postgres | Com mais tempo |
+
+**Onde olhar e o que falta.** A `/operacao`, só do suporte, ainda não tem tela: quem consulta é o suporte ou a engenharia, pelo `/api/docs`. As mensagens na dead letter vêm `null` quando o RabbitMQ não responde ou recusa o login. O `/api/health` responde sem login. Cada falha definitiva sai no log do worker como `dead letter:`, com a tarefa, o cliente, o corte e o erro, inclusive o processo que morreu depois de acabarem as tentativas. A tarefa que passa do limite duro é morta e confirmada: não chega à fila morta e sai como `limite duro:`. Com mais tempo, poria a `/operacao` numa tela do suporte, passaria os logs para JSON, levaria as contagens para o Prometheus com um alerta na dead letter e gravaria quantas vezes ela abre a mesma pendência. O Rafa disse que quem fica reabrindo a tela cancela, e esse é o único sinal que ainda não registramos.
 
 ## Debugar
 
