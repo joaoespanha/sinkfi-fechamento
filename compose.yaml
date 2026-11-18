@@ -137,6 +137,11 @@ services:
     # Só no host: de fora, chega-se por um proxy com TLS ou por túnel SSH.
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:80"
+    environment:
+      # O proxy de TLS na frente, se houver: só dele o nginx aceita o X-Forwarded-For, que dá o IP do limite
+      # por IP. Use o endereço que o nginx vê, que pela porta publicada é o gateway da rede do Docker.
+      # Nunca 0.0.0.0/0: aí qualquer um forja o cabeçalho e escapa do limite de login.
+      SINKFI_PROXY_CONFIAVEL: ${SINKFI_PROXY_CONFIAVEL:-127.0.0.1/32}
     # Pelo nginx, e não direto na api: pega também o repasse quebrado.
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/health"]
