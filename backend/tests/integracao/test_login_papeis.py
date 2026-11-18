@@ -97,7 +97,7 @@ def test_suporte_le_o_limite(sessao: Session, http: TestClient, marina_com_rodad
     assert resposta.json() == {"limite_trava_centavos": None}
 
 
-@pytest.mark.parametrize(("metodo", "caminho"), [*ROTAS_COM_CLIENTE, ("GET", "/eu")])
+@pytest.mark.parametrize(("metodo", "caminho"), [*ROTAS_COM_CLIENTE, ("GET", "/eu"), ("GET", "/operacao")])
 def test_rota_sem_token_devolve_401(
     http: TestClient, marina_com_rodada: int, metodo: str, caminho: str
 ):

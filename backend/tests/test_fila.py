@@ -5,6 +5,7 @@ sem esperar; o serviço que ela chama é trocado por um que falha.
 """
 
 import copy
+import logging
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 
@@ -162,3 +163,53 @@ def test_tick_do_outbox_tem_fila_propria_e_sem_dead_letter():
 
     assert fila.name != _fila_de("sinkfi.fechar_cliente").name
     assert not fila.queue_arguments
+
+
+@pytest.fixture
+def reprocessamento_que_falha(monkeypatch: pytest.MonkeyPatch):
+    """Troca o serviço do `reprocessar_cliente` por um que lança cada erro de `erros`, um por chamada."""
+
+    def preparar(*erros: Exception) -> None:
+        restantes = list(erros)
+
+        def reprocessar(*_):
+            if restantes:
+                raise restantes.pop(0)
+
+        monkeypatch.setattr(tarefas, "engine", lambda: None)
+        monkeypatch.setattr(tarefas, "Session", SessaoFalsa)
+        monkeypatch.setattr(tarefas, "reprocessar", reprocessar)
+
+    return preparar
+
+
+CORTE_ISO = "2026-11-10T18:00:00-03:00"
+
+
+def _dead_letters(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if r.getMessage().startswith("dead letter:")]
+
+
+def test_falha_definitiva_registra_dead_letter_com_cliente_corte_e_erro(reprocessamento_que_falha, caplog):
+    reprocessamento_que_falha(ValueError("dado ruim no ext_14"))
+
+    tarefas.reprocessar_cliente.apply(args=["cli_marina", CORTE_ISO])
+
+    # Uma linha por mensagem na fila morta, com o que o plantão precisa para achar o caso.
+    [registro] = _dead_letters(caplog)
+    assert registro.levelno == logging.ERROR
+    mensagem = registro.getMessage()
+    assert "cli_marina" in mensagem
+    assert CORTE_ISO in mensagem
+    assert "dado ruim no ext_14" in mensagem
+    assert "reprocessamento pelo suporte" in mensagem
+
+
+def test_nova_tentativa_nao_registra_dead_letter(reprocessamento_que_falha, caplog):
+    # O banco caiu uma vez e voltou: a nova tentativa resolve, e nada foi para a fila morta.
+    reprocessamento_que_falha(OperationalError("SELECT 1", {}, Exception("conexão recusada")))
+
+    resultado = tarefas.reprocessar_cliente.apply(args=["cli_marina", CORTE_ISO])
+
+    assert resultado.successful()
+    assert _dead_letters(caplog) == []
