@@ -7,10 +7,16 @@ sem esperar; o serviço que ela chama é trocado por um que falha.
 from contextlib import nullcontext
 
 import pytest
+from celery.utils.time import get_exponential_backoff_interval
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from sinkfi import tarefas
 from sinkfi.pedidos import ClienteDesconhecido
+
+TAREFAS_COM_RETRY = [tarefas.ingerir_cliente, tarefas.fechar_cliente, tarefas.fechar_semana, tarefas.reprocessar_cliente]
+
+# O padrão do RabbitMQ 4.1: a mensagem sem ack por mais tempo que isso derruba o canal do worker.
+CONSUMER_TIMEOUT = 30 * 60
 
 
 class SessaoFalsa:
@@ -72,3 +78,17 @@ def test_erro_que_nao_e_passageiro_falha_de_primeira(pedido_que_falha, erro):
 
     assert chamadas == ["cli_marina"]
     assert resultado.failed()
+
+
+@pytest.mark.parametrize("tarefa", TAREFAS_COM_RETRY, ids=lambda t: t.name)
+def test_aguenta_dez_minutos_de_banco_fora_do_ar(tarefa):
+    # A espera cheia de cada tentativa. O sorteio escolhe entre zero e ela: na média, a janela é a metade.
+    esperas = [
+        get_exponential_backoff_interval(factor=1, retries=n, maximum=tarefa.retry_backoff_max)
+        for n in range(tarefa.max_retries)
+    ]
+
+    # Uma queda curta do Postgres não manda o pedido para a dead letter: o outbox já o deu por publicado.
+    assert sum(esperas) >= 10 * 60
+    # A tentativa agendada fica no worker sem ack até a hora; mais que o `consumer_timeout`, o RabbitMQ a devolve.
+    assert max(esperas) < CONSUMER_TIMEOUT
