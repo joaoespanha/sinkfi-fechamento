@@ -26,7 +26,7 @@ from sinkfi.api.sessao import obter_sessao
 from sinkfi.banco import repositorios
 from sinkfi.fila import Fila, obter_fila
 from sinkfi.fechamentos import ancora_dos_cortes, corte_atual, corte_da_semana, fechamentos_do_cliente
-from sinkfi.leitura import fechamento_da_semana
+from sinkfi.leitura import FechamentoLido, fechamento_da_rodada, fechamento_da_semana
 from sinkfi.tipos import Papel, Termino, Usuario
 
 rotas = APIRouter(prefix="/clientes/{cliente_id}", dependencies=[Depends(checar_cliente)])
@@ -55,6 +55,32 @@ def ler_fechamento(
     lido = fechamento_da_semana(sessao, cliente_id, semana) if semana else None
     if lido is None:
         raise HTTPException(status_code=404, detail="semana sem rodada")
+    return _fechamento_resposta(lido)
+
+
+@rotas.get("/rodadas")
+def listar_rodadas(
+    cliente_id: str, nsu: str | None = None, sessao: Session = Depends(obter_sessao)
+) -> list[RodadaLida]:
+    """Todas as rodadas, da mais nova para a mais antiga. Com `nsu`, só as que têm essa venda (Debugar)."""
+    rodadas = (
+        repositorios.rodadas_com_nsu(sessao, cliente_id, nsu)
+        if nsu
+        else repositorios.rodadas_do_cliente(sessao, cliente_id)
+    )
+    return [RodadaLida.model_validate(r) for r in rodadas]
+
+
+@rotas.get("/rodadas/{rodada_id}")
+def ler_rodada(cliente_id: str, rodada_id: int, sessao: Session = Depends(obter_sessao)) -> FechamentoResposta:
+    """Uma rodada qualquer, inclusive a que já não é a mais recente: a que ela viu no "Terminei" (Debugar)."""
+    rodada = repositorios.rodada_do_cliente(sessao, cliente_id, rodada_id)
+    if rodada is None:
+        raise HTTPException(status_code=404, detail="rodada não encontrada")
+    return _fechamento_resposta(fechamento_da_rodada(sessao, rodada))
+
+
+def _fechamento_resposta(lido: FechamentoLido) -> FechamentoResposta:
     return FechamentoResposta(
         rodada=RodadaLida.model_validate(lido.rodada),
         resumo=_resumo_lido(lido.resumo, lido.limite_trava_centavos),

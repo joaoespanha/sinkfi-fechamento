@@ -95,6 +95,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clientes/{cliente_id}/rodadas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Rodadas
+         * @description Todas as rodadas, da mais nova para a mais antiga. Com `nsu`, só as que têm essa venda (Debugar).
+         */
+        get: operations["listar_rodadas_clientes__cliente_id__rodadas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clientes/{cliente_id}/rodadas/{rodada_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ler Rodada
+         * @description Uma rodada qualquer, inclusive a que já não é a mais recente: a que ela viu no "Terminei" (Debugar).
+         */
+        get: operations["ler_rodada_clientes__cliente_id__rodadas__rodada_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clientes/{cliente_id}/limite": {
         parameters: {
             query?: never;
@@ -553,6 +593,75 @@ export interface operations {
             header?: never;
             path: {
                 cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FechamentoResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_rodadas_clientes__cliente_id__rodadas_get: {
+        parameters: {
+            query?: {
+                nsu?: string | null;
+            };
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RodadaLida"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_rodada_clientes__cliente_id__rodadas__rodada_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+                rodada_id: number;
             };
             cookie?: {
                 sinkfi_sessao?: string | null;

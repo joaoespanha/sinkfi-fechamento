@@ -5,6 +5,7 @@ Não faz commit: quem chama é dono da transação.
 
 import hashlib
 import json
+import logging
 from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -14,6 +15,8 @@ from sqlalchemy.orm import Session
 from fechamento import VERSAO_DA_REGRA, Fechamento, fechar
 from sinkfi.banco import repositorios
 from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, Rodada
+
+log = logging.getLogger(__name__)
 
 
 def rodar_fechamento(
@@ -28,6 +31,7 @@ def rodar_fechamento(
 
     existente = repositorios.rodada_por_hash(sessao, cliente_id, data_fechamento, hash_entrada)
     if existente:
+        _registrar(existente, "existente", corte)
         return existente
 
     rodada = repositorios.gravar_rodada(
@@ -39,8 +43,17 @@ def rodar_fechamento(
         hash_entrada=hash_entrada,
     )
     fechamento = fechar(entrada.recebiveis, entrada.lancamentos, entrada.lojas, corte)
-    repositorios.gravar_itens(sessao, rodada.id, _itens(fechamento))
+    repositorios.gravar_itens(sessao, rodada.id, itens_do_fechamento(fechamento))
+    _registrar(rodada, "nova", corte)
     return rodada
+
+
+def _registrar(rodada: Rodada, como: str, corte: datetime) -> None:
+    # O corte como a regra recebeu, no fuso do cliente: é o mesmo texto que entra no hash.
+    log.info(
+        "rodada %s %s: cliente %s, corte %s, versão %s",
+        rodada.id, como, rodada.cliente_id, corte.isoformat(), rodada.versao_regra,
+    )
 
 
 def reprocessar(sessao: Session, cliente_id: str, corte: datetime) -> Rodada:
@@ -88,7 +101,7 @@ def fechamento_vigente(config: ConfigFechamento, agora: datetime) -> datetime:
     return corte
 
 
-def _itens(fechamento: Fechamento) -> list[ItemRodada]:
+def itens_do_fechamento(fechamento: Fechamento) -> list[ItemRodada]:
     """Um item por grupo e um por crédito que não paga recebível esperado."""
     itens = []
     for grupo in fechamento.grupos:

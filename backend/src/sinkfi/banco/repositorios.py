@@ -255,9 +255,16 @@ def itens_da_rodada(sessao: Session, rodada_id: int) -> list[ItemRodada]:
 
 def rodadas_com_recebivel(sessao: Session, cliente_id: str, recebivel_id: str) -> list[Rodada]:
     """Mesma ordem de `rodadas_do_cliente`. O filtro usa o índice GIN dos itens."""
-    com_recebivel = select(LinhaItemRodada.rodada_id).where(
-        LinhaItemRodada.recebiveis.contains([{"id": recebivel_id}])
-    )
+    return _rodadas_com(sessao, cliente_id, {"id": recebivel_id})
+
+
+def rodadas_com_nsu(sessao: Session, cliente_id: str, nsu: str) -> list[Rodada]:
+    """As rodadas em que a venda aparece, em qualquer parcela. Mesmo índice GIN (`jsonb_path_ops`)."""
+    return _rodadas_com(sessao, cliente_id, {"nsu": nsu})
+
+
+def _rodadas_com(sessao: Session, cliente_id: str, campos: dict[str, str]) -> list[Rodada]:
+    com_recebivel = select(LinhaItemRodada.rodada_id).where(LinhaItemRodada.recebiveis.contains([campos]))
     linhas = sessao.scalars(
         select(LinhaRodada)
         .where(LinhaRodada.cliente_id == cliente_id, LinhaRodada.id.in_(com_recebivel))
