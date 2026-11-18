@@ -12,19 +12,20 @@ from sqlalchemy.orm import Session
 
 from sinkfi.banco import repositorios
 from sinkfi.ingestao.ingerir import ingerir
+from sinkfi.tipos import Entrada
 
 from tests.integracao.cenarios import DADOS, MARINA, OUTRO, preparar_marina, preparar_outro_cliente
 
 
 def test_outro_cliente_com_os_mesmos_ids_nao_muda_a_entrada_da_marina(sessao: Session):
     preparar_marina(sessao)
-    antes = repositorios.entrada_do_cliente(sessao, MARINA)
+    antes = _sem_ordem(repositorios.entrada_do_cliente(sessao, MARINA))
     preparar_outro_cliente(sessao)
 
     ingerir(sessao, OUTRO, DADOS)
 
-    assert repositorios.entrada_do_cliente(sessao, MARINA) == antes
-    assert repositorios.entrada_do_cliente(sessao, OUTRO) == antes
+    assert _sem_ordem(repositorios.entrada_do_cliente(sessao, MARINA)) == antes
+    assert _sem_ordem(repositorios.entrada_do_cliente(sessao, OUTRO)) == antes
 
 
 def test_recebivel_que_aponta_para_loja_de_outro_cliente_recusa_a_ingestao(sessao: Session, tmp_path: Path):
@@ -37,3 +38,8 @@ def test_recebivel_que_aponta_para_loja_de_outro_cliente_recusa_a_ingestao(sessa
 
     with pytest.raises(IntegrityError, match="recebiveis_loja_fkey"):
         ingerir(sessao, OUTRO, tmp_path)
+
+
+def _sem_ordem(entrada: Entrada) -> tuple[frozenset, ...]:
+    """A consulta não ordena as linhas, e o Postgres não garante a ordem."""
+    return (frozenset(entrada.recebiveis), frozenset(entrada.lancamentos), frozenset(entrada.lojas))
