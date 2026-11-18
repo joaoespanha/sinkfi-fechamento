@@ -11,6 +11,7 @@ from tests.construtores import (
     UTC,
     em_sao_paulo,
     lancamento,
+    pendente,
     recebivel,
 )
 
@@ -43,6 +44,40 @@ def test_credito_depois_do_corte_vai_para_proximo_fechamento():
     assert grupo.proximo_fechamento_centavos == 64000
     assert grupo.caiu_centavos == 0
     assert grupo.nao_caiu_centavos == 0
+    assert fechamento.pendencias == []
+
+
+def rec_4002():
+    return recebivel("rec_4002", liquidacao_prevista=date(2026, 11, 10), liquido_centavos=500000, nsu="STN-4002")
+
+
+def t_4002(id: str, lancado_em: datetime):
+    return lancamento(id, transacao_id="T-4002", lancado_em=lancado_em, valor_centavos=500000, descricao="STN-4002")
+
+
+def test_credito_pending_antes_do_corte_vai_para_proximo_fechamento():
+    # `pending` não é dinheiro na conta (README), mesmo lançado antes das 18:00.
+    credito = pendente(t_4002("ext_14", em_sao_paulo(11, 10, 17, 50)))
+
+    fechamento = fechar(recebiveis=[rec_4002()], lancamentos=[credito], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.caiu_centavos == 0
+    assert grupo.proximo_fechamento_centavos == 500000
+    assert grupo.nao_caiu_centavos == 0
+    assert fechamento.pendencias == []
+
+
+def test_transacao_repetida_fica_com_a_versao_confirmada():
+    # O Open Finance manda o T-4002 pendente e depois confirmado, com o mesmo transaction_id.
+    antes = pendente(t_4002("ext_14", em_sao_paulo(11, 10, 9, 0)))
+    depois = t_4002("ext_14b", em_sao_paulo(11, 10, 11, 0))
+
+    fechamento = fechar(recebiveis=[rec_4002()], lancamentos=[antes, depois], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert [c.id for c in grupo.creditos] == ["ext_14b"]
+    assert grupo.caiu_centavos == 500000
     assert fechamento.pendencias == []
 
 
