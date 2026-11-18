@@ -410,14 +410,19 @@ def travar_pedidos_pendentes(sessao: Session, limite: int) -> list[PedidoFechame
     return [PedidoFechamento(id=l.id, cliente_id=l.cliente_id) for l in linhas]
 
 
-def pedidos_parados(sessao: Session) -> tuple[int, datetime | None]:
-    """Quantos pedidos esperam o relay, e quando nasceu o mais antigo. Usa o índice dos pendentes."""
-    quantos, mais_antigo = sessao.execute(
-        select(func.count(), func.min(LinhaPedidoFechamento.criado_em)).where(
-            LinhaPedidoFechamento.publicado_em.is_(None)
-        )
+def pedidos_pendentes(sessao: Session) -> tuple[int, int | None]:
+    """Quantos pedidos esperam o relay, e há quantos segundos espera o mais antigo (`None` sem pendente).
+
+    A idade sai do `now()` do banco, o mesmo relógio que gravou `criado_em`. Os pendentes são poucos:
+    o filtro usa o índice parcial, e o `min` lê só essas linhas.
+    """
+    quantos, idade = sessao.execute(
+        select(
+            func.count(),
+            func.extract("epoch", func.now() - func.min(LinhaPedidoFechamento.criado_em)),
+        ).where(LinhaPedidoFechamento.publicado_em.is_(None))
     ).one()
-    return quantos, mais_antigo
+    return quantos, int(idade) if idade is not None else None
 
 
 def marcar_publicados(sessao: Session, ids: list[int]) -> None:

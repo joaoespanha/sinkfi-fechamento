@@ -1,4 +1,5 @@
-"""A fila (ADR 0004): o app do Celery, a dead letter e a porta que a api e o relay do outbox usam para pedir trabalho.
+"""A fila (ADR 0004): o app do Celery, a dead letter e a porta que a api e o relay do outbox usam para pedir
+trabalho e para contar a fila morta.
 
 A api importa daqui só a porta `Fila`; as tarefas ficam em `sinkfi.tarefas`, que só o worker e o beat carregam.
 """
@@ -95,7 +96,8 @@ class FilaCelery:
             except NotFound:
                 # O worker declara a fila ao subir (`tarefas._declarar_fila_morta`). Sem ela, nada se perdeu.
                 return 0
-            except (BrokerFora, *conexao.connection_errors):
+            except (BrokerFora, *conexao.connection_errors, *conexao.channel_errors):
+                # Fora do ar, porta recusada ou login recusado (`AccessRefused`, que é erro de canal).
                 return None
 
 

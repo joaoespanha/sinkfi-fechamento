@@ -222,7 +222,7 @@ export interface paths {
         };
         /**
          * Ler Operacao
-         * @description Pedido parado é o relay fora do ar; mensagem na fila morta é um fechamento que não rodou.
+         * @description Pedido pendente há minutos é o relay fora do ar; mensagem na fila morta é trabalho que falhou de vez.
          */
         get: operations["ler_operacao_operacao_get"];
         put?: never;
@@ -337,18 +337,18 @@ export interface components {
          */
         OperacaoLida: {
             /**
-             * Pedidos Parados
+             * Pedidos Pendentes
              * @description Pedidos de fechamento gravados que o relay do outbox ainda não publicou.
              */
-            pedidos_parados: number;
+            pedidos_pendentes: number;
             /**
              * Idade Do Mais Antigo Segundos
-             * @description Há quanto tempo o mais antigo espera. Sem pedido parado, null.
+             * @description Há quanto tempo o mais antigo espera, pelo relógio do banco. Sem pedido pendente, null.
              */
             idade_do_mais_antigo_segundos: number | null;
             /**
              * Mensagens Na Dead Letter
-             * @description Mensagens em `fechamento.morta`: fechamentos que falharam de vez. Com o RabbitMQ fora do ar, null.
+             * @description Mensagens em `fechamento.morta`: ingestões e fechamentos que falharam de vez. Com o RabbitMQ fora do ar ou recusando o login, null.
              */
             mensagens_na_dead_letter: number | null;
         };

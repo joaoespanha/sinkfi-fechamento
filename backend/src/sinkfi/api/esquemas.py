@@ -112,12 +112,15 @@ class SemanaEntrada(BaseModel):
 class OperacaoLida(BaseModel):
     """A saúde da fila (Monitorar): o que ficou parado sem chegar ao fechamento."""
 
-    pedidos_parados: int = Field(
+    pedidos_pendentes: int = Field(
         description="Pedidos de fechamento gravados que o relay do outbox ainda não publicou."
     )
     idade_do_mais_antigo_segundos: int | None = Field(
-        description="Há quanto tempo o mais antigo espera. Sem pedido parado, null."
+        description="Há quanto tempo o mais antigo espera, pelo relógio do banco. Sem pedido pendente, null."
     )
     mensagens_na_dead_letter: int | None = Field(
-        description="Mensagens em `fechamento.morta`: fechamentos que falharam de vez. Com o RabbitMQ fora do ar, null."
+        description=(
+            "Mensagens em `fechamento.morta`: ingestões e fechamentos que falharam de vez."
+            " Com o RabbitMQ fora do ar ou recusando o login, null."
+        )
     )
