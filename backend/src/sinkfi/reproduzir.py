@@ -56,13 +56,18 @@ def reproduzir(sessao: Session, cliente_id: str, rodada_id: int) -> Reproducao |
 
 
 def _mudaram(entrada: Entrada, gravados: list[ItemRodada]) -> list[str]:
-    # O recebível é nomeado com a adquirente: o id sozinho pode ser de duas (ADR 0009).
-    atuais = {_nome(r): r for r in entrada.recebiveis} | {l.id: l for l in entrada.lancamentos}
-    copias = {_nome(r): r for i in gravados for r in i.recebiveis} | {c.id: c for i in gravados for c in i.creditos}
-    return sorted(nome for nome, copia in copias.items() if atuais.get(nome) != copia)
+    recebiveis = {r.identidade: r for r in entrada.recebiveis}
+    lancamentos = {l.id: l for l in entrada.lancamentos}
+    copias_de_recebiveis = {r.identidade: r for i in gravados for r in i.recebiveis}
+    copias_de_lancamentos = {c.id: c for i in gravados for c in i.creditos}
+    return sorted(
+        [_rotulo_do_recebivel(r) for identidade, r in copias_de_recebiveis.items() if recebiveis.get(identidade) != r]
+        + [id for id, c in copias_de_lancamentos.items() if lancamentos.get(id) != c]
+    )
 
 
-def _nome(r: Recebivel) -> str:
+def _rotulo_do_recebivel(r: Recebivel) -> str:
+    """O id sozinho pode ser de duas adquirentes, então o relatório mostra as duas coisas (ADR 0009)."""
     return f"{r.id} ({r.adquirente})"
 
 
@@ -106,7 +111,7 @@ def relatorio(r: Reproducao) -> str:
 
 def _item(i: ItemRodada) -> str:
     motivo = i.motivo.value if i.motivo else "casou"
-    recebiveis = ",".join(_nome(r) for r in i.recebiveis) or "-"
+    recebiveis = ",".join(_rotulo_do_recebivel(r) for r in i.recebiveis) or "-"
     creditos = ",".join(c.id for c in i.creditos) or "-"
     pendencia = f", pendência {i.pendencia_centavos} centavos" if i.pendencia_centavos is not None else ""
     return f"{motivo} (recebíveis {recebiveis}; créditos {creditos}{pendencia})"

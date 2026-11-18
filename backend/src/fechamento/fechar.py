@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, tzinfo
 from fechamento.tipos import (
     Fechamento,
     GrupoDeRecebiveis,
+    Identidade,
     Lancamento,
     Loja,
     Motivo,
@@ -66,12 +67,12 @@ def fechar(
 
     pendencias = [_falta(g, desfeitos) for g in grupos if g.nao_caiu_centavos]
     pendencias += [_a_mais(g, sobra) for g in grupos if (sobra := _sobra(g, desfeitos))]
-    esperados_ids = {r.identidade for r in esperados}
+    identidades_esperadas = {r.identidade for r in esperados}
     for credito in creditos:
         fica = _valor_que_fica(credito, desfeitos)
         if fica == 0:
             continue  # Entrou e saiu inteiro por chargeback: não há o que conferir.
-        motivo = _motivo_da_entrada(credito, casamento, esperados_ids)
+        motivo = _motivo_da_entrada(credito, casamento, identidades_esperadas)
         if motivo:
             pendencias.append(_entrada(credito, motivo, fica))
 
@@ -105,8 +106,7 @@ class _Casamento:
 
     recebiveis_do_credito: dict[str, list[Recebivel]] = field(default_factory=dict)
     ligados_a_venda: set[str] = field(default_factory=set)
-    # Identidades dos recebíveis pagos.
-    pagos: set[tuple[str, str]] = field(default_factory=set)
+    pagos: set[Identidade] = field(default_factory=set)
 
     def casa(self, credito: Lancamento, recebiveis: list[Recebivel]) -> None:
         self.recebiveis_do_credito[credito.id] = recebiveis
@@ -155,7 +155,7 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
     # Créditos com os mesmos candidatos são um empate só: até um crédito por candidato casa
     # com todos eles, num grupo (ADR 0002). O crédito que passa disso fica sem recebível.
     pagos_pela_chave_forte = set(casamento.pagos)
-    empates: dict[frozenset[tuple[str, str]], tuple[list[Recebivel], list[Lancamento]]] = {}
+    empates: dict[frozenset[Identidade], tuple[list[Recebivel], list[Lancamento]]] = {}
     for credito in sem_nsu:
         dia = _dia(credito, fuso)
         candidatos = [
@@ -218,7 +218,6 @@ def _agrupar(
     esperados: list[Recebivel], creditos: list[Lancamento], casamento: _Casamento
 ) -> list[tuple[list[Recebivel], list[Lancamento]]]:
     """Recebíveis ligados por um mesmo crédito ficam num grupo só (ADR 0002)."""
-    Identidade = tuple[str, str]
     dono: dict[Identidade, Identidade] = {r.identidade: r.identidade for r in esperados}
 
     def raiz(identidade: Identidade) -> Identidade:
@@ -237,11 +236,11 @@ def _agrupar(
 
     grupos = []
     for recebiveis in por_raiz.values():
-        do_grupo_ids = {r.identidade for r in recebiveis}
+        identidades_do_grupo = {r.identidade for r in recebiveis}
         do_grupo = [
             c
             for c in creditos
-            if any(r.identidade in do_grupo_ids for r in casamento.recebiveis_do_credito.get(c.id, []))
+            if any(r.identidade in identidades_do_grupo for r in casamento.recebiveis_do_credito.get(c.id, []))
         ]
         grupos.append((recebiveis, do_grupo))
     return grupos
@@ -304,7 +303,7 @@ def _a_mais(grupo: GrupoDeRecebiveis, sobra: int) -> Pendencia:
 
 
 def _motivo_da_entrada(
-    credito: Lancamento, casamento: _Casamento, esperados_ids: set[tuple[str, str]]
+    credito: Lancamento, casamento: _Casamento, identidades_esperadas: set[Identidade]
 ) -> Motivo | None:
     """Crédito que não paga nenhum recebível esperado deste fechamento."""
     if credito.id in casamento.ligados_a_venda:
@@ -312,7 +311,7 @@ def _motivo_da_entrada(
     recebiveis = casamento.recebiveis_do_credito.get(credito.id)
     if not recebiveis:
         return Motivo.ENTRADA_SEM_RECEBIVEL
-    if any(r.identidade in esperados_ids for r in recebiveis):
+    if any(r.identidade in identidades_esperadas for r in recebiveis):
         return None
     if all(r.status == CANCELADO for r in recebiveis):
         return Motivo.VENDA_CANCELADA
