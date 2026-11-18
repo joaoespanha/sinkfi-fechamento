@@ -3,6 +3,8 @@
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from fechamento import fechar
 from sinkfi.ingestao import csv
 
@@ -22,6 +24,16 @@ def test_soma_dos_grupos_fecha_com_o_esperado():
     assert sum(g.caiu_centavos for g in grupos) == 2606589
     assert sum(g.nao_caiu_centavos for g in grupos) == 770733
     assert sum(g.proximo_fechamento_centavos for g in grupos) == 564000
+
+
+@pytest.mark.parametrize("corte", [CORTE, CORTE_SEGUINTE], ids=["10/11", "17/11"])
+def test_cada_grupo_fecha_com_o_seu_esperado(corte):
+    recebiveis, lancamentos, lojas = csv.ler(DADOS)
+
+    fechamento = fechar(recebiveis=recebiveis, lancamentos=lancamentos, lojas=lojas, corte=corte)
+
+    for g in fechamento.grupos:
+        assert g.esperado_centavos == g.caiu_centavos + g.nao_caiu_centavos + g.proximo_fechamento_centavos
 
 
 def test_credito_pending_continua_no_proximo_fechamento_na_semana_seguinte():

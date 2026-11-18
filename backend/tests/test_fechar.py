@@ -345,3 +345,44 @@ def test_chargeback_e_falta_de_verdade():
     assert pendencia.motivo == Motivo.CHARGEBACK
     assert pendencia.severidade == Severidade.FALTA_DE_VERDADE
     assert pendencia.valor_centavos == 78800
+
+
+# Crédito a mais
+
+
+def rec_1001():
+    return recebivel("rec_1001", liquidacao_prevista=date(2026, 11, 5), liquido_centavos=147750, nsu="STN-1001")
+
+
+def test_venda_paga_duas_vezes_vira_falta_de_verdade():
+    # Duas transações diferentes, com o mesmo NSU: não é a duplicata do Open Finance.
+    t_1001 = lancamento(
+        "ext_01", transacao_id="T-1001", lancado_em=em_sao_paulo(11, 5, 14), valor_centavos=147750, descricao="STN-1001"
+    )
+    t_1001b = lancamento(
+        "ext_60", transacao_id="T-1001B", lancado_em=em_sao_paulo(11, 6, 9), valor_centavos=147750, descricao="STN-1001"
+    )
+
+    fechamento = fechar(recebiveis=[rec_1001()], lancamentos=[t_1001, t_1001b], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.caiu_centavos == 147750
+    assert grupo.nao_caiu_centavos == 0
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.CAIU_A_MAIS
+    assert pendencia.severidade == Severidade.FALTA_DE_VERDADE
+    assert pendencia.valor_centavos == 147750
+
+
+def test_credito_maior_que_o_recebivel_vira_falta_de_verdade():
+    t_1001 = lancamento(
+        "ext_01", transacao_id="T-1001", lancado_em=em_sao_paulo(11, 5, 14), valor_centavos=150000, descricao="STN-1001"
+    )
+
+    fechamento = fechar(recebiveis=[rec_1001()], lancamentos=[t_1001], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.esperado_centavos == grupo.caiu_centavos == 147750
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.CAIU_A_MAIS
+    assert pendencia.valor_centavos == 2250
