@@ -6,6 +6,7 @@ export type Item = Esquemas['ItemLido']
 export type Conferencia = Esquemas['ConferenciaLida']
 export type Semana = Esquemas['SemanaLida']
 export type Atualizacao = Esquemas['AtualizacaoLida']
+export type Resolucao = Esquemas['ResolucaoLida']
 type Resumo = Esquemas['ResumoLido']
 type Recebivel = Esquemas['Recebivel']
 type Lancamento = Esquemas['Lancamento']
@@ -151,6 +152,28 @@ export function avisoDaConfirmacao(resumo: Resumo): string {
   if (n === 0) return 'Nada trava.'
   if (n === 1) return 'O item para conferir continua na lista. Nada trava.'
   return `Os ${n} itens para conferir continuam na lista. Nada trava.`
+}
+
+// A resolução da lojista (ADR 0014): tira uma pendência para conferir da lista, com uma nota.
+
+/** O mesmo limite do backend (`ResolucaoEntrada`). */
+export const NOTA_MAXIMA = 200
+
+/**
+ * Se o botão aparece. Só o item de crédito para conferir: a resolução é presa ao lançamento, e a falta de
+ * verdade é dinheiro que não entrou, então não se resolve.
+ */
+export function podeResolver(item: Item): boolean {
+  return (
+    item.severidade === 'para_conferir' &&
+    item.recebiveis.length === 0 &&
+    item.creditos.length === 1 &&
+    item.resolucao == null
+  )
+}
+
+export function fraseDaResolucao(r: Resolucao): string {
+  return `Resolvida por ${r.quem} em ${quando(r.em)}`
 }
 
 export const PEDIDO_ENVIADO = 'Pedido enviado. Se a entrada mudou, a rodada nova aparece em instantes.'

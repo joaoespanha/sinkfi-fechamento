@@ -100,6 +100,17 @@ class Conferencia:
 
 
 @dataclass(frozen=True)
+class Resolucao:
+    """A resolução em vigor de um lançamento (ADR 0014): vale enquanto a pendência for para conferir com este valor."""
+
+    lancamento_id: str
+    valor_centavos: int
+    quem: str
+    em: datetime
+    nota: str
+
+
+@dataclass(frozen=True)
 class LojaEncontrada:
     nome: str
     # Só dígitos, como chega no cadastro.

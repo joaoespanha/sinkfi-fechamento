@@ -159,6 +159,10 @@ _Evitar_: bloqueio, materialidade
 O registro de que a lojista conferiu um fechamento: quem, quando, qual rodada viu e o resumo daquele momento. Não trava nada e não resolve os itens para conferir. Ela pode registrar de novo se o fechamento mudar. Na tela, "Marcar como conferido".
 _Evitar_: término, Terminei, fechar, concluir, fechamento concluído
 
+**Resolução**:
+O registro de que a lojista descobriu o que é uma pendência para conferir, com uma nota que diz o quê ("aporte do sócio"). Enquanto a pendência for a mesma, ela sai das contagens em todos os fechamentos e continua visível como resolvida. Pode ser desfeita. Falta de verdade não tem resolução. Não confundir com conferência, que é do fechamento inteiro.
+_Evitar_: baixa, baixado, justificativa, dispensa, ignorar
+
 **Aviso**:
 A marca de um fechamento anterior ao atual que tem pendência e cuja rodada mais recente não tem conferência. Só lê as conferências e não cria estado de semana fechada (ADR 0007). Não confundir com "Para conferir", que é uma severidade de pendência.
 _Evitar_: alerta, semana fechada, semana em aberto

@@ -1147,6 +1147,74 @@ select {
   & dd { margin: 0; text-align: end; font-variant-numeric: tabular-nums; }
 }
 
+/* ───────── Resolução (ADR 0014): a lojista tira uma pendência para conferir da lista, com uma nota ───────── */
+.resolucao {
+  display: grid;
+  justify-items: start;
+  gap: var(--espaco-2);
+  padding: 0.75rem 1rem;
+  border-radius: var(--raio);
+  border: 1px solid var(--borda);
+  background: var(--fundo-suave);
+
+  & h2 { margin: 0; font-size: 1rem; }
+  & p { margin: 0; }
+  & p[role='status']:empty { display: none; }
+
+  /* A nota é da lojista: texto puro, com as quebras dela, sem estourar a coluna. */
+  & .resolucao-nota { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* O <dialog> segue o da conferência (ADR 0012). Fechado, o navegador o esconde: nada de `display` aqui. */
+  & dialog {
+    box-sizing: border-box;
+    inline-size: min(28rem, calc(100vw - 2rem));
+    padding: var(--espaco-4);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-cartao);
+    background: var(--cartao);
+    color: var(--texto);
+    box-shadow: var(--sombra-flutuante);
+
+    & h2 { margin: 0 0 var(--espaco-3); font-size: 1.125rem; }
+    & label { display: block; font-weight: 600; margin-block-end: var(--espaco-1); }
+    & .ajuda { margin-block-start: var(--espaco-1); color: var(--texto-suave); font-size: 0.875rem; }
+  }
+
+  /* Sem estas duas, rolar sobre o fundo ou dentro do diálogo rola a página atrás. */
+  & dialog:modal { overscroll-behavior: contain; }
+  & dialog::backdrop { overflow: hidden; overscroll-behavior: contain; background: rgb(20 22 41 / 0.45); }
+
+  & textarea {
+    box-sizing: border-box;
+    inline-size: 100%;
+    font: inherit;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    background: var(--cartao);
+    color: var(--texto);
+    resize: vertical;
+
+    /* Só depois de mexer ou de tentar enviar; a ajuda embaixo diz o que falta, então não é só cor. */
+    &:user-invalid { border-color: var(--perigo); }
+  }
+
+  & .resolucao-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--espaco-2);
+    margin-block-start: var(--espaco-4);
+  }
+
+  & .primario {
+    background: var(--realce);
+    color: var(--realce-texto);
+    border-color: transparent;
+    font-weight: 600;
+  }
+}
+
 /* ───────── Movimento (#32): o que entra na tela chega com um fade curto ───────── */
 .resumo,
 .detalhe {

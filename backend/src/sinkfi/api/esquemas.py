@@ -1,8 +1,9 @@
 """O formato das respostas HTTP. É daqui que sai o contrato TypeScript."""
 
 from datetime import date, datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from fechamento import Lancamento, Motivo, Recebivel, Recomendacao, Severidade
 from sinkfi.tipos import Papel
@@ -29,6 +30,14 @@ class ResumoLido(BaseModel):
     limite_trava_centavos: int | None
 
 
+class ResolucaoLida(_DeAtributos):
+    """A resolução em vigor de uma pendência para conferir (ADR 0014). A nota é texto puro."""
+
+    quem: str
+    em: datetime
+    nota: str
+
+
 class ItemLido(_DeAtributos):
     """Um grupo de recebíveis, ou um crédito sozinho (sem recebíveis e sem valores de grupo)."""
 
@@ -43,6 +52,8 @@ class ItemLido(_DeAtributos):
     pendencia_centavos: int | None
     # O dia da semana em que o item aparece (#26). None = antes desta semana.
     dia: date | None
+    # A pendência para conferir resolvida (ADR 0014): fora do resumo, mas na lista. None = não resolvida.
+    resolucao: ResolucaoLida | None
 
 
 class ConferenciaLida(BaseModel):
@@ -82,6 +93,15 @@ class FechamentoResposta(BaseModel):
 class ConferenciaEntrada(BaseModel):
     # A rodada que a tela está mostrando, não a mais recente do banco: pode ter chegado outra no meio.
     rodada_id: int
+
+
+class ResolucaoEntrada(BaseModel):
+    # A rodada que a tela está mostrando: o servidor tira dela a severidade e o valor (ADR 0014).
+    rodada_id: int
+    lancamento_id: str
+    nota: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)] = Field(
+        description="O que a entrada é, como \"aporte do sócio\". Obrigatória, até 200 caracteres."
+    )
 
 
 class LoginEntrada(BaseModel):

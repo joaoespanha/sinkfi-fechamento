@@ -15,6 +15,8 @@ from sinkfi.api.esquemas import (
     ItemLido,
     LimiteEntrada,
     LimiteLido,
+    ResolucaoEntrada,
+    ResolucaoLida,
     ResumoLido,
     RodadaLida,
     SemanaEntrada,
@@ -91,7 +93,16 @@ def _fechamento_resposta(lido: FechamentoLido, agora: datetime) -> FechamentoRes
     return FechamentoResposta(
         rodada=RodadaLida.model_validate(lido.rodada),
         resumo=_resumo_lido(lido.resumo, lido.limite_trava_centavos),
-        itens=[ItemLido.model_validate({**asdict(i.item), "dia": i.dia}) for i in lido.itens],
+        itens=[
+            ItemLido.model_validate(
+                {
+                    **asdict(i.item),
+                    "dia": i.dia,
+                    "resolucao": ResolucaoLida.model_validate(i.resolucao) if i.resolucao else None,
+                }
+            )
+            for i in lido.itens
+        ],
         ultima_conferencia=_conferencia_lida(lido.ultima_conferencia) if lido.ultima_conferencia else None,
         # Do cliente agora, não da rodada: a rodada antiga (Debugar) também diz até quando há dado.
         atualizacao=AtualizacaoLida.model_validate(atualizacao(lido.ultima_ingestao_em, agora)),
@@ -127,6 +138,39 @@ def registrar_conferencia(
         raise HTTPException(status_code=404, detail="rodada não encontrada")
     sessao.commit()
     return _conferencia_lida(conferencia)
+
+
+@rotas.post("/resolucoes", status_code=status.HTTP_201_CREATED)
+def resolver_pendencia(
+    cliente_id: str,
+    entrada: ResolucaoEntrada,
+    usuario: Usuario = Depends(exige_papel(Papel.LOJISTA)),
+    sessao: Session = Depends(obter_sessao),
+) -> ResolucaoLida:
+    """Marca uma pendência para conferir como resolvida (ADR 0014). Vale para o lançamento em todos os fechamentos."""
+    try:
+        resolucao = lojista.resolver(
+            sessao, cliente_id, usuario, entrada.rodada_id, entrada.lancamento_id, entrada.nota
+        )
+    except lojista.PendenciaNaoEncontrada:
+        raise HTTPException(status_code=404, detail="pendência não encontrada") from None
+    except lojista.PendenciaNaoSeResolve:
+        raise HTTPException(status_code=422, detail="só a pendência para conferir se resolve") from None
+    sessao.commit()
+    return ResolucaoLida.model_validate(resolucao)
+
+
+@rotas.delete("/resolucoes/{lancamento_id}", status_code=status.HTTP_204_NO_CONTENT)
+def desfazer_resolucao(
+    cliente_id: str,
+    lancamento_id: str,
+    usuario: Usuario = Depends(exige_papel(Papel.LOJISTA)),
+    sessao: Session = Depends(obter_sessao),
+) -> None:
+    """Desfaz a resolução em vigor do lançamento, com um registro novo: a pendência volta (ADR 0014)."""
+    if not lojista.desfazer(sessao, cliente_id, usuario, lancamento_id):
+        raise HTTPException(status_code=404, detail="resolução não encontrada")
+    sessao.commit()
 
 
 @rotas.post("/fechamentos", status_code=status.HTTP_202_ACCEPTED, response_class=Response)
