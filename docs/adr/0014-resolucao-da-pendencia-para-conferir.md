@@ -41,9 +41,11 @@ Uma entrada sem recebível (um aporte, o Pix de um cliente) aparece como para co
 - `test_resolucao_sobrevive_a_rodada_nova`
 - `test_resolucao_vale_nos_outros_fechamentos`
 - `test_valor_diferente_devolve_a_pendencia`
-- `test_desfazer_devolve_a_pendencia_e_guarda_o_historico`
+- `test_desfazer_devolve_a_pendencia`
+- `test_desfazer_sem_resolucao_devolve_404`
 - `test_falta_de_verdade_nao_se_resolve`
 - `test_nota_vazia_ou_longa_e_recusada`
+- `test_lancamento_fora_da_rodada_devolve_404`
 - `test_rodada_de_outro_cliente_no_corpo_devolve_404`
 - `test_suporte_nao_resolve_pendencia`
 - `test_suporte_ve_quem_resolveu`
