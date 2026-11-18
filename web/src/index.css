@@ -812,11 +812,17 @@ select {
   button { padding: var(--espaco-2) var(--espaco-3); justify-self: start; }
 }
 
-/* Na sidebar: o campo e o botão numa linha só, sem passar da largura dela. */
+/* Na sidebar: o campo e o botão numa linha só, sem passar da largura dela; os resultados embaixo (ADR 0010). */
 .escolher-cliente {
-  display: flex;
+  display: grid;
   gap: var(--espaco-1);
   min-inline-size: 0;
+
+  form {
+    display: flex;
+    gap: var(--espaco-1);
+    min-inline-size: 0;
+  }
 
   input {
     inline-size: 0;
@@ -825,7 +831,46 @@ select {
     padding: var(--espaco-1);
   }
 
-  button { padding: var(--espaco-1) var(--espaco-2); }
+  form button { padding: var(--espaco-1) var(--espaco-2); }
+}
+
+.cliente-aberto { font-weight: 600; }
+
+.busca-aviso {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+}
+
+.busca-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--espaco-1);
+
+  button {
+    inline-size: 100%;
+    display: grid;
+    gap: 0.125rem;
+    padding: var(--espaco-1) var(--espaco-2);
+    text-align: start;
+    color: inherit;
+    background: var(--fundo-suave);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    cursor: pointer;
+  }
+
+  button:hover,
+  button:focus-visible { border-color: var(--realce); }
+}
+
+.busca-nome { font-weight: 600; }
+
+.busca-lojas {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
 }
 
 .login-falha {

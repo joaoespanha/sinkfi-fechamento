@@ -1,10 +1,11 @@
 """Leitura e gravação no Postgres. Recebe e devolve tipos do núcleo e de `sinkfi.tipos`."""
 
+import re
 from dataclasses import asdict
 from datetime import date, datetime, time
 from typing import Any
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -21,7 +22,19 @@ from sinkfi.banco.modelos import (
     LinhaTermino,
     LinhaUsuario,
 )
-from sinkfi.tipos import ConfigFechamento, Entrada, ItemRodada, MudancaLimite, Papel, PedidoFechamento, Rodada, Termino, Usuario
+from sinkfi.tipos import (
+    ClienteEncontrado,
+    ConfigFechamento,
+    Entrada,
+    ItemRodada,
+    LojaEncontrada,
+    MudancaLimite,
+    Papel,
+    PedidoFechamento,
+    Rodada,
+    Termino,
+    Usuario,
+)
 
 
 def criar_cliente(
@@ -70,6 +83,40 @@ def ids_dos_clientes(sessao: Session) -> list[str]:
 
 def cliente_existe(sessao: Session, id: str) -> bool:
     return sessao.get(LinhaCliente, id) is not None
+
+
+# Abaixo disso, os dígitos soltos de um e-mail ou nome casariam com quase todo CNPJ.
+_MINIMO_DE_DIGITOS = 3
+
+
+def buscar_clientes(sessao: Session, termo: str, limite: int) -> list[ClienteEncontrado]:
+    """Os clientes que casam com o termo por pedaço, sem diferenciar maiúscula (ADR 0010), em ordem de nome."""
+    lojas_que_casam = LinhaLoja.nome.icontains(termo, autoescape=True)
+    # O documento é gravado só com dígitos: o CNPJ casa com ou sem pontuação.
+    digitos = re.sub(r"\D", "", termo)
+    if len(digitos) >= _MINIMO_DE_DIGITOS:
+        lojas_que_casam = or_(lojas_que_casam, LinhaLoja.documento.contains(digitos))
+    criterios = or_(
+        LinhaCliente.nome.icontains(termo, autoescape=True),
+        LinhaCliente.id.in_(select(LinhaLoja.cliente_id).where(lojas_que_casam)),
+        LinhaCliente.id.in_(
+            select(LinhaUsuario.cliente_id).where(LinhaUsuario.email.icontains(termo, autoescape=True))
+        ),
+    )
+    clientes = sessao.scalars(
+        select(LinhaCliente).where(criterios).order_by(LinhaCliente.nome, LinhaCliente.id).limit(limite)
+    ).all()
+    lojas = sessao.scalars(
+        select(LinhaLoja).where(LinhaLoja.cliente_id.in_([c.id for c in clientes])).order_by(LinhaLoja.nome)
+    ).all()
+    return [
+        ClienteEncontrado(
+            id=c.id,
+            nome=c.nome,
+            lojas=[LojaEncontrada(nome=l.nome, documento=l.documento) for l in lojas if l.cliente_id == c.id],
+        )
+        for c in clientes
+    ]
 
 
 # Primeira chave da trava por cliente: separa estas travas de outras que o banco venha a ter.

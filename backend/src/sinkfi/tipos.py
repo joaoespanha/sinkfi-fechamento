@@ -97,3 +97,19 @@ class Termino:
     rodada_id: int
     limite_trava_centavos: int | None
     resumo: Resumo
+
+
+@dataclass(frozen=True)
+class LojaEncontrada:
+    nome: str
+    # Só dígitos, como chega no cadastro.
+    documento: str
+
+
+@dataclass(frozen=True)
+class ClienteEncontrado:
+    """Um resultado da busca do suporte (ADR 0010): o cliente com as lojas dele."""
+
+    id: str
+    nome: str
+    lojas: list[LojaEncontrada]
