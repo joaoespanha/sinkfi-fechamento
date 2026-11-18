@@ -55,7 +55,7 @@ Lançamento de entrada que pode pagar um recebível: repasse da adquirente ou Pi
 _Evitar_: depósito, entrada
 
 **Chargeback**:
-Lançamento de saída que desfaz um crédito já casado. O dinheiro daquele recebível saiu da conta.
+Lançamento de saída que desfaz um crédito, no todo ou em parte: desfaz só o seu valor. O que ele desfaz de um crédito casado saiu da conta; um crédito sem recebível desfeito por inteiro deixa de ser pendência.
 _Evitar_: estorno, contestação
 
 ## Casamento
@@ -103,10 +103,10 @@ A versão do cálculo que gerou uma rodada. Corrigir a regra gera rodadas novas 
 _Evitar_: release
 
 **Esperado**:
-A soma dos recebíveis com liquidação prevista até o dia do fechamento. Esperado = Caiu + Não caiu + Próximo fechamento.
+A soma dos recebíveis com liquidação prevista até o dia do fechamento, desde o início e não só desta semana (ADR 0007). Esperado = Caiu + Não caiu + Próximo fechamento, em cada grupo.
 
 **Caiu**:
-A parte do esperado que entrou na conta até o corte e não foi desfeita por chargeback.
+A parte do esperado confirmada na conta até o corte e não desfeita por chargeback. Um crédito `pending` ainda não caiu. Nunca passa do esperado: o que entra além dele é caiu a mais.
 _Evitar_: entrou, já caiu, recebido
 
 **Não caiu**:
@@ -114,7 +114,7 @@ A parte do esperado que não está na conta: não foi depositada, foi depositada
 _Evitar_: falta, faltante, em aberto
 
 **Próximo fechamento**:
-A parte do esperado cujo crédito casou, mas caiu depois do corte. Não é pendência: entra no fechamento seguinte.
+A parte do esperado cujo crédito casou, mas caiu depois do corte ou ainda não foi confirmado (`pending`). Não é pendência: entra no fechamento seguinte.
 _Evitar_: atrasado, vai cair
 
 **A vencer**:
@@ -134,6 +134,10 @@ _Evitar_: divergência, erro, alerta
 **Falta de verdade**:
 Severidade da pendência cujo dinheiro muda o fechamento: o dinheiro não entrou, ou entrou e não é da lojista. A soma das faltas de verdade é absoluta, sem compensar uma sobra com uma falta.
 _Evitar_: divergência crítica, erro
+
+**Caiu a mais**:
+Pendência de falta de verdade de um grupo em que entrou mais do que o esperado, como uma venda paga duas vezes. O valor é o que passa do esperado, e esse dinheiro não é da lojista.
+_Evitar_: pago a mais, excedente, sobra
 
 **Para conferir**:
 Severidade da pendência que vale olhar mas não muda o fechamento, como uma entrada sem recebível.

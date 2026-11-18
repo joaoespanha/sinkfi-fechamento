@@ -3,6 +3,7 @@
 Cada teste passa só os campos que importam para o caso.
 """
 
+from dataclasses import replace
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -76,3 +77,8 @@ def lancamento(
         descricao=descricao,
         tipo=tipo,
     )
+
+
+def pendente(credito: Lancamento) -> Lancamento:
+    """O mesmo crédito, ainda `pending` no banco."""
+    return replace(credito, status="pending")

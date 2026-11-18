@@ -35,6 +35,8 @@ class Lancamento:
     documento_contraparte: str
     descricao: str
     tipo: str
+    # `pending` não é dinheiro na conta (README). O padrão lê o JSON de rodadas gravadas antes do campo.
+    status: str = "confirmed"
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,7 @@ class Motivo(Enum):
     VENDA_CANCELADA = "venda_cancelada"
     ENTRADA_SEM_RECEBIVEL = "entrada_sem_recebivel"
     PODE_SER_ANTECIPACAO = "pode_ser_antecipacao"
+    CAIU_A_MAIS = "caiu_a_mais"
 
 
 @dataclass(frozen=True)

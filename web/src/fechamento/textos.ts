@@ -90,6 +90,8 @@ export function textoDoMotivo(motivo: Esquemas['Motivo']): string {
       return 'Entrada sem recebível'
     case 'pode_ser_antecipacao':
       return 'Pode ser antecipação'
+    case 'caiu_a_mais':
+      return 'Caiu a mais'
   }
 }
 
@@ -119,6 +121,8 @@ export function explicacaoDoMotivo(motivo: Esquemas['Motivo']): string {
       return 'Entrou um crédito que não casa com nenhum recebível. Não muda o fechamento, mas vale conferir de onde veio.'
     case 'pode_ser_antecipacao':
       return 'Entrou um crédito ligado a uma venda cujo recebível não vence neste fechamento. Pode ser uma antecipação.'
+    case 'caiu_a_mais':
+      return 'Entrou na conta mais do que o esperado para este recebível. O que passa do esperado é o valor da pendência: esse dinheiro não é seu, e a adquirente pode cobrar de volta.'
   }
 }
 
@@ -218,12 +222,18 @@ export function notaDoDia(item: Item): string | null {
   return outro ? `caiu em ${diaDaSemana(outro)}` : null
 }
 
+/** O NSU aparece inteiro na descrição, com a mesma fronteira da regra: "STN-1" não está em "STN-12". */
+function citaNsu(nsu: string, descricao: string): boolean {
+  const escapado = nsu.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![0-9A-Za-z])${escapado}(?![0-9A-Za-z])`).test(descricao)
+}
+
 /**
  * Por qual chave o item casou (GLOSSARY: Chave forte, Chave fraca). A chave fraca só vale para crédito
  * que não cita o NSU de nenhum recebível; então NSU na descrição quer dizer chave forte.
  */
 export function textoDaChave(item: Item): string {
-  const forte = item.creditos.some((c) => item.recebiveis.some((r) => c.descricao.includes(r.nsu)))
+  const forte = item.creditos.some((c) => item.recebiveis.some((r) => citaNsu(r.nsu, c.descricao)))
   return forte
     ? 'Casou pela chave forte: o NSU da venda está na descrição do crédito.'
     : 'Casou pela chave fraca: mesma adquirente e mesmo valor líquido, dentro da janela.'
@@ -240,7 +250,7 @@ export function oQueFazer(motivo: Esquemas['Motivo'], item: Item): string {
     case 'nao_caiu':
       return `Confira no portal da ${adquirente} se a venda NSU ${r?.nsu} foi liquidada, e em qual conta. Se não foi, abra um chamado com o NSU e a data prevista, ${r ? diaDaSemana(r.liquidacao_prevista) : ''}.`
     case 'caiu_em_parte':
-      return `Compare com o extrato da ${adquirente}. A diferença de ${valor} pode ser taxa ou antecipação descontada. Se não tiver explicação, abra um chamado com o NSU ${r?.nsu} e a diferença.`
+      return `O esperado já desconta a taxa e a antecipação da venda, então a diferença de ${valor} não é taxa prevista. Compare com o extrato da ${adquirente} e, se não tiver explicação, abra um chamado com o NSU ${r?.nsu} e a diferença.`
     case 'grupo_nao_fecha':
       return `Peça à ${adquirente} o detalhamento do ${credito}. Com ele dá para saber qual venda ficou sem pagar.`
     case 'chargeback':
@@ -251,6 +261,8 @@ export function oQueFazer(motivo: Esquemas['Motivo'], item: Item): string {
       return `Confira quem mandou o ${credito} ("${c?.descricao}"). Se for uma venda, ela pode estar faltando no arquivo da adquirente.`
     case 'pode_ser_antecipacao':
       return `Confira se você pediu antecipação da venda ligada ao ${credito} ("${c?.descricao}"). Se pediu, não há nada a fazer agora. Se não pediu, pergunte à adquirente.`
+    case 'caiu_a_mais':
+      return `Confira no extrato da ${adquirente} se a venda NSU ${r?.nsu} foi paga duas vezes ou com valor maior. Confirme com a ${adquirente} se os ${valor} a mais vão ser descontados de um repasse futuro ou se você precisa devolver.`
   }
 }
 
@@ -271,11 +283,11 @@ export const TERMOS = {
   },
   esperado: {
     nome: 'Esperado',
-    texto: 'A soma dos recebíveis com liquidação prevista até o dia do fechamento. Esperado = Caiu + Não caiu + Próximo fechamento.',
+    texto: 'A soma dos recebíveis com liquidação prevista até o dia do fechamento, desde o início, não só desta semana. Esperado = Caiu + Não caiu + Próximo fechamento.',
   },
   caiu: {
     nome: 'Caiu',
-    texto: 'A parte do esperado que entrou na conta até o corte e não foi desfeita por chargeback.',
+    texto: 'A parte do esperado confirmada na conta até o corte e não desfeita por chargeback.',
   },
   naoCaiu: {
     nome: 'Não caiu',
@@ -283,7 +295,7 @@ export const TERMOS = {
   },
   proximo: {
     nome: 'Próximo fechamento',
-    texto: 'A parte do esperado cujo crédito casou, mas caiu depois do corte. Não é pendência: entra no fechamento seguinte.',
+    texto: 'A parte do esperado cujo crédito casou, mas caiu depois do corte ou ainda não foi confirmado. Não é pendência: entra no fechamento seguinte.',
   },
   falta: {
     nome: 'Falta de verdade',

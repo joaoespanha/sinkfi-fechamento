@@ -11,6 +11,7 @@ from tests.construtores import (
     UTC,
     em_sao_paulo,
     lancamento,
+    pendente,
     recebivel,
 )
 
@@ -43,6 +44,40 @@ def test_credito_depois_do_corte_vai_para_proximo_fechamento():
     assert grupo.proximo_fechamento_centavos == 64000
     assert grupo.caiu_centavos == 0
     assert grupo.nao_caiu_centavos == 0
+    assert fechamento.pendencias == []
+
+
+def rec_4002():
+    return recebivel("rec_4002", liquidacao_prevista=date(2026, 11, 10), liquido_centavos=500000, nsu="STN-4002")
+
+
+def t_4002(id: str, lancado_em: datetime):
+    return lancamento(id, transacao_id="T-4002", lancado_em=lancado_em, valor_centavos=500000, descricao="STN-4002")
+
+
+def test_credito_pending_antes_do_corte_vai_para_proximo_fechamento():
+    # `pending` não é dinheiro na conta (README), mesmo lançado antes das 18:00.
+    credito = pendente(t_4002("ext_14", em_sao_paulo(11, 10, 17, 50)))
+
+    fechamento = fechar(recebiveis=[rec_4002()], lancamentos=[credito], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.caiu_centavos == 0
+    assert grupo.proximo_fechamento_centavos == 500000
+    assert grupo.nao_caiu_centavos == 0
+    assert fechamento.pendencias == []
+
+
+def test_transacao_repetida_fica_com_a_versao_confirmada():
+    # O Open Finance manda o T-4002 pendente e depois confirmado, com o mesmo transaction_id.
+    antes = pendente(t_4002("ext_14", em_sao_paulo(11, 10, 9, 0)))
+    depois = t_4002("ext_14b", em_sao_paulo(11, 10, 11, 0))
+
+    fechamento = fechar(recebiveis=[rec_4002()], lancamentos=[antes, depois], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert [c.id for c in grupo.creditos] == ["ext_14b"]
+    assert grupo.caiu_centavos == 500000
     assert fechamento.pendencias == []
 
 
@@ -138,6 +173,23 @@ def test_casamento_usa_a_adquirente_do_recebivel():
     [grupo] = fechamento.grupos
     assert [c.id for c in grupo.creditos] == ["ext_01"]
     assert grupo.caiu_centavos == 147750
+
+
+def test_nsu_nao_casa_dentro_de_outro_nsu():
+    # "STN-12" cita a venda STN-12, não a STN-1.
+    stn_1 = recebivel("rec_1", liquidacao_prevista=date(2026, 11, 9), liquido_centavos=10000, nsu="STN-1")
+    stn_12 = recebivel("rec_12", liquidacao_prevista=date(2026, 11, 9), liquido_centavos=10000, nsu="STN-12")
+    credito = lancamento(
+        "ext_80", transacao_id="T-80", lancado_em=em_sao_paulo(11, 9, 10), valor_centavos=10000, descricao="STN-12"
+    )
+
+    fechamento = fechar(recebiveis=[stn_1, stn_12], lancamentos=[credito], lojas=LOJAS, corte=CORTE)
+
+    [casou] = [g for g in fechamento.grupos if g.creditos]
+    assert [r.id for r in casou.recebiveis] == ["rec_12"]
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.NAO_CAIU
+    assert [r.id for r in pendencia.grupo.recebiveis] == ["rec_1"]
 
 
 def test_empate_na_chave_fraca_gera_um_grupo_com_os_dois_recebiveis():
@@ -310,3 +362,106 @@ def test_chargeback_e_falta_de_verdade():
     assert pendencia.motivo == Motivo.CHARGEBACK
     assert pendencia.severidade == Severidade.FALTA_DE_VERDADE
     assert pendencia.valor_centavos == 78800
+
+
+def test_chargeback_parcial_desfaz_so_o_valor():
+    rec_5001 = recebivel(
+        "rec_5001",
+        adquirente="pagseguro",
+        liquidacao_prevista=date(2026, 11, 6),
+        liquido_centavos=78800,
+        nsu="PAG-5001",
+    )
+    t_5001 = lancamento(
+        "ext_09",
+        transacao_id="T-5001",
+        lancado_em=em_sao_paulo(11, 6, 12, 30),
+        valor_centavos=78800,
+        documento_contraparte=PAGSEGURO,
+        descricao="PAG-5001",
+    )
+    # A compradora contestou só 200,00 dos 788,00.
+    t_5001r = lancamento(
+        "ext_10",
+        transacao_id="T-5001R",
+        transacao_original_id="T-5001",
+        lancado_em=em_sao_paulo(11, 10, 19, 12),
+        valor_centavos=20000,
+        documento_contraparte=PAGSEGURO,
+        descricao="CHARGEBACK T-5001",
+        tipo="chargeback",
+    )
+
+    fechamento = fechar(recebiveis=[rec_5001], lancamentos=[t_5001, t_5001r], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.caiu_centavos == 58800
+    assert grupo.nao_caiu_centavos == 20000
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.CHARGEBACK
+    assert pendencia.valor_centavos == 20000
+
+
+def test_chargeback_de_credito_sem_recebivel_nao_vira_pendencia():
+    # Entrou um crédito que não casa com nada e saiu inteiro por chargeback: não há o que conferir.
+    sem_recebivel = lancamento(
+        "ext_50",
+        transacao_id="T-5050",
+        lancado_em=em_sao_paulo(11, 9, 10),
+        valor_centavos=7777,
+        descricao="stone",
+    )
+    estorno = lancamento(
+        "ext_51",
+        transacao_id="T-5050R",
+        transacao_original_id="T-5050",
+        lancado_em=em_sao_paulo(11, 10, 12),
+        valor_centavos=7777,
+        descricao="CHARGEBACK T-5050",
+        tipo="chargeback",
+    )
+
+    fechamento = fechar(recebiveis=[], lancamentos=[sem_recebivel, estorno], lojas=LOJAS, corte=CORTE)
+
+    assert fechamento.pendencias == []
+
+
+# Crédito a mais
+
+
+def rec_1001():
+    return recebivel("rec_1001", liquidacao_prevista=date(2026, 11, 5), liquido_centavos=147750, nsu="STN-1001")
+
+
+def test_venda_paga_duas_vezes_vira_falta_de_verdade():
+    # Duas transações diferentes, com o mesmo NSU: não é a duplicata do Open Finance.
+    t_1001 = lancamento(
+        "ext_01", transacao_id="T-1001", lancado_em=em_sao_paulo(11, 5, 14), valor_centavos=147750, descricao="STN-1001"
+    )
+    t_1001b = lancamento(
+        "ext_60", transacao_id="T-1001B", lancado_em=em_sao_paulo(11, 6, 9), valor_centavos=147750, descricao="STN-1001"
+    )
+
+    fechamento = fechar(recebiveis=[rec_1001()], lancamentos=[t_1001, t_1001b], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.caiu_centavos == 147750
+    assert grupo.nao_caiu_centavos == 0
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.CAIU_A_MAIS
+    assert pendencia.severidade == Severidade.FALTA_DE_VERDADE
+    assert pendencia.valor_centavos == 147750
+
+
+def test_credito_maior_que_o_recebivel_vira_falta_de_verdade():
+    t_1001 = lancamento(
+        "ext_01", transacao_id="T-1001", lancado_em=em_sao_paulo(11, 5, 14), valor_centavos=150000, descricao="STN-1001"
+    )
+
+    fechamento = fechar(recebiveis=[rec_1001()], lancamentos=[t_1001], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.esperado_centavos == grupo.caiu_centavos == 147750
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.CAIU_A_MAIS
+    assert pendencia.valor_centavos == 2250

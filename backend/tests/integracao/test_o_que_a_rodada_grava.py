@@ -1,7 +1,8 @@
 """O que a rodada grava (ADR 0006): cópia do que usou, versão da regra e corte."""
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -78,3 +79,15 @@ def test_rodada_guarda_o_corte_usado(sessao: Session):
 
     assert rodada.corte == CORTE
     assert rodada.data_fechamento == date(2026, 11, 10)
+
+
+def test_rodada_usa_o_status_do_lancamento_do_banco(sessao: Session):
+    # O T-4002 está `pending` no extrato: em 17/11 ele ainda não caiu.
+    preparar_marina(sessao)
+    rodada = rodar_fechamento(sessao, MARINA, datetime(2026, 11, 17, 18, 0, tzinfo=ZoneInfo("America/Sao_Paulo")))
+
+    item = item_com_recebivel(sessao, rodada, "rec_4002")
+
+    assert item.creditos[0].status == "pending"
+    assert item.caiu_centavos == 0
+    assert item.proximo_fechamento_centavos == 500000

@@ -120,3 +120,46 @@ def test_credito_que_casa_so_com_recebivel_a_vencer_pode_ser_antecipacao():
     assert pendencia.severidade == Severidade.PARA_CONFERIR
     assert pendencia.valor_centavos == 87714
     assert pendencia.lancamento.id == "ext_03"
+
+
+def rec_3000(id: str):
+    return recebivel(id, liquidacao_prevista=date(2026, 11, 9), liquido_centavos=210000, nsu=f"STN-{id[-4:]}")
+
+
+def t_3000(id: str, hora: int):
+    return lancamento(
+        id, transacao_id=f"T-{id}", lancado_em=em_sao_paulo(11, 9, hora), valor_centavos=210000, descricao="stone"
+    )
+
+
+def test_empate_com_dois_creditos_fecha_o_grupo():
+    # Duas vendas de 2.100,00 no mesmo dia e dois créditos sem NSU: todo o dinheiro caiu.
+    fechamento = fechar(
+        recebiveis=[rec_3000("rec_3001"), rec_3000("rec_3002")],
+        lancamentos=[t_3000("ext_05", 13), t_3000("ext_70", 14)],
+        lojas=LOJAS,
+        corte=CORTE,
+    )
+
+    [grupo] = fechamento.grupos
+    assert {c.id for c in grupo.creditos} == {"ext_05", "ext_70"}
+    assert grupo.caiu_centavos == grupo.esperado_centavos == 420000
+    assert fechamento.pendencias == []
+
+
+def test_credito_sem_nsu_alem_dos_recebiveis_fica_para_conferir():
+    # Um recebível e dois créditos iguais: o segundo pode ser uma venda que falta no arquivo da adquirente.
+    fechamento = fechar(
+        recebiveis=[rec_3000("rec_3001")],
+        lancamentos=[t_3000("ext_05", 13), t_3000("ext_70", 14)],
+        lojas=LOJAS,
+        corte=CORTE,
+    )
+
+    [grupo] = fechamento.grupos
+    assert [c.id for c in grupo.creditos] == ["ext_05"]
+    assert grupo.caiu_centavos == 210000
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.ENTRADA_SEM_RECEBIVEL
+    assert pendencia.severidade == Severidade.PARA_CONFERIR
+    assert pendencia.lancamento.id == "ext_70"

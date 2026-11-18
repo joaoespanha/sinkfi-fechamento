@@ -16,7 +16,7 @@ from fechamento.tipos import (
 )
 
 # Sobe a cada mudança de comportamento da regra. Entra no hash da rodada (ADR 0006).
-VERSAO_DA_REGRA = "1"
+VERSAO_DA_REGRA = "2"
 
 # A adquirente é reconhecida pelo documento da contraparte, nunca pelo nome.
 DOCUMENTO_DA_ADQUIRENTE = {
@@ -32,10 +32,12 @@ CANCELADO = "cancelled"
 CHARGEBACK = "chargeback"
 PIX = "pix"
 PIX_RECEBIDO = "pix_in"
+PENDENTE = "pending"
 # Tarifa da conta e transferência da própria titular não são crédito.
 NAO_E_CREDITO = {"fee", "internal_transfer"}
 
-PARCELA_NA_DESCRICAO = re.compile(r"(\d+)/(\d+)")
+# "n/m" solto: não pega pedaço de data como "10/11/2026" nem de um número maior.
+PARCELA_NA_DESCRICAO = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])")
 
 
 def fechar(
@@ -46,7 +48,11 @@ def fechar(
 ) -> Fechamento:
     lancamentos = _normalizar(lancamentos)
     creditos = [l for l in lancamentos if l.tipo != CHARGEBACK]
-    desfeitos = {l.transacao_original_id for l in lancamentos if l.tipo == CHARGEBACK}
+    # Quanto cada transação perdeu por chargeback. O chargeback desfaz só o seu valor.
+    desfeitos: dict[str, int] = {}
+    for l in lancamentos:
+        if l.tipo == CHARGEBACK and l.transacao_original_id:
+            desfeitos[l.transacao_original_id] = desfeitos.get(l.transacao_original_id, 0) + l.valor_centavos
 
     casamento = _casar(recebiveis, creditos, corte.tzinfo)
 
@@ -59,11 +65,15 @@ def fechar(
     ]
 
     pendencias = [_falta(g, desfeitos) for g in grupos if g.nao_caiu_centavos]
+    pendencias += [_a_mais(g, sobra) for g in grupos if (sobra := _sobra(g, desfeitos))]
     ids_esperados = {r.id for r in esperados}
     for credito in creditos:
+        fica = _valor_que_fica(credito, desfeitos)
+        if fica == 0:
+            continue  # Entrou e saiu inteiro por chargeback: não há o que conferir.
         motivo = _motivo_da_entrada(credito, casamento, ids_esperados)
         if motivo:
-            pendencias.append(_entrada(credito, motivo))
+            pendencias.append(_entrada(credito, motivo, fica))
 
     return Fechamento(grupos=grupos, pendencias=pendencias)
 
@@ -72,12 +82,17 @@ def fechar(
 
 
 def _normalizar(lancamentos: list[Lancamento]) -> list[Lancamento]:
-    """Lançamentos repetidos com a mesma transação são um só, e o que não é crédito sai."""
+    """Lançamentos repetidos com a mesma transação são um só, e o que não é crédito sai.
+
+    Entre as repetições, a confirmada vale mais que a `pending`: é o mesmo dinheiro, já na conta.
+    """
     por_transacao: dict[str, Lancamento] = {}
     for lancamento in lancamentos:
         if lancamento.tipo in NAO_E_CREDITO:
             continue
-        por_transacao.setdefault(lancamento.transacao_id, lancamento)
+        atual = por_transacao.get(lancamento.transacao_id)
+        if atual is None or (atual.status == PENDENTE and lancamento.status != PENDENTE):
+            por_transacao[lancamento.transacao_id] = lancamento
     return list(por_transacao.values())
 
 
@@ -105,16 +120,19 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
     # 1. Chave forte: um recebível com o NSU, ou a parcela que a descrição indica.
     for credito in creditos:
         candidatos = [r for r in recebiveis if _chave_forte(r, credito)]
-        parcela = PARCELA_NA_DESCRICAO.search(credito.descricao)
+        parcela = _parcela_indicada(credito.descricao, candidatos)
         if len(candidatos) == 1:
             casamento.casa(credito, candidatos)
         elif candidatos and parcela:
-            indicada = [r for r in candidatos if r.parcela == int(parcela.group(1))]
+            indicada = [r for r in candidatos if r.parcela == parcela]
             if indicada:
                 casamento.casa(credito, indicada)
+            else:
+                # A parcela indicada não existe: o crédito é da venda, mas não paga nenhum recebível dela.
+                casamento.ligados_a_venda.add(credito.id)
         elif candidatos:
             sem_parcela.append((credito, candidatos))
-        elif not any(r.nsu in credito.descricao for r in recebiveis):
+        elif not any(_cita_nsu(r.nsu, credito.descricao) for r in recebiveis):
             sem_nsu.append(credito)
 
     # 2. NSU de venda parcelada sem "n/m": parcelas vencidas até o crédito, sem crédito, mesmo líquido.
@@ -133,22 +151,44 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
             casamento.ligados_a_venda.add(credito.id)
 
     # 3. Chave fraca: crédito sem NSU, mesma adquirente, valor exato, dentro da janela.
+    # Créditos com os mesmos candidatos são um empate só: até um crédito por candidato casa
+    # com todos eles, num grupo (ADR 0002). O crédito que passa disso fica sem recebível.
+    pagos_pela_chave_forte = set(casamento.pagos)
+    empates: dict[frozenset[str], tuple[list[Recebivel], list[Lancamento]]] = {}
     for credito in sem_nsu:
         dia = _dia(credito, fuso)
         candidatos = [
             r
             for r in recebiveis
-            if r.status != CANCELADO and r.id not in casamento.pagos and _chave_fraca(r, credito, dia)
+            if r.status != CANCELADO and r.id not in pagos_pela_chave_forte and _chave_fraca(r, credito, dia)
         ]
         if candidatos:
-            casamento.casa(credito, candidatos)
+            empates.setdefault(frozenset(r.id for r in candidatos), (candidatos, []))[1].append(credito)
+    for candidatos, creditos_do_empate in empates.values():
+        livres = [r for r in candidatos if r.id not in casamento.pagos]
+        for credito in sorted(creditos_do_empate, key=lambda c: c.lancado_em)[: len(livres)]:
+            casamento.casa(credito, livres)
 
     return casamento
 
 
+def _cita_nsu(nsu: str, descricao: str) -> bool:
+    """O NSU aparece inteiro na descrição: "STN-1" não está em "STN-12"."""
+    return re.search(rf"(?<![0-9A-Za-z]){re.escape(nsu)}(?![0-9A-Za-z])", descricao) is not None
+
+
+def _parcela_indicada(descricao: str, candidatos: list[Recebivel]) -> int | None:
+    """O "n/m" da descrição cujo m é o número de parcelas da venda."""
+    parcelas = {r.parcelas for r in candidatos}
+    for achado in PARCELA_NA_DESCRICAO.finditer(descricao):
+        if int(achado.group(2)) in parcelas:
+            return int(achado.group(1))
+    return None
+
+
 def _chave_forte(recebivel: Recebivel, lancamento: Lancamento) -> bool:
     """NSU citado na descrição de um crédito da adquirente do recebível, ou Pix para recebível Pix."""
-    if recebivel.nsu not in lancamento.descricao:
+    if not _cita_nsu(recebivel.nsu, lancamento.descricao):
         return False
     if recebivel.trilho == PIX:
         return lancamento.tipo == PIX_RECEBIDO
@@ -205,27 +245,45 @@ def _agrupar(
     return grupos
 
 
+def _valor_que_fica(credito: Lancamento, desfeitos: dict[str, int]) -> int:
+    """O crédito menos o que o chargeback desfez dele."""
+    return max(credito.valor_centavos - desfeitos.get(credito.transacao_id, 0), 0)
+
+
+def _caiu_ate(credito: Lancamento, corte: datetime) -> bool:
+    """Confirmado e lançado até o corte. O `pending` casado entra no próximo fechamento."""
+    return credito.status != PENDENTE and credito.lancado_em <= corte
+
+
 def _grupo(
-    recebiveis: list[Recebivel], creditos: list[Lancamento], desfeitos: set[str | None], corte: datetime
+    recebiveis: list[Recebivel], creditos: list[Lancamento], desfeitos: dict[str, int], corte: datetime
 ) -> GrupoDeRecebiveis:
-    valem = [c for c in creditos if c.transacao_id not in desfeitos]
     esperado = sum(r.liquido_centavos for r in recebiveis)
-    caiu = sum(c.valor_centavos for c in valem if c.lancado_em <= corte)
-    proximo = sum(c.valor_centavos for c in valem if c.lancado_em > corte)
+    caiu = sum(_valor_que_fica(c, desfeitos) for c in creditos if _caiu_ate(c, corte))
+    proximo = sum(_valor_que_fica(c, desfeitos) for c in creditos if not _caiu_ate(c, corte))
+    # Esperado = Caiu + Não caiu + Próximo fechamento, sempre. O que passa do esperado é a sobra.
+    caiu = min(caiu, esperado)
+    proximo = min(proximo, esperado - caiu)
     return GrupoDeRecebiveis(
         recebiveis=recebiveis,
         creditos=creditos,
         esperado_centavos=esperado,
         caiu_centavos=caiu,
-        nao_caiu_centavos=max(esperado - caiu - proximo, 0),
+        nao_caiu_centavos=esperado - caiu - proximo,
         proximo_fechamento_centavos=proximo,
     )
+
+
+def _sobra(grupo: GrupoDeRecebiveis, desfeitos: dict[str, int]) -> int:
+    """O que entrou para o grupo além do esperado."""
+    entrou = sum(_valor_que_fica(c, desfeitos) for c in grupo.creditos)
+    return max(entrou - grupo.esperado_centavos, 0)
 
 
 # Classificar
 
 
-def _falta(grupo: GrupoDeRecebiveis, desfeitos: set[str | None]) -> Pendencia:
+def _falta(grupo: GrupoDeRecebiveis, desfeitos: dict[str, int]) -> Pendencia:
     """O que não caiu vira uma pendência só, com o motivo que explica a falta."""
     if any(c.transacao_id in desfeitos for c in grupo.creditos):
         motivo = Motivo.CHARGEBACK
@@ -236,6 +294,11 @@ def _falta(grupo: GrupoDeRecebiveis, desfeitos: set[str | None]) -> Pendencia:
     else:
         motivo = Motivo.NAO_CAIU
     return Pendencia(Severidade.FALTA_DE_VERDADE, motivo, grupo.nao_caiu_centavos, grupo=grupo)
+
+
+def _a_mais(grupo: GrupoDeRecebiveis, sobra: int) -> Pendencia:
+    """Entrou mais do que o grupo vale. A sobra não é da lojista (GLOSSARY: Falta de verdade)."""
+    return Pendencia(Severidade.FALTA_DE_VERDADE, Motivo.CAIU_A_MAIS, sobra, grupo=grupo)
 
 
 def _motivo_da_entrada(credito: Lancamento, casamento: _Casamento, ids_esperados: set[str]) -> Motivo | None:
@@ -259,5 +322,5 @@ _SEVERIDADE_DA_ENTRADA = {
 }
 
 
-def _entrada(credito: Lancamento, motivo: Motivo) -> Pendencia:
-    return Pendencia(_SEVERIDADE_DA_ENTRADA[motivo], motivo, credito.valor_centavos, lancamento=credito)
+def _entrada(credito: Lancamento, motivo: Motivo, valor: int) -> Pendencia:
+    return Pendencia(_SEVERIDADE_DA_ENTRADA[motivo], motivo, valor, lancamento=credito)

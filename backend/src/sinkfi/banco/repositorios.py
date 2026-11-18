@@ -166,6 +166,7 @@ def _lancamento(l: LinhaLancamento) -> Lancamento:
         documento_contraparte=l.documento_contraparte,
         descricao=l.descricao,
         tipo=l.tipo,
+        status=l.status,
     )
 
 
