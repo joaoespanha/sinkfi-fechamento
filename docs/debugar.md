@@ -43,7 +43,14 @@ A regra fica em `backend/src/fechamento/`, como funções puras. O motivo de cad
 ## 6. O fechamento não rodou
 
 - `GET /operacao` (só o suporte, pelo mesmo `/api/docs`) mostra a saúde da fila:
-  - `pedidos_parados` e `idade_do_mais_antigo_segundos`: ingestões gravadas que o relay do outbox ainda não publicou. O relay roda a cada 10 segundos; um pedido parado há minutos quer dizer beat ou worker fora do ar.
-  - `mensagens_na_dead_letter`: fechamentos que falharam de vez, na fila `fechamento.morta`. `null` quer dizer que a api não alcançou o RabbitMQ.
-- `docker compose logs worker | grep "dead letter"` mostra cada falha definitiva com a tarefa, o cliente, o corte e o erro. Ela só volta na próxima ingestão, até 6 horas depois, ou com um reprocessamento pelo suporte (ADR 0004). O processo que morre por falta de memória chega à fila morta sem essa linha: aparece só na contagem da `/operacao`. As mensagens ficam no painel do RabbitMQ (`http://localhost:15672`).
+  - `pedidos_pendentes` e `idade_do_mais_antigo_segundos`: ingestões gravadas que o relay do outbox ainda não publicou. O relay roda a cada 10 segundos; um pedido pendente há minutos quer dizer beat ou worker fora do ar.
+  - `mensagens_na_dead_letter`: ingestões e fechamentos que falharam de vez, na fila `fechamento.morta`. `null` quer dizer que a api não alcançou o RabbitMQ, ou que ele recusou o login.
+- `docker compose logs worker | grep "dead letter"` mostra cada falha definitiva com a tarefa, o que ela recebeu (cliente e, quando houver, corte) e o erro. Também sai a linha do processo que morreu (falta de memória, por exemplo) depois de acabarem as tentativas. As mensagens ficam no painel do RabbitMQ (`http://localhost:15672`). Como volta depende da tarefa:
+  - `ingerir_cliente` e `fechar_cliente`: na próxima ingestão, até 6 horas depois.
+  - `fechar_semana` e `reprocessar_cliente`: a ingestão só pede o fechamento atual, então o corte antigo só volta com um reprocessamento pelo suporte (ADR 0004).
+- `docker compose logs worker | grep "limite duro"` mostra a tarefa que passou de 150 segundos e foi morta. Ela recebeu ack e **não** está na fila morta nem na contagem da `/operacao`: volta do mesmo jeito que a dead letter, pela tabela acima.
 - `docker compose logs worker | grep "rodada "` mostra cada rodada com cliente, corte, versão e se é **nova** ou **existente**. Existente quer dizer que a entrada é igual à de uma rodada que já existe, e o pedido devolveu essa rodada.
+
+### A tela ou o `/api/docs` responde 502
+
+Depois de recriar o container da api (`docker compose up -d --build api`, por exemplo), o nginx do `web` continua com o IP antigo e responde 502. Rode `docker compose restart web`. A correção de vez (o `resolver` do Docker no `nginx.conf`) ficou para depois.
