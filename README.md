@@ -56,7 +56,7 @@ A ingestão lê `dados/`: `lojas.csv`, `recebiveis.csv` e `extrato.csv`, com as 
 
   Com a stack de pé, dá para copiar e pedir a ingestão na hora, com o comando do primeiro item. O lote 2 contém o lote 1, então o caminho sugerido é: lote 1, ingestão, conferir na tela; depois lote 2, ingestão, e ver o que mudou desde a última conferência. Para voltar à demonstração padrão: `git checkout -- dados`, `docker compose down -v` e subir de novo. Os casos e os números esperados estão em [`dados-teste/LEIA.md`](dados-teste/LEIA.md). Não abra os CSVs no Excel: ele grava BOM e `;`, e a ingestão cai na dead letter.
 
-  O fechamento "atual" é o último corte que já passou, então a semana de 17/11 deixa de ser a atual em datas posteriores; as outras continuam na navegação. Hoje o fechamento de 03/11 mostra mais itens do que deveria: créditos lançados depois do corte entram em fechamentos anteriores (ver `dados-teste/LEIA.md`).
+  O fechamento "atual" é o último corte que já passou, então a semana de 17/11 deixa de ser a atual em datas posteriores; as outras continuam na navegação.
 
 O `backend/README.md` tem mais detalhes sobre a fila, o worker e a dead letter.
 

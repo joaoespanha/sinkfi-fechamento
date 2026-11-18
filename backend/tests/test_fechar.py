@@ -426,6 +426,111 @@ def test_chargeback_de_credito_sem_recebivel_nao_vira_pendencia():
     assert fechamento.pendencias == []
 
 
+# Entradas e o corte (#56): o crédito sem recebível esperado entra no fechamento em que cair.
+
+# 19:00 de segunda: uma hora depois do corte.
+DEPOIS_DO_CORTE = em_sao_paulo(11, 10, 19)
+
+
+def test_venda_cancelada_que_cai_depois_do_corte_nao_vira_pendencia():
+    rec_1711 = recebivel(
+        "rec_1711", liquidacao_prevista=date(2026, 11, 10), liquido_centavos=39400, nsu="STN-1711", status="cancelled"
+    )
+    t_1711 = lancamento(
+        "ext_53", transacao_id="T-1711", lancado_em=DEPOIS_DO_CORTE, valor_centavos=39400, descricao="STN-1711"
+    )
+
+    fechamento = fechar(recebiveis=[rec_1711], lancamentos=[t_1711], lojas=LOJAS, corte=CORTE)
+
+    assert fechamento.pendencias == []
+
+
+def test_parcela_adiantada_depois_do_corte_nao_vira_pendencia():
+    # A 2/2 vence em dezembro: o crédito dela pode ser antecipação, mas caiu depois do corte.
+    rec_1710b = recebivel(
+        "rec_1710b",
+        liquidacao_prevista=date(2026, 12, 16),
+        liquido_centavos=90000,
+        nsu="PAG-1710",
+        adquirente="pagseguro",
+        loja_id="loja_savassi",
+        parcela=2,
+        parcelas=2,
+    )
+    t_1710b = lancamento(
+        "ext_52",
+        transacao_id="T-1710B",
+        lancado_em=DEPOIS_DO_CORTE,
+        valor_centavos=90000,
+        documento_contraparte=PAGSEGURO,
+        descricao="PAG-1710 2/2",
+    )
+
+    fechamento = fechar(recebiveis=[rec_1710b], lancamentos=[t_1710b], lojas=LOJAS, corte=CORTE)
+
+    assert fechamento.pendencias == []
+
+
+def pix_de_pessoa_fisica(lancado_em: datetime):
+    return lancamento(
+        "ext_50",
+        transacao_id="T-1750",
+        lancado_em=lancado_em,
+        valor_centavos=25000,
+        documento_contraparte="11122233344",
+        descricao="PIX RECEBIDO",
+        tipo="pix_in",
+    )
+
+
+def test_entrada_sem_recebivel_depois_do_corte_nao_vira_pendencia():
+    fechamento = fechar(
+        recebiveis=[], lancamentos=[pix_de_pessoa_fisica(DEPOIS_DO_CORTE)], lojas=LOJAS, corte=CORTE
+    )
+
+    assert fechamento.pendencias == []
+
+
+def test_entrada_sem_recebivel_pending_antes_do_corte_nao_vira_pendencia():
+    # `pending` não é dinheiro na conta: a entrada só aparece no fechamento em que for confirmada.
+    credito = pendente(pix_de_pessoa_fisica(em_sao_paulo(11, 10, 17)))
+
+    fechamento = fechar(recebiveis=[], lancamentos=[credito], lojas=LOJAS, corte=CORTE)
+
+    assert fechamento.pendencias == []
+
+
+def test_entrada_sem_recebivel_ate_o_corte_continua_para_conferir():
+    # 18:00 em ponto ainda é até o corte.
+    fechamento = fechar(recebiveis=[], lancamentos=[pix_de_pessoa_fisica(CORTE)], lojas=LOJAS, corte=CORTE)
+
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.ENTRADA_SEM_RECEBIVEL
+    assert pendencia.valor_centavos == 25000
+
+
+def test_chargeback_depois_do_corte_desfaz_entrada_de_antes_do_corte():
+    # O chargeback vale depois das 18:00 se desfaz um crédito deste fechamento (ENUNCIADO.md).
+    estorno = lancamento(
+        "ext_55",
+        transacao_id="T-1750R",
+        transacao_original_id="T-1750",
+        lancado_em=DEPOIS_DO_CORTE,
+        valor_centavos=25000,
+        descricao="CHARGEBACK T-1750",
+        tipo="chargeback",
+    )
+
+    fechamento = fechar(
+        recebiveis=[],
+        lancamentos=[pix_de_pessoa_fisica(em_sao_paulo(11, 10, 10)), estorno],
+        lojas=LOJAS,
+        corte=CORTE,
+    )
+
+    assert fechamento.pendencias == []
+
+
 # Crédito a mais
 
 
