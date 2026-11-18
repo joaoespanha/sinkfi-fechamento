@@ -44,7 +44,7 @@ A ingestão lê `dados/`: `lojas.csv`, `recebiveis.csv` e `extrato.csv`, com as 
   ```
 
   Em uns 20 segundos, a tela mostra uma rodada nova, depois de recarregar. Sem esse comando, o `beat` ingere às 0, 6, 12 e 18h UTC.
-- **Trocar o conjunto inteiro.** A ingestão sobrescreve a linha pelo `id`, mas não apaga: uma linha tirada do CSV continua no banco. Para começar de um conjunto novo, apague o banco com `docker compose down -v` e suba de novo.
+- **Trocar o conjunto inteiro.** A ingestão sobrescreve a linha pela chave da fonte (`cliente_id` e `id`, mais a adquirente no recebível; ADR 0009), mas não apaga: uma linha tirada do CSV continua no banco. Para começar de um conjunto novo, apague o banco com `docker compose down -v` e suba de novo.
 - **Outras datas.** Os cortes andam de 7 em 7 dias a partir de 10/11 às 18:00, a data com que os CSVs do desafio batem (ADR 0007). Dados de outra semana caem nesses cortes, e a tela navega entre elas. Se o corte for em outro dia ou hora, troque a âncora, por exemplo `SINKFI_ANCORA_DOS_CORTES=2026-11-16T18:00:00-03:00 docker compose up -d --wait`. Com ela vazia, vale o dia de fechamento do cliente.
 
 O `backend/README.md` tem mais detalhes sobre a fila, o worker e a dead letter.
