@@ -405,11 +405,11 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-/* A linha da atualização (ADR 0011). Atrasada, ganha o tom de atenção: os números podem estar velhos. */
+/* A linha da atualização (ADR 0011), com o mesmo peso do "Corte em". Atrasada, ganha o tom de atenção: os números podem estar velhos. */
 .resumo-atualizacao {
   margin: 0;
   color: var(--texto-suave);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-variant-numeric: tabular-nums;
 
   &[data-atrasada] {
