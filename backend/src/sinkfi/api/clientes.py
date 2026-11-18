@@ -10,6 +10,7 @@ from fechamento import Resumo
 from sinkfi import lojista
 from sinkfi.api.autenticacao import checar_cliente, exige_papel
 from sinkfi.api.esquemas import (
+    AtualizacaoLida,
     FechamentoResposta,
     ItemLido,
     LimiteEntrada,
@@ -23,6 +24,7 @@ from sinkfi.api.esquemas import (
 )
 from sinkfi.api.relogio import obter_agora
 from sinkfi.api.sessao import obter_sessao
+from sinkfi.atualizacao import atualizacao
 from sinkfi.banco import repositorios
 from sinkfi.fila import Fila, obter_fila
 from sinkfi.fechamentos import ancora_dos_cortes, corte_atual, corte_da_semana, fechamentos_do_cliente
@@ -55,7 +57,7 @@ def ler_fechamento(
     lido = fechamento_da_semana(sessao, cliente_id, semana) if semana else None
     if lido is None:
         raise HTTPException(status_code=404, detail="semana sem rodada")
-    return _fechamento_resposta(lido)
+    return _fechamento_resposta(lido, agora)
 
 
 @rotas.get("/rodadas")
@@ -72,20 +74,27 @@ def listar_rodadas(
 
 
 @rotas.get("/rodadas/{rodada_id}")
-def ler_rodada(cliente_id: str, rodada_id: int, sessao: Session = Depends(obter_sessao)) -> FechamentoResposta:
+def ler_rodada(
+    cliente_id: str,
+    rodada_id: int,
+    sessao: Session = Depends(obter_sessao),
+    agora: datetime = Depends(obter_agora),
+) -> FechamentoResposta:
     """Uma rodada qualquer, inclusive a que já não é a mais recente: a que ela viu no "Terminei" (Debugar)."""
     rodada = repositorios.rodada_do_cliente(sessao, cliente_id, rodada_id)
     if rodada is None:
         raise HTTPException(status_code=404, detail="rodada não encontrada")
-    return _fechamento_resposta(fechamento_da_rodada(sessao, rodada))
+    return _fechamento_resposta(fechamento_da_rodada(sessao, rodada), agora)
 
 
-def _fechamento_resposta(lido: FechamentoLido) -> FechamentoResposta:
+def _fechamento_resposta(lido: FechamentoLido, agora: datetime) -> FechamentoResposta:
     return FechamentoResposta(
         rodada=RodadaLida.model_validate(lido.rodada),
         resumo=_resumo_lido(lido.resumo, lido.limite_trava_centavos),
         itens=[ItemLido.model_validate({**asdict(i.item), "dia": i.dia}) for i in lido.itens],
         ultimo_termino=_termino_lido(lido.ultimo_termino) if lido.ultimo_termino else None,
+        # Do cliente agora, não da rodada: a rodada antiga (Debugar) também diz até quando há dado.
+        atualizacao=AtualizacaoLida.model_validate(atualizacao(lido.ultima_ingestao_em, agora)),
     )
 
 

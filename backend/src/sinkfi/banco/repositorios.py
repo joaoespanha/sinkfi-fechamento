@@ -77,6 +77,15 @@ def config_do_cliente(sessao: Session, cliente_id: str) -> ConfigFechamento | No
     return ConfigFechamento(dia_fechamento=linha.dia_fechamento, hora_corte=linha.hora_corte, fuso=linha.fuso)
 
 
+def ultima_ingestao_do_cliente(sessao: Session, cliente_id: str) -> datetime | None:
+    return sessao.get_one(LinhaCliente, cliente_id).ultima_ingestao_em
+
+
+def marcar_ingestao(sessao: Session, cliente_id: str) -> None:
+    """A hora vem do banco, como a do pedido no outbox: as duas são da mesma transação."""
+    sessao.execute(update(LinhaCliente).where(LinhaCliente.id == cliente_id).values(ultima_ingestao_em=func.now()))
+
+
 def ids_dos_clientes(sessao: Session) -> list[str]:
     return list(sessao.scalars(select(LinhaCliente.id).order_by(LinhaCliente.id)))
 

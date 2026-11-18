@@ -24,6 +24,8 @@ def ingerir(sessao: Session, cliente_id: str, pasta: Path) -> None:
     repositorios.gravar_recebiveis(sessao, [_recebivel(l, cliente_id) for l in _linhas(pasta / "recebiveis.csv")])
     repositorios.gravar_lancamentos(sessao, [_lancamento(l, cliente_id) for l in _linhas(pasta / "extrato.csv")])
     repositorios.gravar_pedido_fechamento(sessao, cliente_id)
+    # O "dados atualizados em" da tela (ADR 0011): a ingestão sem dado novo também conta.
+    repositorios.marcar_ingestao(sessao, cliente_id)
 
 
 def _linhas(arquivo: Path) -> list[dict[str, str]]:

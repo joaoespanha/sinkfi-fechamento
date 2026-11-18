@@ -255,6 +255,33 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AtualizacaoLida
+         * @description Até quando os números estão atualizados e quando vem a próxima ingestão (ADR 0011).
+         */
+        AtualizacaoLida: {
+            /**
+             * Ultima Em
+             * @description A última ingestão que deu certo, com ou sem dado novo. Sem ingestão, null.
+             */
+            ultima_em: string | null;
+            /**
+             * Proxima Prevista Em
+             * Format: date-time
+             * @description A próxima hora da agenda. Prevista: a que vence com o worker fora não roda, e a seguinte cobre.
+             */
+            proxima_prevista_em: string;
+            /**
+             * Atrasada
+             * @description A última ingestão tem mais de 12 h (dois ciclos).
+             */
+            atrasada: boolean;
+            /**
+             * Primeira Perdida Em
+             * @description Só quando atrasada: a primeira hora da agenda depois da última ingestão, que não aconteceu.
+             */
+            primeira_perdida_em: string | null;
+        };
+        /**
          * ClienteEncontradoLido
          * @description Um resultado da busca do suporte (ADR 0010).
          */
@@ -281,6 +308,7 @@ export interface components {
             /** Itens */
             itens: components["schemas"]["ItemLido"][];
             ultimo_termino: components["schemas"]["TerminoLido"] | null;
+            atualizacao: components["schemas"]["AtualizacaoLida"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {

@@ -55,12 +55,28 @@ class TerminoLido(BaseModel):
     resumo: ResumoLido
 
 
+class AtualizacaoLida(_DeAtributos):
+    """Até quando os números estão atualizados e quando vem a próxima ingestão (ADR 0011)."""
+
+    ultima_em: datetime | None = Field(
+        description="A última ingestão que deu certo, com ou sem dado novo. Sem ingestão, null."
+    )
+    proxima_prevista_em: datetime = Field(
+        description="A próxima hora da agenda. Prevista: a que vence com o worker fora não roda, e a seguinte cobre."
+    )
+    atrasada: bool = Field(description="A última ingestão tem mais de 12 h (dois ciclos).")
+    primeira_perdida_em: datetime | None = Field(
+        description="Só quando atrasada: a primeira hora da agenda depois da última ingestão, que não aconteceu."
+    )
+
+
 class FechamentoResposta(BaseModel):
     rodada: RodadaLida
     resumo: ResumoLido
     itens: list[ItemLido]
     # Se a rodada dele não é a mostrada, chegou fechamento novo depois do "Terminei".
     ultimo_termino: TerminoLido | None
+    atualizacao: AtualizacaoLida
 
 
 class TermineiEntrada(BaseModel):

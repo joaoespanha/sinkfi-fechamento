@@ -5,6 +5,7 @@ export type Fechamento = Esquemas['FechamentoResposta']
 export type Item = Esquemas['ItemLido']
 export type Termino = Esquemas['TerminoLido']
 export type Semana = Esquemas['SemanaLida']
+export type Atualizacao = Esquemas['AtualizacaoLida']
 type Resumo = Esquemas['ResumoLido']
 type Recebivel = Esquemas['Recebivel']
 type Lancamento = Esquemas['Lancamento']
@@ -23,6 +24,39 @@ export function emReais(centavos: number): string {
 
 export function quando(iso: string): string {
   return diaEHora.format(new Date(iso))
+}
+
+const diaCurtoEHora = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'America/Sao_Paulo',
+})
+const hora = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+
+/** "às 21:00" no mesmo dia de `referencia`; "19/11 às 03:00" em outro dia ou sem referência. */
+function asHoras(iso: string, referencia: string | null): string {
+  const d = new Date(iso)
+  const mesmoDia = referencia !== null && dia.format(d) === dia.format(new Date(referencia))
+  return mesmoDia ? `às ${hora.format(d)}` : `${dia.format(d)} às ${hora.format(d)}`
+}
+
+/**
+ * A linha de atualização do resumo (ADR 0011, GLOSSARY: Atualização). O dia da próxima é comparado com o da
+ * última, não com o relógio da tela: o texto depende só do que a api devolveu.
+ */
+export function linhaDaAtualizacao(a: Atualizacao): string {
+  const proxima = asHoras(a.proxima_prevista_em, a.ultima_em)
+  if (a.ultima_em === null) {
+    return `Ainda sem atualização · primeira prevista ${proxima}`
+  }
+  const ultima = diaCurtoEHora.format(new Date(a.ultima_em))
+  if (a.atrasada && a.primeira_perdida_em) {
+    const perdida = asHoras(a.primeira_perdida_em, null)
+    return `Dados de ${ultima} · a atualização prevista para ${perdida} não aconteceu · próxima prevista ${proxima}`
+  }
+  return `Dados atualizados em ${ultima} · próxima atualização prevista ${proxima}`
 }
 
 function itens(n: number): string {
