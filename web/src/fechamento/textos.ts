@@ -250,7 +250,7 @@ export function oQueFazer(motivo: Esquemas['Motivo'], item: Item): string {
     case 'nao_caiu':
       return `Confira no portal da ${adquirente} se a venda NSU ${r?.nsu} foi liquidada, e em qual conta. Se não foi, abra um chamado com o NSU e a data prevista, ${r ? diaDaSemana(r.liquidacao_prevista) : ''}.`
     case 'caiu_em_parte':
-      return `Compare com o extrato da ${adquirente}. A diferença de ${valor} pode ser taxa ou antecipação descontada. Se não tiver explicação, abra um chamado com o NSU ${r?.nsu} e a diferença.`
+      return `O esperado já desconta a taxa e a antecipação da venda, então a diferença de ${valor} não é taxa prevista. Compare com o extrato da ${adquirente} e, se não tiver explicação, abra um chamado com o NSU ${r?.nsu} e a diferença.`
     case 'grupo_nao_fecha':
       return `Peça à ${adquirente} o detalhamento do ${credito}. Com ele dá para saber qual venda ficou sem pagar.`
     case 'chargeback':
@@ -283,11 +283,11 @@ export const TERMOS = {
   },
   esperado: {
     nome: 'Esperado',
-    texto: 'A soma dos recebíveis com liquidação prevista até o dia do fechamento. Esperado = Caiu + Não caiu + Próximo fechamento.',
+    texto: 'A soma dos recebíveis com liquidação prevista até o dia do fechamento, desde o início, não só desta semana. Esperado = Caiu + Não caiu + Próximo fechamento.',
   },
   caiu: {
     nome: 'Caiu',
-    texto: 'A parte do esperado que entrou na conta até o corte e não foi desfeita por chargeback.',
+    texto: 'A parte do esperado confirmada na conta até o corte e não desfeita por chargeback.',
   },
   naoCaiu: {
     nome: 'Não caiu',
@@ -295,7 +295,7 @@ export const TERMOS = {
   },
   proximo: {
     nome: 'Próximo fechamento',
-    texto: 'A parte do esperado cujo crédito casou, mas caiu depois do corte. Não é pendência: entra no fechamento seguinte.',
+    texto: 'A parte do esperado cujo crédito casou, mas caiu depois do corte ou ainda não foi confirmado. Não é pendência: entra no fechamento seguinte.',
   },
   falta: {
     nome: 'Falta de verdade',
