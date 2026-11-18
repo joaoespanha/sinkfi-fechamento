@@ -29,7 +29,10 @@ function itens(n: number): string {
   return n === 1 ? '1 item' : `${n} itens`
 }
 
-/** A linha do resumo (GLOSSARY: Resumo). O `switch` é exaustivo: uma recomendação nova não compila. */
+/**
+ * A linha do resumo (GLOSSARY: Resumo). O `switch` é exaustivo: uma recomendação nova não compila.
+ * Sem "seu": a lojista e o suporte leem a mesma linha.
+ */
 export function linhaDoResumo(resumo: Resumo): string {
   const falta = emReais(resumo.falta_de_verdade_centavos)
   const limite = resumo.limite_trava_centavos
@@ -38,12 +41,12 @@ export function linhaDoResumo(resumo: Resumo): string {
       // Com a trava ligada, pode fechar mesmo com faltas, se a soma ficar dentro do limite.
       return resumo.itens_falta_de_verdade === 0 || limite === null
         ? 'Pode fechar'
-        : `Pode fechar: faltam ${falta}, dentro do seu limite de ${emReais(limite)}`
+        : `Pode fechar: faltam ${falta}, dentro do limite de ${emReais(limite)}`
     case 'faltam':
       return `Faltam ${falta} em ${itens(resumo.itens_falta_de_verdade)}`
     case 'nao_feche':
       // `nao_feche` só existe com a trava ligada; o `?? 0` é só para o tipo.
-      return `Não feche: faltam ${falta}, acima do seu limite de ${emReais(limite ?? 0)}`
+      return `Não feche: faltam ${falta}, acima do limite de ${emReais(limite ?? 0)}`
   }
 }
 
@@ -58,7 +61,7 @@ export function rotuloDaSemana(s: Semana): string {
   return marcas.length ? `${diaDaSemana(s.semana)} (${marcas.join(', ')})` : diaDaSemana(s.semana)
 }
 
-/** O aviso de fechamento anterior com pendência e sem "Terminei" (ADR 0007). */
+/** O aviso de fechamento anterior com pendência e sem "Terminei" (ADR 0007). Sem "você": o suporte também lê. */
 export function textoDoAviso(s: Semana): string {
   const faltas = s.itens_falta_de_verdade ?? 0
   const conferir = s.itens_para_conferir ?? 0
@@ -66,8 +69,25 @@ export function textoDoAviso(s: Semana): string {
     faltas > 0 && (faltas === 1 ? '1 falta de verdade' : `${faltas} faltas de verdade`),
     conferir > 0 && `${conferir} para conferir`,
   ].filter(Boolean)
-  return `Você ainda não terminou o fechamento de ${diaDaSemana(s.semana)}: ${partes.join(', ')}.`
+  return `O fechamento de ${diaDaSemana(s.semana)} ainda não foi terminado: ${partes.join(', ')}.`
 }
+
+// A faixa do suporte: a tela é a da lojista, e a faixa diz isso e mostra o "Terminei" visto de fora.
+
+export function fraseDaFaixa(nomeDoCliente: string): string {
+  return `Você está vendo o fechamento como ${nomeDoCliente} vê.`
+}
+
+/** O "Terminei" mais recente, para o suporte: quem (o e-mail), quando e em qual rodada. */
+export function fraseDoTermino(termino: Termino | null, rodadaId: number): string {
+  if (!termino) return 'Ninguém terminou este fechamento ainda.'
+  const quem = `${termino.quem} terminou em ${quando(termino.em)}`
+  return termino.rodada_id === rodadaId
+    ? `${quem}, nesta rodada.`
+    : `${quem}, na rodada ${termino.rodada_id}. Esta é a rodada ${rodadaId}.`
+}
+
+export const PEDIDO_ENVIADO = 'Pedido enviado. Se a entrada mudou, a rodada nova aparece em instantes.'
 
 export function paraConferir(resumo: Resumo): string | null {
   const n = resumo.itens_para_conferir

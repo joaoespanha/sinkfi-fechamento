@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import type { components } from '../api'
+import { useEffect, useRef, useState } from 'react'
 import { type Acoes, enviar } from '../enviar'
 import { hashDa, hashDaSemana } from '../navegacao'
 import { Ajuda } from './Ajuda'
@@ -11,13 +10,14 @@ import {
   type Semana,
   diaDaSemana,
   emReais,
+  fraseDaFaixa,
+  fraseDoTermino,
   linhaDoResumo,
+  PEDIDO_ENVIADO,
   paraConferir,
   quando,
   textoDoAviso,
 } from './textos'
-
-type Papel = components['schemas']['Papel']
 
 type Estado =
   | { tipo: 'carregando' }
@@ -62,14 +62,15 @@ async function esperarRodada(url: string, signal: AbortSignal): Promise<Response
 
 export function TelaFechamento({
   clienteId,
-  papel,
+  suporte,
   escolhida,
   dia,
   item,
   aoPerderSessao,
 }: {
   clienteId: string
-  papel: Papel
+  // null para a lojista. O suporte vê a mesma tela, com a faixa dele por cima.
+  suporte: { nomeDoCliente: string } | null
   // A semana do hash (#25); null abre o fechamento atual.
   escolhida: string | null
   // O filtro da faixa de dias e o item aberto (#26), também do hash.
@@ -152,6 +153,17 @@ export function TelaFechamento({
 
   return (
     <>
+      {suporte && (
+        <FaixaDoSuporte
+          // Trocar de semana limpa o "Pedido enviado" da semana anterior.
+          key={semana}
+          nomeDoCliente={suporte.nomeDoCliente}
+          clienteId={clienteId}
+          semana={semana}
+          fechamento={estado.tipo === 'pronto' ? estado.fechamento : null}
+          acoes={acoes}
+        />
+      )}
       {semanas && <Avisos semanas={semanas} />}
       {item === null && (
         <header className="titulo">
@@ -194,7 +206,7 @@ export function TelaFechamento({
                 fechamento={estado.fechamento}
                 clienteId={clienteId}
                 // Só a lojista muda o limite e marca "Terminei" (ADR 0005); o suporte só olha.
-                lojista={papel === 'lojista'}
+                lojista={suporte === null}
                 acoes={acoes}
               />
             )
@@ -285,7 +297,7 @@ function Detalhe({
 
   return (
     <>
-      <AvisoDoTermino fechamento={fechamento} />
+      <AvisoDoTermino fechamento={fechamento} lojista={lojista} />
 
       {/* O resumo é um cartão (#32): a linha, o corte e a trava com o "?", a barra do esperado e o "Terminei". */}
       <section className="resumo" data-recomendacao={resumo.recomendacao} aria-label="Resumo do fechamento">
@@ -330,11 +342,15 @@ function Detalhe({
   )
 }
 
-/** O "Terminei" mais recente: na mesma rodada só informa; com rodada nova, mostra o antes e o agora. */
-function AvisoDoTermino({ fechamento }: { fechamento: Fechamento }) {
+/**
+ * O "Terminei" mais recente: na mesma rodada só informa; com rodada nova, mostra o antes e o agora.
+ * Para o suporte, quem e quando já estão na faixa; aqui fica só o antes e o agora.
+ */
+function AvisoDoTermino({ fechamento, lojista }: { fechamento: Fechamento; lojista: boolean }) {
   const termino = fechamento.ultimo_termino
   if (!termino) return null
   if (termino.rodada_id === fechamento.rodada.id) {
+    if (!lojista) return null
     return (
       <p className="termino" role="status">
         {termino.quem} terminou este fechamento em {quando(termino.em)}.
@@ -344,7 +360,7 @@ function AvisoDoTermino({ fechamento }: { fechamento: Fechamento }) {
   return (
     <div className="termino termino-mudou" role="status">
       <p>
-        <strong>O fechamento mudou desde que você terminou</strong> em {quando(termino.em)}.
+        <strong>O fechamento mudou desde o último Terminei</strong>, em {quando(termino.em)}.
       </p>
       <dl>
         <dt>Antes</dt>
@@ -386,5 +402,70 @@ function Terminei({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId:
       </button>
       <p role="status">{falhou ? 'Não foi possível registrar. Tente de novo.' : ''}</p>
     </div>
+  )
+}
+
+// O worker leva alguns segundos (ADR 0004). Sem entrada nova a rodada é a mesma, então não dá para esperar por ela:
+// a tela recarrega uma vez e mostra o que houver.
+const RECARREGAR_DEPOIS_DO_PEDIDO_MS = 5_000
+
+/**
+ * Só o suporte vê: a tela embaixo é a da lojista, para os dois olharem a mesma coisa num chamado.
+ * Mostra o "Terminei" visto de fora e pede uma rodada nova da semana mostrada.
+ */
+function FaixaDoSuporte({
+  nomeDoCliente,
+  clienteId,
+  semana,
+  fechamento,
+  acoes,
+}: {
+  nomeDoCliente: string
+  clienteId: string
+  semana: string | null
+  fechamento: Fechamento | null
+  acoes: Acoes
+}) {
+  const [pedido, setPedido] = useState<'parado' | 'enviando' | 'enviado' | 'falhou'>('parado')
+  const relogio = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => () => clearTimeout(relogio.current), [])
+
+  async function pedirRodadaNova() {
+    if (semana === null) return
+    setPedido('enviando')
+    try {
+      const resposta = await enviar(`/clientes/${encodeURIComponent(clienteId)}/reprocessar`, 'POST', { semana })
+      if (resposta.status === 401) return acoes.aoPerderSessao()
+      if (!resposta.ok) return setPedido('falhou')
+      setPedido('enviado')
+      clearTimeout(relogio.current)
+      relogio.current = setTimeout(acoes.recarregar, RECARREGAR_DEPOIS_DO_PEDIDO_MS)
+    } catch (erro: unknown) {
+      console.error(erro)
+      setPedido('falhou')
+    }
+  }
+
+  return (
+    <section className="faixa-do-suporte" aria-label="Visão do suporte">
+      <div className="faixa-do-suporte-texto">
+        <p>
+          <strong>{fraseDaFaixa(nomeDoCliente)}</strong>
+        </p>
+        {fechamento && <p>{fraseDoTermino(fechamento.ultimo_termino, fechamento.rodada.id)}</p>}
+      </div>
+      {/* O reprocessamento só existe para semana com rodada; antes dela, a tela já pede o cálculo. */}
+      {fechamento && (
+        <div className="faixa-do-suporte-acao">
+          <button type="button" onClick={pedirRodadaNova} disabled={pedido === 'enviando'}>
+            Pedir rodada nova
+          </button>
+          <p role="status">
+            {pedido === 'enviado' ? PEDIDO_ENVIADO : pedido === 'falhou' ? 'Não foi possível pedir. Tente de novo.' : ''}
+          </p>
+        </div>
+      )}
+    </section>
   )
 }
