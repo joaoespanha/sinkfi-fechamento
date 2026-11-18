@@ -12,6 +12,9 @@ O botão "Terminei" (ADR 0003 e 0007, `DECISOES.md`, Monitorar) grava quem, quan
 
 - **Continua um registro, não um fechamento.** Um "fechar" de verdade pediria uma política para o dado bancário que chega depois (ADR 0007) e para quem reabre a semana, e ninguém a definiu. O fechamento contábil da lojista acontece no ERP dela.
 - **"Conferido" convive com "Para conferir".** A severidade de pendência mantém o nome. Conferir o fechamento inclui olhar esses itens, e a conferência não os resolve. A tela tem de deixar isso claro.
+- **Confirmação antes de registrar.** Um `<dialog>` modal mostra o resumo que vai ficar gravado e diz que os itens para conferir continuam na lista e que nada trava. Cancelar e Esc não gravam nada. A confirmação dentro do próprio cartão foi recusada porque deixava o resumo menos explícito.
+- **Depois de conferir, o botão vira estado.** "Conferido por … em …" fica no cartão, no lugar do botão, enquanto a conferência valer para o que a tela mostra: a mesma rodada e o mesmo resumo. Com rodada nova, ou quando o limite muda o resumo (o limite é lido na hora, ADR 0006), o botão volta e o topo mostra o antes e o agora. A linha neutra "X conferiu este fechamento" saiu do topo, porque repetia o estado.
+- **A regra mora na tela.** A API continua aceitando uma conferência repetida: recusar com 409 exigiria comparar resumos no backend, e o registro repetido não faz mal (é só inserção).
 - **A troca vale em tudo.** A rota passa a ser `POST /clientes/{id}/conferencias`, a resposta do fechamento traz `ultima_conferencia`, a lista de fechamentos traz `conferido`, e a tabela `terminos` vira `conferencias` (migração 0008, só de nome, com os registros intactos).
 
 ## Alternativas recusadas
@@ -33,3 +36,6 @@ O botão "Terminei" (ADR 0003 e 0007, `DECISOES.md`, Monitorar) grava quem, quan
 - `test_suporte_nao_marca_conferido`
 - `test_conferencia_no_fechamento_anterior_tira_ele_do_aviso`
 - `sem conferência, diz que ninguém conferiu` (web)
+- `conferida nesta rodada com o mesmo resumo, não dá para conferir de novo` (web)
+- `conferida nesta rodada, mas o limite mudou o resumo, dá para conferir de novo` (web)
+- `a confirmação diz que os itens para conferir continuam` (web)

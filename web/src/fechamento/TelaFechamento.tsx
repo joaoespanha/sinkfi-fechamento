@@ -6,7 +6,10 @@ import { BarraDoEsperado } from './BarraDoEsperado'
 import { DetalheDoItem } from './DetalheDoItem'
 import { Faixa, Lista } from './Lista'
 import {
+  avisoDaConfirmacao,
   type Fechamento,
+  fraseDoConferido,
+  podeConferir,
   type Semana,
   diaDaSemana,
   emReais,
@@ -295,10 +298,12 @@ function Detalhe({
 }) {
   const { resumo, rodada } = fechamento
   const conferir = paraConferir(resumo)
+  const conferencia = fechamento.ultima_conferencia
+  const conferido = conferencia !== null && !podeConferir(conferencia, rodada.id, resumo)
 
   return (
     <>
-      <AvisoDaConferencia fechamento={fechamento} lojista={lojista} />
+      <AvisoDaConferencia fechamento={fechamento} />
 
       {/* O resumo é um cartão (#32): a linha, o corte e a trava com o "?", a barra do esperado e o "Marcar como conferido". */}
       <section className="resumo" data-recomendacao={resumo.recomendacao} aria-label="Resumo do fechamento">
@@ -332,11 +337,23 @@ function Detalhe({
         <BarraDoEsperado fechamento={fechamento} />
         {lojista && (
           <div className="acoes" role="group" aria-label="O que fazer com este fechamento">
-            <Conferir clienteId={clienteId} rodadaId={rodada.id} acoes={acoes} />
-            <p className="ajuda">
-              Registra que você conferiu esta rodada. Não trava nada. O limite da trava fica em{' '}
-              <a href={hashDa({ tela: 'limite' })}>Limite</a>.
-            </p>
+            {conferido ? (
+              <>
+                {/* O estado no lugar do botão (ADR 0012): já vale para a rodada e o resumo que a tela mostra. */}
+                <p className="conferido" role="status">
+                  <span aria-hidden="true">✓</span> {fraseDoConferido(conferencia)}
+                </p>
+                <p className="ajuda">Se chegar rodada nova ou o limite mudar o resumo, dá para conferir de novo.</p>
+              </>
+            ) : (
+              <>
+                <Conferir clienteId={clienteId} rodadaId={rodada.id} resumo={resumo} acoes={acoes} />
+                <p className="ajuda">
+                  Registra que você conferiu esta rodada, com o resumo de agora. Não trava nada. O limite da trava
+                  fica em <a href={hashDa({ tela: 'limite' })}>Limite</a>.
+                </p>
+              </>
+            )}
           </div>
         )}
       </section>
@@ -348,20 +365,12 @@ function Detalhe({
 }
 
 /**
- * A conferência mais recente: na mesma rodada só informa; com rodada nova, mostra o antes e o agora.
- * Para o suporte, quem e quando já estão na faixa; aqui fica só o antes e o agora.
+ * A conferência que já não vale para o que a tela mostra: rodada nova, ou o limite mudou o resumo.
+ * Mostra o antes e o agora. Quando ela ainda vale, quem e quando ficam no cartão (lojista) e na faixa (suporte).
  */
-function AvisoDaConferencia({ fechamento, lojista }: { fechamento: Fechamento; lojista: boolean }) {
+function AvisoDaConferencia({ fechamento }: { fechamento: Fechamento }) {
   const conferencia = fechamento.ultima_conferencia
-  if (!conferencia) return null
-  if (conferencia.rodada_id === fechamento.rodada.id) {
-    if (!lojista) return null
-    return (
-      <p className="conferencia" role="status">
-        {conferencia.quem} conferiu este fechamento em {quando(conferencia.em)}.
-      </p>
-    )
-  }
+  if (!conferencia || !podeConferir(conferencia, fechamento.rodada.id, fechamento.resumo)) return null
   return (
     <div className="conferencia conferencia-mudou" role="status">
       <p>
@@ -377,13 +386,44 @@ function AvisoDaConferencia({ fechamento, lojista }: { fechamento: Fechamento; l
   )
 }
 
-function Conferir({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId: number; acoes: Acoes }) {
+/**
+ * O botão e a confirmação (ADR 0012). O `<dialog>` modal dá o foco preso, o Esc e a volta do foco ao botão;
+ * o que foi escolhido chega pelo `returnValue` no `close`.
+ */
+function Conferir({
+  clienteId,
+  rodadaId,
+  resumo,
+  acoes,
+}: {
+  clienteId: string
+  rodadaId: number
+  resumo: Fechamento['resumo']
+  acoes: Acoes
+}) {
   const [enviando, setEnviando] = useState(false)
   const [falhou, setFalhou] = useState(false)
+  const dialogo = useRef<HTMLDialogElement>(null)
+  const cancelar = useRef<HTMLButtonElement>(null)
+
+  function abrir() {
+    setFalhou(false)
+    dialogo.current?.showModal()
+    // O autoFocus do React só age na montagem, com o diálogo fechado: o foco vai para a saída segura aqui.
+    cancelar.current?.focus()
+  }
+
+  function aoFechar() {
+    const d = dialogo.current
+    if (!d) return
+    // Esc não define valor e o navegador pode manter o anterior: zera para a próxima vez.
+    const escolha = d.returnValue
+    d.returnValue = ''
+    if (escolha === 'confirmar') void conferir()
+  }
 
   async function conferir() {
     setEnviando(true)
-    setFalhou(false)
     try {
       // A rodada que a tela mostra, não a mais recente do banco: pode ter chegado outra no meio.
       const resposta = await enviar(`/clientes/${encodeURIComponent(clienteId)}/conferencias`, 'POST', {
@@ -402,10 +442,30 @@ function Conferir({ clienteId, rodadaId, acoes }: { clienteId: string; rodadaId:
 
   return (
     <div className="conferir">
-      <button type="button" onClick={conferir} disabled={enviando}>
+      <button type="button" onClick={abrir} disabled={enviando}>
         Marcar como conferido
       </button>
       <p role="status">{falhou ? 'Não foi possível registrar. Tente de novo.' : ''}</p>
+      <dialog
+        ref={dialogo}
+        className="confirmar-conferencia"
+        aria-labelledby="confirmar-conferencia-titulo"
+        aria-describedby="confirmar-conferencia-aviso"
+        onClose={aoFechar}
+      >
+        <h2 id="confirmar-conferencia-titulo">Marcar este fechamento como conferido?</h2>
+        <p>Fica registrado quem conferiu, quando e este resumo:</p>
+        <p className="confirmar-conferencia-resumo">{linhaDoResumo(resumo)}</p>
+        <p id="confirmar-conferencia-aviso">{avisoDaConfirmacao(resumo)}</p>
+        <form method="dialog" className="confirmar-conferencia-botoes">
+          <button ref={cancelar} value="cancelar">
+            Cancelar
+          </button>
+          <button value="confirmar" className="primario">
+            Confirmar conferência
+          </button>
+        </form>
+      </dialog>
     </div>
   )
 }
