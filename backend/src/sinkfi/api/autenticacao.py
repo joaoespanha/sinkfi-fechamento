@@ -72,7 +72,10 @@ def checar_cliente(cliente_id: str, usuario: Usuario = Depends(usuario_atual)) -
 
 
 def exige_papel(papel: Papel) -> Callable[..., Usuario]:
-    """Checagem de papel por rota. Roda depois de `checar_cliente`: outro cliente dá 404, não 403."""
+    """Checagem de papel. Na rota com cliente, roda depois de `checar_cliente`: outro cliente dá 404, não 403.
+
+    Na rota sem cliente no caminho (`/operacao`), vai direto no router.
+    """
 
     def checar(usuario: Usuario = Depends(usuario_atual)) -> Usuario:
         if usuario.papel is not papel:

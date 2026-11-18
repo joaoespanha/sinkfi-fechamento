@@ -3,13 +3,15 @@
 Worker: `celery -A sinkfi.tarefas worker -Q fechamento,outbox`. Beat: `celery -A sinkfi.tarefas beat`, com exatamente uma cópia.
 """
 
+import inspect
 import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from celery.exceptions import TimeLimitExceeded
 from celery.schedules import crontab
-from celery.signals import worker_ready
+from celery.signals import task_failure, worker_ready
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -52,6 +54,32 @@ def _declarar_fila_morta(sender, **_) -> None:
     # O worker só declara a fila que consome; sem a fila morta declarada, a mensagem rejeitada se perde.
     with sender.app.connection_for_write() as conexao:
         fila_morta.bind(conexao.default_channel).declare()
+
+
+@task_failure.connect
+def _registrar_dead_letter(sender, exception, args, **_) -> None:
+    # A falha definitiva é a mensagem que o worker rejeita e o RabbitMQ manda para a fila morta.
+    # A nova tentativa não passa por aqui. O processo morto (falta de memória), acabadas as tentativas,
+    # passa: o Celery 5.7 rejeita sem requeue e dispara o sinal (`Request.on_failure`).
+    if not app.amqp.router.route({}, sender.name)["queue"].queue_arguments:
+        return  # O tick do outbox não tem fila morta: o próximo cobre.
+    # Só o que a tarefa recebeu, com o nome de cada argumento: o pedido da ingestão não tem corte.
+    recebido = " ".join(f"{nome}={valor}" for nome, valor in zip(inspect.signature(sender.run).parameters, args or []))
+    if isinstance(exception, TimeLimitExceeded):
+        # O limite duro mata o processo e a mensagem recebe ack: ela não está na fila morta.
+        log.error(
+            "limite duro: %s %s erro=%r. Sem fila morta: volta na próxima ingestão ou com reprocessamento pelo suporte",
+            sender.name,
+            recebido,
+            exception,
+        )
+        return
+    log.error(
+        "dead letter: %s %s erro=%r. Volta na próxima ingestão ou com reprocessamento pelo suporte",
+        sender.name,
+        recebido,
+        exception,
+    )
 
 
 @app.task(name="sinkfi.agendar_ingestoes")

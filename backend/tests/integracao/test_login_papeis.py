@@ -38,25 +38,26 @@ ROTAS_COM_CLIENTE = _rotas_com_cliente()
 
 
 @pytest.fixture
-def marina_com_rodada(sessao: Session) -> None:
+def marina_com_rodada(sessao: Session) -> int:
+    """O id da rodada, para as rotas que têm `{rodada_id}` no endereço."""
     preparar_marina(sessao)
-    rodar_fechamento(sessao, MARINA, CORTE)
+    return rodar_fechamento(sessao, MARINA, CORTE).id
 
 
 @pytest.mark.parametrize(("metodo", "caminho"), ROTAS_COM_CLIENTE)
 def test_lojista_nao_ve_fechamento_de_outro_cliente(
-    sessao: Session, http: TestClient, marina_com_rodada: None, metodo: str, caminho: str
+    sessao: Session, http: TestClient, marina_com_rodada: int, metodo: str, caminho: str
 ):
     # A Marina tem rodada: o 404 vem do dono, não da falta de dados.
     preparar_outro_cliente(sessao)
     entrar(http, LOJISTA_OUTRO)
 
-    resposta = http.request(metodo, caminho.format(cliente_id=MARINA), json={})
+    resposta = http.request(metodo, caminho.format(cliente_id=MARINA, rodada_id=marina_com_rodada), json={})
 
     assert resposta.status_code == 404
 
 
-def test_suporte_ve_qualquer_cliente(sessao: Session, http: TestClient, marina_com_rodada: None):
+def test_suporte_ve_qualquer_cliente(sessao: Session, http: TestClient, marina_com_rodada: int):
     criar_suporte(sessao)
     entrar(http, SUPORTE)
 
@@ -66,7 +67,7 @@ def test_suporte_ve_qualquer_cliente(sessao: Session, http: TestClient, marina_c
     assert resposta.json()["resumo"]["falta_de_verdade_centavos"] == 1085933
 
 
-def test_lojista_nao_reprocessa(sessao: Session, http: TestClient, marina_com_rodada: None):
+def test_lojista_nao_reprocessa(sessao: Session, http: TestClient, marina_com_rodada: int):
     criar_lojista(sessao, LOJISTA_MARINA, MARINA)
     entrar(http, LOJISTA_MARINA)
 
@@ -75,7 +76,7 @@ def test_lojista_nao_reprocessa(sessao: Session, http: TestClient, marina_com_ro
     assert resposta.status_code == 403
 
 
-def test_suporte_nao_muda_o_limite(sessao: Session, http: TestClient, marina_com_rodada: None):
+def test_suporte_nao_muda_o_limite(sessao: Session, http: TestClient, marina_com_rodada: int):
     criar_suporte(sessao)
     entrar(http, SUPORTE)
 
@@ -86,7 +87,7 @@ def test_suporte_nao_muda_o_limite(sessao: Session, http: TestClient, marina_com
     assert resumo["limite_trava_centavos"] is None
 
 
-def test_suporte_le_o_limite(sessao: Session, http: TestClient, marina_com_rodada: None):
+def test_suporte_le_o_limite(sessao: Session, http: TestClient, marina_com_rodada: int):
     criar_suporte(sessao)
     entrar(http, SUPORTE)
 
@@ -96,17 +97,17 @@ def test_suporte_le_o_limite(sessao: Session, http: TestClient, marina_com_rodad
     assert resposta.json() == {"limite_trava_centavos": None}
 
 
-@pytest.mark.parametrize(("metodo", "caminho"), [*ROTAS_COM_CLIENTE, ("GET", "/eu")])
+@pytest.mark.parametrize(("metodo", "caminho"), [*ROTAS_COM_CLIENTE, ("GET", "/eu"), ("GET", "/operacao")])
 def test_rota_sem_token_devolve_401(
-    http: TestClient, marina_com_rodada: None, metodo: str, caminho: str
+    http: TestClient, marina_com_rodada: int, metodo: str, caminho: str
 ):
-    resposta = http.request(metodo, caminho.format(cliente_id=MARINA), json={})
+    resposta = http.request(metodo, caminho.format(cliente_id=MARINA, rodada_id=marina_com_rodada), json={})
 
     assert resposta.status_code == 401
 
 
 def test_usuario_inativo_perde_o_acesso_com_token_valido(
-    sessao: Session, http: TestClient, marina_com_rodada: None
+    sessao: Session, http: TestClient, marina_com_rodada: int
 ):
     criar_lojista(sessao, LOJISTA_MARINA, MARINA)
     entrar(http, LOJISTA_MARINA)
@@ -117,7 +118,7 @@ def test_usuario_inativo_perde_o_acesso_com_token_valido(
     assert http.get(f"/clientes/{MARINA}/fechamento").status_code == 401
 
 
-def test_senha_errada_devolve_401(sessao: Session, http: TestClient, marina_com_rodada: None):
+def test_senha_errada_devolve_401(sessao: Session, http: TestClient, marina_com_rodada: int):
     criar_lojista(sessao, LOJISTA_MARINA, MARINA)
 
     resposta = http.post("/login", json={"email": LOJISTA_MARINA, "senha": "outra-senha"})

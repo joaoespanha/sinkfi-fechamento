@@ -1005,6 +1005,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "amqp" },
     { name = "argon2-cffi" },
     { name = "celery" },
     { name = "fastapi" },
@@ -1024,6 +1025,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
+    { name = "amqp", specifier = ">=5.3" },
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "celery", specifier = ">=5.5" },
     { name = "fastapi", specifier = ">=0.163.1" },

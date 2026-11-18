@@ -95,6 +95,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clientes/{cliente_id}/rodadas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Rodadas
+         * @description Todas as rodadas, da mais nova para a mais antiga. Com `nsu`, só as que têm essa venda (Debugar).
+         */
+        get: operations["listar_rodadas_clientes__cliente_id__rodadas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clientes/{cliente_id}/rodadas/{rodada_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ler Rodada
+         * @description Uma rodada qualquer, inclusive a que já não é a mais recente: a que ela viu no "Terminei" (Debugar).
+         */
+        get: operations["ler_rodada_clientes__cliente_id__rodadas__rodada_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clientes/{cliente_id}/limite": {
         parameters: {
             query?: never;
@@ -167,6 +207,26 @@ export interface paths {
          * @description Enfileira o pedido e responde na hora: a rodada nova aparece quando o worker terminar (ADR 0004).
          */
         post: operations["pedir_reprocessamento_clientes__cliente_id__reprocessar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operacao": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ler Operacao
+         * @description Pedido pendente há minutos é o relay fora do ar; mensagem na fila morta é trabalho que falhou de vez.
+         */
+        get: operations["ler_operacao_operacao_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -271,6 +331,27 @@ export interface components {
          * @enum {string}
          */
         Motivo: "nao_caiu" | "caiu_em_parte" | "grupo_nao_fecha" | "chargeback" | "venda_cancelada" | "entrada_sem_recebivel" | "pode_ser_antecipacao" | "caiu_a_mais";
+        /**
+         * OperacaoLida
+         * @description A saúde da fila (Monitorar): o que ficou parado sem chegar ao fechamento.
+         */
+        OperacaoLida: {
+            /**
+             * Pedidos Pendentes
+             * @description Pedidos de fechamento gravados que o relay do outbox ainda não publicou.
+             */
+            pedidos_pendentes: number;
+            /**
+             * Idade Do Mais Antigo Segundos
+             * @description Há quanto tempo o mais antigo espera, pelo relógio do banco. Sem pedido pendente, null.
+             */
+            idade_do_mais_antigo_segundos: number | null;
+            /**
+             * Mensagens Na Dead Letter
+             * @description Mensagens em `fechamento.morta`: ingestões e fechamentos que falharam de vez. Com o RabbitMQ fora do ar ou recusando o login, null.
+             */
+            mensagens_na_dead_letter: number | null;
+        };
         /**
          * Papel
          * @enum {string}
@@ -580,6 +661,75 @@ export interface operations {
             };
         };
     };
+    listar_rodadas_clientes__cliente_id__rodadas_get: {
+        parameters: {
+            query?: {
+                nsu?: string | null;
+            };
+            header?: never;
+            path: {
+                cliente_id: string;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RodadaLida"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_rodada_clientes__cliente_id__rodadas__rodada_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cliente_id: string;
+                rodada_id: number;
+            };
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FechamentoResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ler_limite_clientes__cliente_id__limite_get: {
         parameters: {
             query?: never;
@@ -743,6 +893,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_operacao_operacao_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperacaoLida"];
+                };
             };
             /** @description Validation Error */
             422: {

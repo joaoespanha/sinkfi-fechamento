@@ -255,9 +255,16 @@ def itens_da_rodada(sessao: Session, rodada_id: int) -> list[ItemRodada]:
 
 def rodadas_com_recebivel(sessao: Session, cliente_id: str, recebivel_id: str) -> list[Rodada]:
     """Mesma ordem de `rodadas_do_cliente`. O filtro usa o índice GIN dos itens."""
-    com_recebivel = select(LinhaItemRodada.rodada_id).where(
-        LinhaItemRodada.recebiveis.contains([{"id": recebivel_id}])
-    )
+    return _rodadas_com(sessao, cliente_id, {"id": recebivel_id})
+
+
+def rodadas_com_nsu(sessao: Session, cliente_id: str, nsu: str) -> list[Rodada]:
+    """As rodadas em que a venda aparece, em qualquer parcela. Mesmo índice GIN (`jsonb_path_ops`)."""
+    return _rodadas_com(sessao, cliente_id, {"nsu": nsu})
+
+
+def _rodadas_com(sessao: Session, cliente_id: str, campos: dict[str, str]) -> list[Rodada]:
+    com_recebivel = select(LinhaItemRodada.rodada_id).where(LinhaItemRodada.recebiveis.contains([campos]))
     linhas = sessao.scalars(
         select(LinhaRodada)
         .where(LinhaRodada.cliente_id == cliente_id, LinhaRodada.id.in_(com_recebivel))
@@ -401,6 +408,21 @@ def travar_pedidos_pendentes(sessao: Session, limite: int) -> list[PedidoFechame
         .with_for_update(skip_locked=True)
     ).all()
     return [PedidoFechamento(id=l.id, cliente_id=l.cliente_id) for l in linhas]
+
+
+def pedidos_pendentes(sessao: Session) -> tuple[int, int | None]:
+    """Quantos pedidos esperam o relay, e há quantos segundos espera o mais antigo (`None` sem pendente).
+
+    A idade sai do `now()` do banco, o mesmo relógio que gravou `criado_em`. Os pendentes são poucos:
+    o filtro usa o índice parcial, e o `min` lê só essas linhas.
+    """
+    quantos, idade = sessao.execute(
+        select(
+            func.count(),
+            func.extract("epoch", func.now() - func.min(LinhaPedidoFechamento.criado_em)),
+        ).where(LinhaPedidoFechamento.publicado_em.is_(None))
+    ).one()
+    return quantos, int(idade) if idade is not None else None
 
 
 def marcar_publicados(sessao: Session, ids: list[int]) -> None:
