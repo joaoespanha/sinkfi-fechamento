@@ -43,7 +43,7 @@ class Lancamento:
     documento_contraparte: str
     descricao: str
     tipo: str
-    # `pending` não é dinheiro na conta (README). O padrão lê o JSON de rodadas gravadas antes do campo.
+    # `pending` não é dinheiro na conta (ENUNCIADO.md). O padrão lê o JSON de rodadas gravadas antes do campo.
     status: str = "confirmed"
 
 

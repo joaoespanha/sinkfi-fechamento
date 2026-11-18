@@ -56,7 +56,7 @@ def t_4002(id: str, lancado_em: datetime):
 
 
 def test_credito_pending_antes_do_corte_vai_para_proximo_fechamento():
-    # `pending` não é dinheiro na conta (README), mesmo lançado antes das 18:00.
+    # `pending` não é dinheiro na conta (ENUNCIADO.md), mesmo lançado antes das 18:00.
     credito = pendente(t_4002("ext_14", em_sao_paulo(11, 10, 17, 50)))
 
     fechamento = fechar(recebiveis=[rec_4002()], lancamentos=[credito], lojas=LOJAS, corte=CORTE)
