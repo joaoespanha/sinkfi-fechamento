@@ -465,3 +465,41 @@ def test_credito_maior_que_o_recebivel_vira_falta_de_verdade():
     [pendencia] = fechamento.pendencias
     assert pendencia.motivo == Motivo.CAIU_A_MAIS
     assert pendencia.valor_centavos == 2250
+
+
+# Identidade do recebível (ADR 0009)
+
+
+def test_mesmo_id_em_duas_adquirentes_sao_dois_recebiveis():
+    # O id vem da adquirente: a Stone e a PagSeguro podem usar o mesmo.
+    da_stone = recebivel("rec_1", liquidacao_prevista=date(2026, 11, 9), liquido_centavos=1000, nsu="STN-1")
+    da_pagseguro = recebivel(
+        "rec_1",
+        adquirente="pagseguro",
+        loja_id="loja_savassi",
+        liquidacao_prevista=date(2026, 11, 9),
+        liquido_centavos=2000,
+        nsu="PAG-1",
+    )
+    da_stone_caiu = lancamento(
+        "ext_1", transacao_id="T-1", lancado_em=em_sao_paulo(11, 9), valor_centavos=1000, descricao="STN-1"
+    )
+    da_pagseguro_caiu = lancamento(
+        "ext_2",
+        transacao_id="T-2",
+        lancado_em=em_sao_paulo(11, 9),
+        valor_centavos=2000,
+        documento_contraparte=PAGSEGURO,
+        descricao="PAG-1",
+    )
+
+    fechamento = fechar(
+        recebiveis=[da_stone, da_pagseguro],
+        lancamentos=[da_stone_caiu, da_pagseguro_caiu],
+        lojas=LOJAS,
+        corte=CORTE,
+    )
+
+    pagos = {(g.recebiveis[0].adquirente, g.caiu_centavos, tuple(c.id for c in g.creditos)) for g in fechamento.grupos}
+    assert pagos == {("stone", 1000, ("ext_1",)), ("pagseguro", 2000, ("ext_2",))}
+    assert fechamento.pendencias == []
