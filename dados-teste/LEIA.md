@@ -49,22 +49,20 @@ O corte é toda terça às 18:00 de Brasília.
 | Tarifa | ext_54 | ignorada | ignorada |
 | Pending de 10/11 | STN-4002 (ext_14) | próximo fechamento | confirma em 11/11 e casa |
 
-## Esperado pela regra (`fechar` de `bd902e8`)
+## Esperado pela regra (versão 3)
 
 | Lote | Fechamento | Falta de verdade | Para conferir |
 |---|---|---|---|
 | base | 10/11 | R$ 10.859,33 em 5 | 2 |
 | 1 | 17/11 | R$ 17.782,33 em 10 | 4 |
-| 1 | 10/11 (se reprocessar) | R$ 13.553,33 em 7 | 13 |
-| 1 | 03/11 | R$ 5.846,00 em 3 | 25 |
+| 1 | 10/11 (se reprocessar) | R$ 13.159,33 em 6 | 2 |
+| 1 | 03/11 | R$ 2.300,00 em 1 (STN-3103) | 0 |
 | 2 | 17/11 | R$ 15.762,33 em 9 | 4 |
-| 2 | 10/11 (se reprocessar) | R$ 11.253,33 em 6 | 13 |
-| 2 | 03/11 | R$ 3.546,00 em 2 | 25 |
+| 2 | 10/11 (se reprocessar) | R$ 10.859,33 em 5 | 2 |
+| 2 | 03/11 | R$ 0,00 | 0 |
 
 O fechamento de 17/11 acumula: ele inclui as pendências de 10/11 que ainda não se resolveram.
 
-**Bug esperado:** os créditos lançados depois do corte entram nos fechamentos anteriores como
-"pode ser antecipação", "entrada sem recebível" ou "venda cancelada". É a suspeita da etapa 8.3
-do roteiro, e ela vale também para "pode ser antecipação". O fechamento de 03/11 mostra 25 itens
-"para conferir" quando deveria mostrar 0. No de 10/11, o ext_53, que caiu em 14/11, aparece como
-venda cancelada, e a falta de verdade sobe de R$ 10.859,33 para R$ 11.253,33.
+O crédito que não paga recebível esperado (entrada sem recebível, pode ser antecipação, venda
+cancelada) entra no fechamento em que cair: confirmado até o corte. Por isso o ext_53 (STN-1711,
+14/11) só aparece em 17/11. O `backend/tests/test_lotes_de_teste.py` confere esta tabela.

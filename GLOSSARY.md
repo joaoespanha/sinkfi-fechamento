@@ -87,7 +87,7 @@ A conferência de uma semana de um cliente, com o que caiu até o corte. A Marin
 _Evitar_: conciliação, fechar o caixa
 
 **Corte**:
-O momento que separa um fechamento do seguinte. Cada cliente tem o seu dia, hora e fuso; o da Marina é segunda às 18:00, horário de São Paulo.
+O momento que separa um fechamento do seguinte. Cada cliente tem o seu dia, hora e fuso; o da Marina é segunda às 18:00, horário de São Paulo. Um crédito entra no fechamento em que for confirmado até o corte.
 _Evitar_: horário limite, deadline
 
 **Fechamento atual**:

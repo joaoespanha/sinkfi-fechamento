@@ -17,7 +17,7 @@ from fechamento.tipos import (
 )
 
 # Sobe a cada mudança de comportamento da regra. Entra no hash da rodada (ADR 0006).
-VERSAO_DA_REGRA = "2"
+VERSAO_DA_REGRA = "3"
 
 # A adquirente é reconhecida pelo documento da contraparte, nunca pelo nome.
 DOCUMENTO_DA_ADQUIRENTE = {
@@ -69,6 +69,10 @@ def fechar(
     pendencias += [_a_mais(g, sobra) for g in grupos if (sobra := _sobra(g, desfeitos))]
     identidades_esperadas = {r.identidade for r in esperados}
     for credito in creditos:
+        if not _caiu_ate(credito, corte):
+            # Entra no fechamento em que cair. Fica fora só daqui, não do casamento:
+            # casado com um recebível esperado, ele ainda conta como próximo fechamento.
+            continue
         fica = _valor_que_fica(credito, desfeitos)
         if fica == 0:
             continue  # Entrou e saiu inteiro por chargeback: não há o que conferir.
