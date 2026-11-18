@@ -60,6 +60,7 @@ def fechar(
     ]
 
     pendencias = [_falta(g, desfeitos) for g in grupos if g.nao_caiu_centavos]
+    pendencias += [_a_mais(g, sobra) for g in grupos if (sobra := _sobra(g, desfeitos))]
     ids_esperados = {r.id for r in esperados}
     for credito in creditos:
         motivo = _motivo_da_entrada(credito, casamento, ids_esperados)
@@ -231,14 +232,23 @@ def _grupo(
     esperado = sum(r.liquido_centavos for r in recebiveis)
     caiu = sum(c.valor_centavos for c in valem if _caiu_ate(c, corte))
     proximo = sum(c.valor_centavos for c in valem if not _caiu_ate(c, corte))
+    # Esperado = Caiu + Não caiu + Próximo fechamento, sempre. O que passa do esperado é a sobra.
+    caiu = min(caiu, esperado)
+    proximo = min(proximo, esperado - caiu)
     return GrupoDeRecebiveis(
         recebiveis=recebiveis,
         creditos=creditos,
         esperado_centavos=esperado,
         caiu_centavos=caiu,
-        nao_caiu_centavos=max(esperado - caiu - proximo, 0),
+        nao_caiu_centavos=esperado - caiu - proximo,
         proximo_fechamento_centavos=proximo,
     )
+
+
+def _sobra(grupo: GrupoDeRecebiveis, desfeitos: set[str | None]) -> int:
+    """O que entrou para o grupo além do esperado."""
+    entrou = sum(c.valor_centavos for c in grupo.creditos if c.transacao_id not in desfeitos)
+    return max(entrou - grupo.esperado_centavos, 0)
 
 
 # Classificar
@@ -255,6 +265,11 @@ def _falta(grupo: GrupoDeRecebiveis, desfeitos: set[str | None]) -> Pendencia:
     else:
         motivo = Motivo.NAO_CAIU
     return Pendencia(Severidade.FALTA_DE_VERDADE, motivo, grupo.nao_caiu_centavos, grupo=grupo)
+
+
+def _a_mais(grupo: GrupoDeRecebiveis, sobra: int) -> Pendencia:
+    """Entrou mais do que o grupo vale. A sobra não é da lojista (GLOSSARY: Falta de verdade)."""
+    return Pendencia(Severidade.FALTA_DE_VERDADE, Motivo.CAIU_A_MAIS, sobra, grupo=grupo)
 
 
 def _motivo_da_entrada(credito: Lancamento, casamento: _Casamento, ids_esperados: set[str]) -> Motivo | None:

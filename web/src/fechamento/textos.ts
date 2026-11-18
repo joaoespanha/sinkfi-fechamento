@@ -90,6 +90,8 @@ export function textoDoMotivo(motivo: Esquemas['Motivo']): string {
       return 'Entrada sem recebível'
     case 'pode_ser_antecipacao':
       return 'Pode ser antecipação'
+    case 'caiu_a_mais':
+      return 'Caiu a mais'
   }
 }
 
@@ -119,6 +121,8 @@ export function explicacaoDoMotivo(motivo: Esquemas['Motivo']): string {
       return 'Entrou um crédito que não casa com nenhum recebível. Não muda o fechamento, mas vale conferir de onde veio.'
     case 'pode_ser_antecipacao':
       return 'Entrou um crédito ligado a uma venda cujo recebível não vence neste fechamento. Pode ser uma antecipação.'
+    case 'caiu_a_mais':
+      return 'Entrou na conta mais do que o esperado para este recebível. O que passa do esperado é o valor da pendência: esse dinheiro não é seu, e a adquirente pode cobrar de volta.'
   }
 }
 
@@ -251,6 +255,8 @@ export function oQueFazer(motivo: Esquemas['Motivo'], item: Item): string {
       return `Confira quem mandou o ${credito} ("${c?.descricao}"). Se for uma venda, ela pode estar faltando no arquivo da adquirente.`
     case 'pode_ser_antecipacao':
       return `Confira se você pediu antecipação da venda ligada ao ${credito} ("${c?.descricao}"). Se pediu, não há nada a fazer agora. Se não pediu, pergunte à adquirente.`
+    case 'caiu_a_mais':
+      return `Confira no extrato da ${adquirente} se a venda NSU ${r?.nsu} foi paga duas vezes ou com valor maior. Confirme com a ${adquirente} se os ${valor} a mais vão ser descontados de um repasse futuro ou se você precisa devolver.`
   }
 }
 

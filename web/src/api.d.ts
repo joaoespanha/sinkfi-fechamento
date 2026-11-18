@@ -270,7 +270,7 @@ export interface components {
          * Motivo
          * @enum {string}
          */
-        Motivo: "nao_caiu" | "caiu_em_parte" | "grupo_nao_fecha" | "chargeback" | "venda_cancelada" | "entrada_sem_recebivel" | "pode_ser_antecipacao";
+        Motivo: "nao_caiu" | "caiu_em_parte" | "grupo_nao_fecha" | "chargeback" | "venda_cancelada" | "entrada_sem_recebivel" | "pode_ser_antecipacao" | "caiu_a_mais";
         /**
          * Papel
          * @enum {string}
