@@ -1,12 +1,5 @@
 # Decisões
 
-<!--
-Esqueleto. Os headings seguem a seção "Entrega" do README.md.
-Cada comentário traz a frase pronta do doc de notas e a seção do doc de onde ela sai.
-A narrativa é do João: apague os comentários conforme escrever.
-Doc de notas: https://claude.ai/artifact/2xR8wkeAzs3pctwa4QrUBm
--->
-
 ## Quem usa, e qual trabalho essa pessoa termina
 
 Quem usa é a dona ou o dono de uma pequena empresa que faz o próprio fechamento. Vende por mais de uma adquirente e recebe tudo numa conta só. Não sabe o que é MDR, mas sabe quanto tinha que cair. Contratou a sinkfi para parar de conferir o extrato linha a linha. O trabalho que termina é o fechamento do período: saber o que pode fechar e o que está faltando de verdade. A Marina é o exemplo do enunciado: duas lojas, Stone e PagSeguro liquidando na mesma conta do Inter, fechamento toda segunda à noite.
@@ -71,38 +64,42 @@ O suporte também usa o produto, para atender um chamado: abre o fechamento de q
 
 ## Monitorar
 
-**O fechamento rodou.** Toda ingestão deixa um pedido de fechamento no Postgres, e todo pedido deve virar uma rodada para aquele cliente e corte. Observo três coisas: pedidos parados sem publicar, sinal de que a publicação ou o RabbitMQ parou; um cliente com ingestão nova e sem rodada nova para o fechamento vigente; e, principalmente, uma mensagem em `fechamento.morta`. Essa é o alarme: um fechamento que não rodou e só volta na próxima ingestão, até 6 horas depois. Como só cai ali o que falhou de verdade (ver Desenho), uma mensagem na dead letter nunca é ruído.
+**O fechamento rodou.** Toda ingestão deixa um pedido de fechamento no Postgres, e todo pedido deve virar uma rodada para aquele cliente e corte. Observo três coisas: pedidos parados sem publicar, sinal de que a publicação ou o RabbitMQ parou; um cliente com ingestão nova e sem rodada nova para o fechamento vigente; e, principalmente, uma mensagem em `fechamento.morta`. Essa é o alarme: um fechamento que não rodou. O da semana atual volta na próxima ingestão, até 6 horas depois; o de um corte antigo só volta com um reprocessamento pelo suporte. Como só cai ali o que falhou de verdade (ver Desenho), uma mensagem na dead letter nunca é ruído.
 
 **Ela terminou.** O botão "Terminei" registra quem, quando e qual rodada ela viu, sem travar nada. Toda terça de manhã olho três números: quantos clientes terminaram, quantos terminaram sobre uma rodada que depois mudou e quem clicou mais de uma vez na mesma semana.
 
 **O que muda antes do chamado.** O chamado começa quando o número não convence, e isso aparece antes no uso: ela clica "Terminei" de novo na mesma semana; uma rodada nova muda um fechamento que ela já tinha terminado (o crédito de sexta que só aparece no domingo), e a tela avisa o que mudou, mas só quando ela abre; um fechamento anterior fica com pendência e sem "Terminei", e a tela lembra na semana seguinte. Nos três casos, o suporte pode olhar antes de ela escrever.
 
-**O que falta.** Hoje esses sinais são consultas nas tabelas. Com mais tempo, ligaria um alerta na dead letter e um painel com as contagens de terça, e gravaria quantas vezes ela abre a mesma pendência. O Rafa disse que quem fica reabrindo a tela cancela, e esse é o único sinal que ainda não registramos.
+**Onde olhar e o que falta.** A rota `/operacao`, só do suporte, devolve os pedidos pendentes, a idade do mais antigo pelo relógio do banco e as mensagens na dead letter (`null` quando o RabbitMQ não responde ou recusa o login). Cada falha definitiva sai no log do worker como `dead letter:`, com a tarefa, o cliente, o corte e o erro, inclusive o processo que morreu depois de acabarem as tentativas. A tarefa que passa do limite duro é morta e confirmada: não chega à fila morta e sai como `limite duro:`. Os números de terça ainda são consultas nas tabelas. Com mais tempo, passaria os logs para JSON, levaria as contagens para o Prometheus com um alerta na dead letter, poria o contador na tela do suporte e gravaria quantas vezes ela abre a mesma pendência. O Rafa disse que quem fica reabrindo a tela cancela, e esse é o único sinal que ainda não registramos.
 
 ## Debugar
 
-<!--
-Caminho da frase dela até o recebível, o lançamento e a decisão da regra.
-Fontes: a frase de Rodada em Desenho, a busca por recebível (índice GIN, ADR 0006) e a explicação de cada grupo na tela.
--->
+Esta seção é para o time técnico de plantão. O passo a passo, com os comandos, está em `docs/debugar.md`.
+
+**O caminho.** *Qual rodada ela viu:* como suporte, abro o fechamento dela. O "Terminei" diz sobre qual rodada ela terminou. Se o fechamento mudou depois, a tela mostra o resumo de antes e o de agora, e a primeira pergunta é se a diferença vem dessa mudança. *Qual item:* a página da pendência traz o motivo, ou a chave pela qual casou, a linha do tempo e o NSU. *O que a regra viu:* `GET /clientes/{id}/rodadas?nsu=` lista as rodadas em que a venda aparece. `GET /clientes/{id}/rodadas/{rodada}` devolve uma rodada antiga no formato do fechamento, com a cópia do recebível e do lançamento que a regra usou (ADR 0006). *A regra de hoje decide igual:* `python -m sinkfi.reproduzir` só lê. Ele diz se a versão da regra mudou, se a entrada mudou e o quê, e se a regra de hoje decide igual com a mesma entrada. Na demonstração, a rodada 1 mostra o `ext_14` passando de `confirmed` para `pending` depois de uma correção na ingestão. *Por quê:* a regra é uma função pura, então o caso vira um teste com os valores copiados da rodada. Ele roda em milissegundos e fica como teste de regressão.
+
+**O que deixa outra pessoa fazer isso sem mim:** o runbook, as duas rotas, o script, o log de cada rodada (nova ou existente) e da dead letter, o `GLOSSARY.md` com o motivo de cada pendência e as ADRs.
+
+**O limite.** Quem não programa vai até a página do item. A busca por NSU ainda é uma rota no `/api/docs`, não uma tela.
 
 ## Responder
 
-<!--
-Sem frase pronta no doc. Material: rodada imutável e reprocessamento pelo suporte (ADR 0005), versão da regra no hash (ADR 0006), retry e dead letter (ADR 0004), aviso "mudou desde que você terminou".
-Da revisão da fila (ADR 0004): o relay só marca o pedido como publicado depois que o RabbitMQ confirma; o retry aguenta ~13 min de Postgres fora, e uma queda maior manda o pedido para a dead letter, e o fechamento só volta na ingestão seguinte, até 6h depois; reiniciar o `beat` não adia a ingestão, que segue o relógio (0, 6, 12 e 18h UTC).
-Como o cliente fica sabendo fora da tela: o webhook `recebivel.liquidado` (ADR 0008, proposto) é o canal para o ERP do cliente enterprise; hoje a Marina só sabe abrindo o fechamento.
--->
+**O fechamento não rodou.** O sinal é uma mensagem na dead letter ou pedidos pendentes envelhecendo na `/operacao`. Hoje não há alerta: alguém precisa olhar. Na primeira hora, o log `dead letter:` diz a tarefa, o cliente, o corte e o erro. Se a causa foi passageira, como o Postgres fora por mais de 13 minutos, que esgota as tentativas, o fechamento da semana volta sozinho na ingestão seguinte, e um corte antigo volta com um reprocessamento pelo suporte. Se é bug, a correção sobe e o suporte reprocessa. Um detalhe que pega no meio do incidente: depois de recriar a api, o nginx do `web` guarda o IP antigo e responde 502 até um `docker compose restart web`. A correção de vez é o `resolver` do Docker no `nginx.conf`.
+
+**Saiu um número errado.** A rodada errada não é apagada nem corrigida no lugar: ela continua mostrando o que a lojista viu. O caminho de Debugar separa erro no dado de erro na regra. Corrigida a regra, a versão nova entra no hash, e o reprocessamento gera uma rodada nova em vez de devolver a antiga (ADR 0006).
+
+**Como a Marina fica sabendo.** Se ela já tinha terminado, a tela avisa "O fechamento mudou desde que você terminou" e mostra o antes e o agora, mas só quando ela abre. Por isso o suporte usa o registro do "Terminei" para achar quem terminou sobre a rodada errada e escreve antes, dizendo o que mudou e se a decisão de fechar muda.
+
+**O que impede de novo.** O caso vira um teste da regra com os valores reais, e a CI não deixa a regressão voltar.
 
 ## Evoluir
 
-<!--
-- Banco: "O acesso ao banco é síncrono, na api e no worker, porque a api só faz consultas curtas sobre rodadas já calculadas e o trabalho pesado roda fora da requisição. Para atender mais gente, sobem mais cópias da api com um pool de conexões na frente do Postgres. Eu trocaria para assíncrono se a api passasse a esperar um serviço externo lento dentro da requisição, como consultar o Open Finance na hora; o sinal seria o tempo de resposta subir com as threads todas ocupadas e o banco ocioso."
-- Chave mais forte (ADR 0002): relatório de pagamentos da adquirente, código de estabelecimento por loja, QR dinâmico no Pix. Perguntas às adquirentes: a Stone e o PagSeguro mandam relatório de pagamentos com as vendas de cada repasse? Cada loja tem código de estabelecimento próprio? Na antecipação, a agenda atualiza a data prevista?
-- Webhook enterprise `recebivel.liquidado` (ADR 0008, proposto; issue #30): o ERP do cliente dá baixa sozinho no recebível que casou certo. Evento no outbox na transação da rodada, retry no Postgres, assinatura Standard Webhooks, SSRF conferido a cada envio. Ficou de fora porque não serve ao trabalho da Marina, que é fechar a semana; entra se aparecer cliente com ERP pedindo integração.
-- Fonte no doc: "Com mais tempo".
--->
+**Se a aposta estiver certa,** a lojista fecha pela tela sem abrir o extrato, e os chamados de "o número não bate" caem. Aí o gargalo passa a ser a chave fraca: cada crédito sem NSU que vira grupo é uma pendência que a regra poderia ter resolvido. A próxima mudança é uma chave mais forte: o relatório de pagamentos da adquirente, que diz quais vendas compõem cada repasse, e o código de estabelecimento por loja. Antes de construir, perguntaria à Stone e ao PagSeguro se mandam esse relatório, se cada loja tem código próprio e se a agenda atualiza a data prevista na antecipação. Para o cliente com ERP, o passo seguinte é o webhook `recebivel.liquidado` (ADR 0008), que fica de fora até alguém pedir.
+
+**O que me faria desfazer a aposta.** As perguntas para a Marina são o teste. Se ela ainda confere na mão depois do "pode fechar", ou se os chamados de divergência não caem, a tela de resposta não resolveu, e o pedido original do suporte volta à mesa. Se ela entende "para conferir" ou "falta de verdade" de outro jeito, o problema é de linguagem antes de ser de regra.
+
+**Escala.** O acesso ao banco é síncrono, na api e no worker, porque a api só faz consultas curtas sobre rodadas já calculadas e o trabalho pesado roda fora da requisição. Para atender mais gente, sobem mais cópias da api com um pool de conexões na frente do Postgres. Eu trocaria para assíncrono se a api passasse a esperar um serviço externo lento dentro da requisição, como consultar o Open Finance na hora; o sinal seria o tempo de resposta subir com as threads todas ocupadas e o banco ocioso.
 
 ## Como usei IA
 
-<!-- Fonte no doc: "Como uso IA no desafio". Não é pedido pelo README; tirar se não couber. -->
+Usei IA como tutor e para ganhar velocidade. As decisões são minhas, e o `CLAUDE.md` fica no repositório de propósito. Conferi o que ela calculou, como a soma de conferência da análise, e discordei quando a proposta não fechava. Ela sugeriu escolher a menor parcela no empate da chave fraca, o que contradiz o resultado por grupo, e a regra passou a mostrar a dúvida. Recomendou um serviço só em TypeScript, como se o produto servisse uma pessoa; virou Python no back e React no front. Superestimou o custo do outbox e das ferramentas de debugar, e as estimativas caíram quando cobrei o número. No fim, um code review por dois eixos achou dois erros que os 163 testes não pegavam: o log no limite duro e o texto do processo morto. As duas correções saíram da leitura do código do Celery 5.7, sem reproduzir num worker real.
