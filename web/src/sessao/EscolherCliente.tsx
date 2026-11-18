@@ -13,7 +13,7 @@ export function EscolherCliente({
   aoEscolher,
   aoPerderSessao,
 }: {
-  aoEscolher: (clienteId: string) => void
+  aoEscolher: (cliente: ClienteEncontrado) => void
   aoPerderSessao: () => void
 }) {
   const [estado, setEstado] = useState<Estado>({ tipo: 'parado' })
@@ -39,7 +39,7 @@ export function EscolherCliente({
     setNomeAberto(cliente.nome)
     setEstado({ tipo: 'parado' })
     formulario.current?.reset()
-    aoEscolher(cliente.id)
+    aoEscolher(cliente)
   }
 
   const aviso = estado.tipo === 'pronto' ? avisoDaBusca(estado.clientes.length) : null

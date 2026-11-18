@@ -30,6 +30,22 @@ O ADR 0005 dá ao suporte acesso a qualquer cliente, mas não diz como ele chega
 - **O mínimo e o limite estão nos dois lados.** O web repete o 3 e o 10 da api para não chamar à toa e para saber que a lista veio cheia. O contrato gera só tipos, então mudar um lado exige mudar o outro.
 - **O CNPJ precisa estar gravado só com dígitos.** A ingestão grava o documento como vem no CSV, e os dados de hoje vêm só com dígitos. Um CSV com o CNPJ pontuado não seria achado pelo número; a correção é normalizar na ingestão.
 
+## Depois de achar o cliente
+
+O suporte vê **a mesma tela da lojista**: num chamado, os dois olham a mesma coisa. Por cima dela fica uma faixa só do suporte, que traz:
+
+- "Você está vendo o fechamento como <cliente> vê";
+- o "Terminei" visto de fora, com o e-mail de quem marcou, quando e em qual rodada, ou "Ninguém terminou este fechamento ainda";
+- o botão **Pedir rodada nova**, que chama `POST /clientes/{id}/reprocessar` para a semana mostrada.
+
+O pedido vai para a fila. A tela avisa "Pedido enviado" e recarrega uma vez depois de 5 s. Ela não espera a rodada chegar: sem entrada nova, o hash é o mesmo e a rodada que volta é a mesma (ADR 0007), então não há o que esperar.
+
+Os textos de estado que o suporte também lê ficaram sem pronome, para a lojista e para o suporte: "acima do limite de R$ …", "O fechamento de 10/11 ainda não foi terminado" e "mudou desde o último Terminei". O "?" dos termos e o "o que fazer" de cada item continuam falando com a lojista. São instruções que o suporte repassa no chamado.
+
+Ficam fora, como corte de escopo:
+- **o histórico de rodadas na tela**: `GET /rodadas` existe, e a investigação usa `python -m sinkfi.reproduzir`;
+- **um painel de `GET /operacao`**.
+
 ## Testes que garantem
 
 - `suporte_acha_o_cliente_pelo_email_da_lojista`
@@ -42,3 +58,4 @@ O ADR 0005 dá ao suporte acesso a qualquer cliente, mas não diz como ele chega
 - `termo_curto_devolve_422`
 - `lojista_nao_busca_clientes`
 - `busca_sem_token_devolve_401`
+- `textos.test.ts`: `faixa do suporte` e `textos de estado sem pronome`

@@ -1,6 +1,16 @@
 // Os textos que dependem da regra: o que a tela diz precisa bater com o que o backend fez.
 import { describe, expect, it } from 'vitest'
-import { acharItem, chaveDoItem, type Item, textoDaChave } from './textos'
+import {
+  acharItem,
+  chaveDoItem,
+  fraseDaFaixa,
+  fraseDoTermino,
+  type Item,
+  linhaDoResumo,
+  textoDaChave,
+  type Termino,
+  textoDoAviso,
+} from './textos'
 
 /** Um grupo com um recebível de NSU `nsu`, pago por um crédito com a descrição `descricao`. */
 function casado(nsu: string, descricao: string): Item {
@@ -64,5 +74,77 @@ describe('endereço do item', () => {
 
     expect(chaveDoItem(daStone)).not.toBe(chaveDoItem(daPagseguro))
     expect(acharItem([daStone, daPagseguro], chaveDoItem(daPagseguro))).toBe(daPagseguro)
+  })
+})
+
+// A faixa do suporte: os mesmos textos servem à lojista e ao suporte, então não falam com "você" sobre o fechamento.
+
+describe('textos de estado sem pronome', () => {
+  // O Intl põe espaço não separável depois do "R$".
+  const resumo = {
+    falta_de_verdade_centavos: 730_000,
+    itens_falta_de_verdade: 2,
+    itens_para_conferir: 0,
+    limite_trava_centavos: 500_000,
+  }
+
+  it('o resumo acima da trava diz o limite sem "seu"', () => {
+    expect(linhaDoResumo({ ...resumo, recomendacao: 'nao_feche' })).toBe(
+      'Não feche: faltam R$\u00a07.300,00, acima do limite de R$\u00a05.000,00',
+    )
+  })
+
+  it('o resumo dentro da trava diz o limite sem "seu"', () => {
+    expect(linhaDoResumo({ ...resumo, recomendacao: 'pode_fechar', limite_trava_centavos: 1_000_000 })).toBe(
+      'Pode fechar: faltam R$\u00a07.300,00, dentro do limite de R$\u00a010.000,00',
+    )
+  })
+
+  it('o aviso de fechamento anterior não diz "você"', () => {
+    const semana = {
+      semana: '2026-11-10',
+      corte: '2026-11-10T21:00:00Z',
+      atual: false,
+      tem_rodada: true,
+      itens_falta_de_verdade: 1,
+      itens_para_conferir: 2,
+      terminado: false,
+      aviso: true,
+    }
+    expect(textoDoAviso(semana)).toBe('O fechamento de 10/11 ainda não foi terminado: 1 falta de verdade, 2 para conferir.')
+  })
+})
+
+describe('faixa do suporte', () => {
+  it('diz que o suporte vê o que o cliente vê', () => {
+    expect(fraseDaFaixa('Marina')).toBe('Você está vendo o fechamento como Marina vê.')
+  })
+
+  const termino = (rodada_id: number): Termino => ({
+    quem: 'marina@sinkfi.demo',
+    em: '2026-11-17T21:02:00Z',
+    rodada_id,
+    limite_trava_centavos: null,
+    resumo: {
+      recomendacao: 'pode_fechar',
+      falta_de_verdade_centavos: 0,
+      itens_falta_de_verdade: 0,
+      itens_para_conferir: 0,
+      limite_trava_centavos: null,
+    },
+  })
+
+  it('sem "Terminei", diz que ninguém terminou', () => {
+    expect(fraseDoTermino(null, 12)).toBe('Ninguém terminou este fechamento ainda.')
+  })
+
+  it('com "Terminei" na rodada mostrada, diz quem e quando', () => {
+    expect(fraseDoTermino(termino(12), 12)).toBe('marina@sinkfi.demo terminou em 17/11/2026, 18:02, nesta rodada.')
+  })
+
+  it('com "Terminei" numa rodada anterior, diz as duas rodadas', () => {
+    expect(fraseDoTermino(termino(11), 12)).toBe(
+      'marina@sinkfi.demo terminou em 17/11/2026, 18:02, na rodada 11. Esta é a rodada 12.',
+    )
   })
 })

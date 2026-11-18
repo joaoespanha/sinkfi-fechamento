@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { TelaFechamento } from './fechamento/TelaFechamento'
 import { TelaLimite } from './limite/TelaLimite'
 import { type Rota, hashDa, useRota } from './navegacao'
+import type { ClienteEncontrado } from './sessao/busca'
 import { EscolherCliente } from './sessao/EscolherCliente'
 import { type Eu, quemSouEu, sair } from './sessao/sessao'
 import { TelaLogin } from './sessao/TelaLogin'
@@ -10,8 +11,8 @@ type Estado = { tipo: 'carregando' } | { tipo: 'sem_sessao' } | { tipo: 'erro' }
 
 export default function App() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' })
-  // Só o suporte escolhe; a lojista sempre vê o próprio cliente.
-  const [clienteDoSuporte, setClienteDoSuporte] = useState<string | null>(null)
+  // Só o suporte escolhe; a lojista sempre vê o próprio cliente. O nome vai para a faixa do suporte.
+  const [clienteDoSuporte, setClienteDoSuporte] = useState<ClienteEncontrado | null>(null)
   const rota = useRota()
 
   const carregar = useCallback(() => {
@@ -48,7 +49,7 @@ export default function App() {
 
   const { eu } = estado
   const lojista = eu.papel === 'lojista'
-  const clienteId = lojista ? eu.cliente_id : clienteDoSuporte
+  const clienteId = lojista ? eu.cliente_id : (clienteDoSuporte?.id ?? null)
 
   return (
     <div className="app">
@@ -88,7 +89,7 @@ export default function App() {
           <TelaFechamento
             key={clienteId}
             clienteId={clienteId}
-            papel={eu.papel}
+            suporte={lojista || !clienteDoSuporte ? null : { nomeDoCliente: clienteDoSuporte.nome }}
             escolhida={rota.semana}
             dia={rota.dia}
             item={rota.item}
