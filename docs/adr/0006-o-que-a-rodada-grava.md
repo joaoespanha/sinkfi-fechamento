@@ -20,7 +20,7 @@ O fechamento da segunda às 18:00 é da Marina, não do sistema. Outros clientes
 ## Alternativas recusadas
 
 - **Rodada guarda só ids das tabelas atuais.** Quebra a imutabilidade.
-- **Recebíveis e lançamentos versionados, rodada aponta para a versão.** É o modelo mais limpo, sem duplicação, mas a ingestão passa a comparar e versionar cada linha. Custa meio dia no mínimo. É o próximo passo se a duplicação pesar.
+- **Recebíveis e lançamentos versionados, rodada aponta para a versão.** É o modelo mais limpo, sem duplicação, mas a ingestão passa a comparar e versionar cada linha. É o próximo passo se a duplicação pesar.
 - **Entrada inteira do lote guardada com o hash.** Permite reprocessar, mas consultar um item exige abrir o lote todo.
 - **Limite dentro do hash.** Cada mudança de limite geraria uma rodada nova pela fila, e a lojista esperaria um lote para ver o resumo mudar.
 - **Corte fixo em segunda às 18:00 no código.** Serve só para a Marina.

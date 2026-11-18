@@ -6,7 +6,7 @@ Os exemplos usam a demonstração: `docker compose up`, a tela em `http://localh
 
 ## 1. Qual rodada ela viu
 
-Entre como suporte (`suporte@sinkfi.demo`) e abra o fechamento da cliente. O aviso da conferência diz quem conferiu, quando e sobre qual rodada.
+Entre como suporte (`suporte@sinkfi.demo`), procure a cliente pelo e-mail da lojista, pelo CNPJ ou pelo nome, que é o que chega no chamado (ADR 0010), e abra o fechamento dela. O aviso da conferência diz quem conferiu, quando e sobre qual rodada.
 
 - **Mesma rodada da tela:** ela viu o que você está vendo. Siga para o passo 2.
 - **"O fechamento mudou desde a última conferência":** a tela mostra o resumo de antes e o de agora. A primeira pergunta é se a diferença vem dessa mudança, como um crédito que chegou depois da conferência. Para ver os itens da rodada antiga, use o passo 3.
@@ -33,7 +33,7 @@ docker compose exec api python -m sinkfi.reproduzir cli_marina <rodada_id>
 O script só lê. Ele responde três perguntas:
 
 - **Versão da regra.** Se a rodada é de uma versão anterior, uma correção na regra pode explicar a diferença. Uma correção gera rodada nova, e nunca muda a antiga.
-- **Entrada.** Recalcula o hash com o dado de hoje e o corte e a versão da rodada. Se não bate, lista o que mudou ou sumiu da cópia gravada. Exemplo real da demonstração: na rodada 1, o `ext_14` estava `confirmed`; depois da correção da ingestão, ele é `pending`, como no extrato, e por isso vai para o próximo fechamento. Lista vazia com entrada mudada quer dizer que entrou dado novo. O lançamento aparece pelo id (`ext_14`); o recebível, pelo id com a adquirente (`rec_1002 (stone)`), porque duas adquirentes podem usar o mesmo id (ADR 0009).
+- **Entrada.** Recalcula o hash com o dado de hoje e o corte e a versão da rodada. Se não bate, lista o que mudou ou sumiu da cópia gravada. Exemplo: se a rodada gravou o `ext_14` como `confirmed` e o extrato de hoje o traz `pending`, a lista mostra a troca, e o lançamento passa para o próximo fechamento. Lista vazia com entrada mudada quer dizer que entrou dado novo. O lançamento aparece pelo id (`ext_14`); o recebível, pelo id com a adquirente (`rec_1002 (stone)`), porque duas adquirentes podem usar o mesmo id (ADR 0009).
 - **Decisão.** Com a mesma entrada, roda a regra de hoje e compara item a item com o gravado. Uma diferença ali é regressão ou correção da regra, e vira issue.
 
 ## 5. Por que a regra decidiu assim
