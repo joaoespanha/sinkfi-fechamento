@@ -44,6 +44,32 @@ O suporte também usa o produto, para atender um chamado: acha o cliente por e-m
 
 ## Desenho
 
+```mermaid
+flowchart LR
+    pessoa(["Lojista e suporte"]) --> web["web<br/>React"]
+    web -->|"/api"| api["api<br/>FastAPI<br/>resumo() com o limite"]
+    api -->|"lê rodadas<br/>grava limite e conferência"| pg[("Postgres")]
+    api -->|"reprocessar"| mq
+
+    beat["beat"] -->|"ingestão a cada 6 h<br/>relay a cada 10 s"| mq[["RabbitMQ"]]
+    mq --> worker
+    mq -.->|"falhou de vez"| morta[["fechamento.morta"]]
+
+    subgraph worker["worker (Celery)"]
+        ing["ingestão"]
+        relay["relay do outbox"]
+        casca["casca"] --> regra{{"regra pura<br/>fechar()"}}
+    end
+
+    dados[/"dados/*.csv"/] --> ing
+    ing -->|"dado + pedido<br/>na mesma transação"| pg
+    relay -->|"lê pedidos"| pg
+    relay -->|"publica o fechamento"| mq
+    casca -->|"lê a entrada<br/>grava a rodada imutável"| pg
+```
+
+O dado entra pela ingestão, que grava junto o pedido de fechamento. O relay publica esse pedido na fila, o worker roda a regra e grava a rodada, e a `api` só lê o que já foi calculado.
+
 **Peças.** Seis serviços no Docker Compose: `web` (React) mostra o fechamento; `api` (FastAPI) faz o login, lê as rodadas e grava o limite, a conferência e o pedido de reprocessamento; `beat` dispara a ingestão de cada cliente a cada 6 horas; `worker` (Celery) roda a regra; RabbitMQ entrega os pedidos; Postgres guarda tudo. A ingestão grava o dado e o pedido de fechamento na mesma transação. Uma tarefa periódica publica os pedidos na fila, e o worker roda a regra e grava uma rodada que não muda mais (ADR 0004). Se a publicação falha, o dado não fica no banco sem o pedido de recalcular. Na dead letter, `fechamento.morta`, só cai o que falhou de verdade: o pedido repetido devolve a rodada que já existe, por causa de uma trava por cliente, e a tarefa que trava ou derruba o processo termina ali em vez de voltar sem fim.
 
 **Onde a regra mora.** Em `backend/src/fechamento/`, como funções puras: `fechar(recebíveis, lançamentos, lojas, corte)` devolve os grupos e as pendências, e `resumo(pendências, limite)` devolve a recomendação. Não leem banco, fila, relógio nem arquivo, então são testadas em milissegundos, inclusive contra os CSVs reais. Em volta fica uma casca que carrega a entrada, chama a regra e grava o resultado; a casca depende do núcleo, nunca o contrário. O corte é entrada da regra: cada cliente tem seu dia e hora, e um fechamento continua recebendo rodadas até o corte seguinte, para pegar o crédito que o banco entregou atrasado.
