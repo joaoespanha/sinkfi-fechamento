@@ -15,7 +15,14 @@ Doc de notas: https://claude.ai/artifact/2xR8wkeAzs3pctwa4QrUBm
 
 <!--
 Fontes no doc: "Ordem de construção", "Com mais tempo" e o "Não suporta" de "Dia do fechamento por cliente".
-Fora por decisão: gráficos pedidos pelo suporte.
+Fora por decisão: gráficos pedidos pelo suporte, a página de dashboard e o tour.
+Com mais tempo (da revisão da regra, PR #34):
+- A evolução semana a semana.
+- O Esperado acumula desde o início (ADR 0007, achado 6 do #34): só o texto mudou, o número não.
+- O chargeback lançado depois do fechamento seguinte (Q9).
+- Os empates na chave fraca em que os candidatos só se sobrepõem em parte: continuam gulosos (bloco "# 3. Chave fraca" de `_casar`).
+Com mais tempo (da revisão da fila):
+- O retry cobre uma queda do Postgres de até uns 13 min. Uma queda maior manda o pedido para a dead letter, e como o outbox já o deu por publicado, o fechamento só volta na ingestão seguinte, até 6h depois (ADR 0004).
 -->
 
 ## A regra de fechamento
@@ -29,6 +36,7 @@ Uma frase que a Marina consiga aplicar. Candidatas do doc:
 - Princípio: "Quando os dados não decidem, a regra não adivinha: mostra a dúvida com o contexto mais específico que tiver."
 - Grupos (ADR 0002): "Quando um crédito sem o código da venda serve para mais de uma venda, eu não escolho: mostro as vendas juntas e quanto falta no grupo."
 - Janela da chave fraca: "Crédito sem NSU só casa por adquirente e valor se cair entre um dia antes e quatro dias depois da data prevista. Fora disso, aparece como pendência."
+- Caiu a mais (GLOSSARY.md): "Entrou mais do que a venda vale? A diferença é falta de verdade: não é seu." Coerente com a de Severidade: dinheiro a mais de uma venda é falta de verdade; dinheiro a mais que não é de venda fica para conferir.
 -->
 
 ## O que eu perguntaria para a Marina amanhã
@@ -53,6 +61,7 @@ Peças, o que cada uma faz, onde a regra mora, o que fica gravado, trade-off ace
 <!--
 - Término: "O sinal de que a Marina terminou é um botão 'Terminei' que só registra quem, quando e qual rodada ela viu. Se uma rodada nova muda o fechamento depois disso, a tela avisa o que mudou, e quem clica de novo na mesma semana é o primeiro sinal de que o número não convenceu."
 - Falta: o sinal de que o fechamento rodou (rodada gravada por cliente e por corte, dead letter da fila).
+- Dead letter: depois da revisão da fila, só cai nela o que falhou de verdade. O pedido repetido em paralelo devolve a mesma rodada (trava por cliente), e a mensagem que derruba o processo ou passa do limite de tempo termina nela, em vez de voltar sem fim. Uma mensagem em `fechamento.morta` é um fechamento que não rodou até a próxima ingestão: é o alarme.
 -->
 
 ## Debugar
@@ -66,6 +75,7 @@ Fontes: a frase de Rodada em Desenho, a busca por recebível (índice GIN, ADR 0
 
 <!--
 Sem frase pronta no doc. Material: rodada imutável e reprocessamento pelo suporte (ADR 0005), versão da regra no hash (ADR 0006), retry e dead letter (ADR 0004), aviso "mudou desde que você terminou".
+Da revisão da fila (ADR 0004): o relay só marca o pedido como publicado depois que o RabbitMQ confirma; o retry aguenta ~13 min de Postgres fora; reiniciar o `beat` não adia a ingestão, que segue o relógio (0, 6, 12 e 18h UTC).
 Como o cliente fica sabendo fora da tela: o webhook `recebivel.liquidado` (ADR 0008, proposto) é o canal para o ERP do cliente enterprise; hoje a Marina só sabe abrindo o fechamento.
 -->
 
