@@ -1,104 +1,76 @@
-![Desafio técnico — Product Engineer](assets/cover.jpg)
+# sinkfi: o fechamento da segunda
 
-# sinkfi — fechar a segunda à noite
+A Marina abre a tela na segunda à noite e vê quanto faltou cair na conta, em quais itens, e o que ainda precisa conferir. O suporte vê o mesmo fechamento que ela.
 
-A sinkfi antecipa e concilia recebíveis de cartão e Pix para pequenas e médias empresas. O cliente conecta as adquirentes e a conta bancária. A sinkfi mostra o que vai cair, quando, e o que já caiu. A conciliação cruza o arquivo das adquirentes com o extrato do banco, em lote, a cada 6 horas.
+- O desafio está em [`ENUNCIADO.md`](ENUNCIADO.md).
+- As escolhas de produto e o desenho estão em [`DECISOES.md`](DECISOES.md).
 
-Marina tem duas lojas de roupa em Belo Horizonte. A Loja Centro recebe pela Stone. A Loja Savassi recebe pelo PagSeguro. As duas liquidam na mesma conta PJ do Inter. Ela faz o fechamento sozinha, toda segunda à noite, e contratou a sinkfi para parar de conferir o extrato linha a linha. Ela não sabe o que é MDR. Sabe quanto tinha que cair na conta.
+## Como chegar
 
-## O pedido
+Precisa de Docker com Compose. Na raiz do repositório:
 
-A pessoa de suporte abriu isto ontem:
+```sh
+docker compose up -d --build --wait
+```
 
-> Precisamos de um dashboard de divergências. A tela lista tudo que não bate, o cliente se perde e o suporte não dá conta. Queremos gráficos do que conciliou e do que ficou pendente para a reunião de segunda.
+Abra http://localhost:8080. Se a porta estiver ocupada, use `WEB_PORT=8088 docker compose up -d --build --wait`.
 
-Os dados de uma semana estão em `dados/`. São sintéticos. CNPJ e CPF não passam em validador de dígito.
+Na primeira subida, o `semear` cria a Marina, ingere os CSVs de `dados/` e roda o fechamento de 10/11. Rodar de novo não repete nada.
 
-## Política que já está escrita
+A porta escuta só em `127.0.0.1` (ADR 0013). Para abrir de outra máquina, use um túnel: `ssh -L 8080:localhost:8080 <servidor>`.
 
-Isto é o que já está combinado com a Marina. O que não está aqui não tem dono. Você decide e registra.
+| Entrar como | E-mail | Senha |
+| --- | --- | --- |
+| Lojista, a Marina | `marina@sinkfi.demo` | `marina-demo` |
+| Suporte | `suporte@sinkfi.demo` | `suporte-demo` |
 
-- Fuso do negócio: `America/Sao_Paulo`.
-- O fechamento desta semana é a noite de segunda, 10 de novembro de 2026.
-- Entra neste fechamento o recebível com liquidação prevista até esse dia, cujo crédito no banco está confirmado até 18:00 de segunda.
-- `pending` não é dinheiro na conta.
-- Chargeback desfaz o crédito original. Vale mesmo que o lançamento do chargeback passe das 18:00, se o crédito desfeito entrou neste fechamento. O `original_transaction_id` aponta para o crédito.
-- O Open Finance repete lançamento. A chave de idempotência é `transaction_id`.
-- MDR e tarifa de antecipação não são venda faltando. O líquido esperado é `gross_cents - mdr_cents - anticipation_cents`.
-- Parcela com `expected_settlement_at` depois deste fechamento não está atrasada.
-- Tarifa da conta e transferência da própria titular não são recebível.
-- Valores estão em centavos, inteiros.
-- Não existe política escrita de materialidade. Ninguém definiu a partir de qual diferença o fechamento trava.
+As senhas só valem para a demonstração. A lojista cai direto no fechamento dela. O suporte acha a cliente pela busca, por e-mail, CNPJ ou nome (ADR 0010). Tente `marina`.
 
-## O que as pessoas disseram
+| | Computador | Celular (390 px) |
+| --- | --- | --- |
+| A lojista vê quanto faltou e quando os dados chegaram | <img src="assets/telas/lojista.png" width="480"> | <img src="assets/telas/lojista-390.png" width="180"> |
+| Ela marca a rodada como conferida, o que não trava nada (ADR 0012) | <img src="assets/telas/conferencia-dialogo.png" width="480"> | <img src="assets/telas/conferencia-dialogo-390.png" width="180"> |
+| A conferência fica registrada com quem conferiu e quando | <img src="assets/telas/conferido.png" width="480"> | <img src="assets/telas/conferido-390.png" width="180"> |
+| O suporte vê o que a Marina vê e quando ela conferiu | <img src="assets/telas/suporte.png" width="480"> | <img src="assets/telas/suporte-390.png" width="180"> |
 
-**Marina, dona das duas lojas.** "Eu fecho toda segunda à noite. A maquininha falou R$ 4.812 e no Inter tem R$ 4.790. Cadê os R$ 22? Não me lista quarenta linhas vermelhas. Me fala o que eu posso fechar e o que está faltando de verdade, nas duas lojas, na mesma conta."
+## Testar com outros dados
 
-**Rafa, suporte.** "No mês, trinta por cento dos chamados é conciliação que não bate. Quem fica reabrindo a tela de divergência cancela. Um cliente me disse: cancelei o plano, voltei pra planilha, pelo menos lá eu entendo."
+A ingestão lê `dados/`: `lojas.csv`, `recebiveis.csv` e `extrato.csv`, com as mesmas colunas de hoje.
 
-**Caio, outro cliente.** "O parcelado aparece como várias vendas e não bate com o total da maquininha. E o que liquidou na sexta só apareceu no domingo, eu já tinha fechado o caixa."
+- **Mudar linhas com a stack de pé.** Edite os CSVs e peça a ingestão na hora:
 
-## Dados
+  ```sh
+  docker compose exec worker celery -A sinkfi.tarefas call sinkfi.agendar_ingestoes
+  ```
 
-### `dados/lojas.csv`
+  Em uns 20 segundos, a tela mostra uma rodada nova, depois de recarregar. Sem esse comando, o `beat` ingere às 0, 6, 12 e 18h UTC.
+- **Trocar o conjunto inteiro.** A ingestão sobrescreve a linha pela chave da fonte (`cliente_id` e `id`, mais a adquirente no recebível; ADR 0009), mas não apaga: uma linha tirada do CSV continua no banco. Para começar de um conjunto novo, apague o banco com `docker compose down -v` e suba de novo.
+- **Outras datas.** Os cortes andam de 7 em 7 dias a partir de 10/11 às 18:00, a data com que os CSVs do desafio batem (ADR 0007). Dados de outra semana caem nesses cortes, e a tela navega entre elas. Se o corte for em outro dia ou hora, troque a âncora, por exemplo `SINKFI_ANCORA_DOS_CORTES=2026-11-16T18:00:00-03:00 docker compose up -d --wait`. Com ela vazia, vale o dia de fechamento do cliente.
 
-| Coluna | Significado |
+O `backend/README.md` tem mais detalhes sobre a fila, o worker e a dead letter.
+
+## Saúde e operação
+
+O `/api/health` não pede login e diz se a api fala com o Postgres e com o broker. O `GET /operacao` mostra a fila, a dead letter e as ingestões atrasadas. Ele é feito pelo `/api/docs`, logado como suporte. O roteiro de plantão está em [`docs/debugar.md`](docs/debugar.md), seção 6.
+
+## Onde está cada coisa
+
+| O quê | Onde |
 | --- | --- |
-| `id` | Identificador da loja |
-| `name` | Nome da loja |
-| `document` | CNPJ da titular, o mesmo nas duas lojas |
-| `acquirer` | Adquirente que liquida essa loja |
+| Escolhas de produto e desenho | [`DECISOES.md`](DECISOES.md) |
+| Decisões com contexto e alternativas | [`docs/adr/`](docs/adr/) (0001 a 0013) |
+| Roteiro de "o número não bate" | [`docs/debugar.md`](docs/debugar.md) |
+| Vocabulário do domínio | [`GLOSSARY.md`](GLOSSARY.md) |
+| Leitura dos dados da semana | [`analise/ANALISE-DADOS.md`](analise/ANALISE-DADOS.md) |
+| A regra do fechamento, pura | `backend/src/fechamento/` |
+| Api, fila e banco | `backend/src/sinkfi/` ([`backend/README.md`](backend/README.md)) |
+| A tela | `web/` ([`web/README.md`](web/README.md)) |
 
-### `dados/recebiveis.csv`
+## Testes
 
-O que as adquirentes reportaram.
+```sh
+cd backend && uv run pytest   # os de integração sobem Postgres e RabbitMQ com Docker
+cd web && npm ci && npm test
+```
 
-| Coluna | Significado |
-| --- | --- |
-| `id` | Identificador do recebível |
-| `loja_id` | Loja |
-| `acquirer` | Quem vai liquidar |
-| `rail` | `card` ou `pix` |
-| `sold_at` | Dia da venda |
-| `expected_settlement_at` | Dia previsto para o dinheiro cair |
-| `gross_cents` | Valor bruto, o que a maquininha mostra |
-| `mdr_cents` | MDR |
-| `anticipation_cents` | Tarifa de antecipação, quando houve |
-| `net_cents` | Líquido esperado na conta |
-| `nsu` | Código da venda na adquirente |
-| `installment_number` | Número desta parcela |
-| `installment_count` | Total de parcelas da venda |
-| `status` | `open` ou `cancelled` |
-
-### `dados/extrato.csv`
-
-O que o Open Finance leu no Inter. Uma linha é um lançamento, não necessariamente um crédito novo.
-
-| Coluna | Significado |
-| --- | --- |
-| `id` | Identificador do lançamento |
-| `transaction_id` | Identificador no banco. Pode repetir quando a sincronização repete |
-| `original_transaction_id` | Preenchido no chargeback. Aponta para o crédito original |
-| `booked_at` | ISO-8601. Pode vir com offset `-03:00` ou em `Z` |
-| `amount_cents` | Valor do lançamento, sempre positivo. A direção está em `kind` |
-| `counterparty_name` | Nome como o banco mandou |
-| `counterparty_document` | Documento como o banco mandou |
-| `description` | Texto livre |
-| `status` | `confirmed` ou `pending` |
-| `kind` | `settlement`, `pix_in`, `chargeback`, `fee`, `internal_transfer` |
-
-## Entrega
-
-Um produto que outra pessoa sobe e usa para fazer o fechamento, com instrução curta de como chegar nele. Stack livre.
-
-No `DECISOES.md`, as escolhas de produto e o desenho do que está no repositório. Responda sobre a solução que você entregou.
-
-- Quem usa, e qual trabalho essa pessoa termina.
-- O que entrou e o que ficou de fora.
-- A regra de fechamento, numa frase que a Marina consiga aplicar.
-- O que você perguntaria para ela amanhã.
-- **Desenho.** Quais peças existem, o que cada uma faz, onde a regra mora e o que fica gravado. Qual trade-off você aceitou para esta solução caber.
-- **Monitorar.** O que você observa para saber que o fechamento rodou e que a Marina conseguiu terminar. O que mudaria nesse sinal antes de ela abrir um chamado.
-- **Debugar.** Ela diz que o número não bate. Qual caminho vai da frase dela até o recebível, o lançamento e a decisão da regra. O que precisa existir para outra pessoa do time fazer isso sem você.
-- **Responder.** Na segunda à noite o fechamento quebra, ou sai um número errado. O que acontece nas primeiras horas, como a Marina fica sabendo, e o que impede o mesmo erro de passar na semana seguinte.
-- **Evoluir.** Qual é a próxima mudança se esta aposta estiver certa. Que evidência faria você desfazer ou trocar a aposta.
+A CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os dois e o build. Ela também confere se os tipos da tela batem com o OpenAPI da api.

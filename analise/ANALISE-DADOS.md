@@ -2,7 +2,7 @@
 
 Primeira leitura dos CSVs em `dados/`, feita antes de construir o produto, para entender o que os dados trazem e onde estão as armadilhas.
 
-Esta leitura é **provisória**. Ela aplica a política do README com a regra de casamento descrita abaixo. Ainda não foram decididos a materialidade, o caso ambíguo do `T-3000`, o tratamento de dinheiro vindo de venda cancelada nem o tratamento de entradas sem recebível. Os números mudam conforme essas decisões.
+Esta leitura é **provisória**. Ela aplica a política do `ENUNCIADO.md` com a regra de casamento descrita abaixo. Ainda não foram decididos a materialidade, o caso ambíguo do `T-3000`, o tratamento de dinheiro vindo de venda cancelada nem o tratamento de entradas sem recebível. Os números mudam conforme essas decisões.
 
 Valores em reais (os CSVs estão em centavos). Horários em `America/Sao_Paulo`.
 
