@@ -110,7 +110,7 @@ def test_suporte_com_cliente_que_nao_existe_recebe_404(
     criar_suporte(sessao)
     entrar(http, SUPORTE)
 
-    resposta = http.request(metodo, caminho.format(cliente_id="nao-existe", rodada_id=marina_com_rodada), json={})
+    resposta = http.request(metodo, caminho.format(cliente_id="nao-existe", rodada_id=marina_com_rodada, lancamento_id="ext_20"), json={})
 
     assert resposta.status_code == 404
 
