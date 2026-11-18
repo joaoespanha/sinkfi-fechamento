@@ -24,6 +24,11 @@ class Recebivel:
     parcelas: int
     status: str
 
+    @property
+    def identidade(self) -> tuple[str, str]:
+        """O id vem da adquirente: duas adquirentes podem usar o mesmo (ADR 0009)."""
+        return (self.adquirente, self.id)
+
 
 @dataclass(frozen=True)
 class Lancamento:

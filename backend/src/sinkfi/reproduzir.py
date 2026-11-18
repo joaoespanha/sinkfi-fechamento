@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from fechamento import VERSAO_DA_REGRA, fechar
+from fechamento import VERSAO_DA_REGRA, Recebivel, fechar
 from sinkfi.banco import engine, repositorios
 from sinkfi.rodadas import hash_da_rodada, itens_do_fechamento
 from sinkfi.tipos import Entrada, ItemRodada, Rodada
@@ -56,9 +56,14 @@ def reproduzir(sessao: Session, cliente_id: str, rodada_id: int) -> Reproducao |
 
 
 def _mudaram(entrada: Entrada, gravados: list[ItemRodada]) -> list[str]:
-    atuais = {r.id: r for r in entrada.recebiveis} | {l.id: l for l in entrada.lancamentos}
-    copias = {v.id: v for i in gravados for v in [*i.recebiveis, *i.creditos]}
-    return sorted(id for id, copia in copias.items() if atuais.get(id) != copia)
+    # O recebível é nomeado com a adquirente: o id sozinho pode ser de duas (ADR 0009).
+    atuais = {_nome(r): r for r in entrada.recebiveis} | {l.id: l for l in entrada.lancamentos}
+    copias = {_nome(r): r for i in gravados for r in i.recebiveis} | {c.id: c for i in gravados for c in i.creditos}
+    return sorted(nome for nome, copia in copias.items() if atuais.get(nome) != copia)
+
+
+def _nome(r: Recebivel) -> str:
+    return f"{r.id} ({r.adquirente})"
 
 
 def _sem(itens: list[ItemRodada], outros: list[ItemRodada]) -> list[ItemRodada]:
@@ -101,7 +106,7 @@ def relatorio(r: Reproducao) -> str:
 
 def _item(i: ItemRodada) -> str:
     motivo = i.motivo.value if i.motivo else "casou"
-    recebiveis = ",".join(r.id for r in i.recebiveis) or "-"
+    recebiveis = ",".join(_nome(r) for r in i.recebiveis) or "-"
     creditos = ",".join(c.id for c in i.creditos) or "-"
     pendencia = f", pendência {i.pendencia_centavos} centavos" if i.pendencia_centavos is not None else ""
     return f"{motivo} (recebíveis {recebiveis}; créditos {creditos}{pendencia})"

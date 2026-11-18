@@ -8,7 +8,7 @@ from datetime import date, datetime, time
 
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Identity, Index, SmallInteger, Text, Time, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint, Identity, Index, SmallInteger, Text, Time, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -33,8 +33,9 @@ class LinhaCliente(Base):
 class LinhaLoja(Base):
     __tablename__ = "lojas"
 
+    # O id vem do cadastro do cliente: só é único dentro dele (ADR 0009).
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"), primary_key=True)
     id: Mapped[str] = mapped_column(Text, primary_key=True)
-    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"))
     nome: Mapped[str] = mapped_column(Text)
     documento: Mapped[str] = mapped_column(Text)
     adquirente: Mapped[str] = mapped_column(Text)
@@ -42,10 +43,16 @@ class LinhaLoja(Base):
 
 class LinhaRecebivel(Base):
     __tablename__ = "recebiveis"
+    __table_args__ = (
+        # A loja do recebível é do mesmo cliente.
+        ForeignKeyConstraint(["cliente_id", "loja_id"], ["lojas.cliente_id", "lojas.id"], name="recebiveis_loja_fkey"),
+    )
 
+    # O id vem da adquirente: só é único dentro dela, e dentro do cliente (ADR 0009).
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"), primary_key=True)
+    adquirente: Mapped[str] = mapped_column(Text, primary_key=True)
     id: Mapped[str] = mapped_column(Text, primary_key=True)
-    loja_id: Mapped[str] = mapped_column(ForeignKey("lojas.id"))
-    adquirente: Mapped[str] = mapped_column(Text)
+    loja_id: Mapped[str] = mapped_column(Text)
     trilho: Mapped[str] = mapped_column(Text)
     vendido_em: Mapped[date] = mapped_column(Date)
     liquidacao_prevista: Mapped[date] = mapped_column(Date)
@@ -62,8 +69,9 @@ class LinhaRecebivel(Base):
 class LinhaLancamento(Base):
     __tablename__ = "lancamentos"
 
+    # O id vem do extrato da conta do cliente, uma só por cliente hoje (ADR 0009).
+    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"), primary_key=True)
     id: Mapped[str] = mapped_column(Text, primary_key=True)
-    cliente_id: Mapped[str] = mapped_column(ForeignKey("clientes.id"))
     transacao_id: Mapped[str] = mapped_column(Text)
     transacao_original_id: Mapped[str | None] = mapped_column(Text)
     lancado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))

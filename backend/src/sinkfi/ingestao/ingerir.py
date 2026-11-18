@@ -21,7 +21,7 @@ def ingerir(sessao: Session, cliente_id: str, pasta: Path) -> None:
     # A rodada trava o mesmo cliente: ela não lê a entrada no meio da gravação.
     repositorios.travar_cliente(sessao, cliente_id)
     repositorios.gravar_lojas(sessao, [_loja(l, cliente_id) for l in _linhas(pasta / "lojas.csv")])
-    repositorios.gravar_recebiveis(sessao, [_recebivel(l) for l in _linhas(pasta / "recebiveis.csv")])
+    repositorios.gravar_recebiveis(sessao, [_recebivel(l, cliente_id) for l in _linhas(pasta / "recebiveis.csv")])
     repositorios.gravar_lancamentos(sessao, [_lancamento(l, cliente_id) for l in _linhas(pasta / "extrato.csv")])
     repositorios.gravar_pedido_fechamento(sessao, cliente_id)
 
@@ -41,9 +41,10 @@ def _loja(linha: dict[str, str], cliente_id: str) -> dict[str, Any]:
     }
 
 
-def _recebivel(linha: dict[str, str]) -> dict[str, Any]:
+def _recebivel(linha: dict[str, str], cliente_id: str) -> dict[str, Any]:
     return {
         "id": linha["id"],
+        "cliente_id": cliente_id,
         "loja_id": linha["loja_id"],
         "adquirente": linha["acquirer"],
         "trilho": linha["rail"],
