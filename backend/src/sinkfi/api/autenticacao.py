@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from sinkfi import usuarios
 from sinkfi.api.sessao import obter_sessao
+from sinkfi.banco import repositorios
 from sinkfi.tipos import Papel, Usuario
 
 COOKIE = "sinkfi_sessao"
@@ -61,12 +62,17 @@ def usuario_atual(
     return usuario
 
 
-def checar_cliente(cliente_id: str, usuario: Usuario = Depends(usuario_atual)) -> Usuario:
+def checar_cliente(
+    cliente_id: str, usuario: Usuario = Depends(usuario_atual), sessao: Session = Depends(obter_sessao)
+) -> Usuario:
     """Vai no router de `/clientes/{cliente_id}`: toda rota pendurada nele passa por aqui.
 
-    Cliente de outro dono responde 404, igual a cliente que não existe.
+    Cliente de outro dono responde 404, igual a cliente que não existe, para qualquer papel: o suporte
+    passa pelo dono, e sem esta checagem cada rota respondia uma coisa (200 vazio, 422, até 500).
     """
     if usuario.papel is Papel.LOJISTA and usuario.cliente_id != cliente_id:
+        raise HTTPException(status_code=404, detail="cliente não encontrado")
+    if not repositorios.cliente_existe(sessao, cliente_id):
         raise HTTPException(status_code=404, detail="cliente não encontrado")
     return usuario
 

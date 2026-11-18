@@ -97,6 +97,19 @@ def test_suporte_le_o_limite(sessao: Session, http: TestClient, marina_com_rodad
     assert resposta.json() == {"limite_trava_centavos": None}
 
 
+@pytest.mark.parametrize(("metodo", "caminho"), ROTAS_COM_CLIENTE)
+def test_suporte_com_cliente_que_nao_existe_recebe_404(
+    sessao: Session, http: TestClient, marina_com_rodada: int, metodo: str, caminho: str
+):
+    # O suporte passa pelo dono, então quem barra é a existência: antes, `/limite` dava 500.
+    criar_suporte(sessao)
+    entrar(http, SUPORTE)
+
+    resposta = http.request(metodo, caminho.format(cliente_id="nao-existe", rodada_id=marina_com_rodada), json={})
+
+    assert resposta.status_code == 404
+
+
 @pytest.mark.parametrize(("metodo", "caminho"), [*ROTAS_COM_CLIENTE, ("GET", "/eu"), ("GET", "/operacao")])
 def test_rota_sem_token_devolve_401(
     http: TestClient, marina_com_rodada: int, metodo: str, caminho: str
