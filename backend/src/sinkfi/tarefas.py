@@ -24,7 +24,12 @@ log = logging.getLogger(__name__)
 
 # Passageira é o banco fora do ar ou a conexão perdida. Qualquer outra exceção é bug ou dado
 # ruim: tentar de novo não resolve, e a mensagem vai direto para a dead letter.
-TENTA_DE_NOVO = dict(autoretry_for=(OperationalError,), retry_backoff=True, retry_jitter=True, max_retries=5)
+# Esperas de 1, 2, 4… até 300s: a queda de até ~13 min (~7 min na média, pelo sorteio) não vira dead letter.
+# A tentativa agendada fica no worker sem ack até a hora: a espera máxima tem que ficar abaixo do
+# `consumer_timeout` do RabbitMQ (30 min).
+TENTA_DE_NOVO = dict(
+    autoretry_for=(OperationalError,), retry_backoff=True, retry_backoff_max=300, retry_jitter=True, max_retries=10
+)
 
 app.conf.beat_schedule = {
     "ingestao-a-cada-6-horas": {"task": "sinkfi.agendar_ingestoes", "schedule": 6 * 60 * 60},
