@@ -20,6 +20,7 @@ def rodar_fechamento(
     sessao: Session, cliente_id: str, corte: datetime, versao: str = VERSAO_DA_REGRA
 ) -> Rodada:
     # Dois pedidos do mesmo cliente ao mesmo tempo: o segundo espera o primeiro e acha a rodada pelo hash.
+    # A ingestão trava o mesmo cliente, então a entrada lida aqui é a de antes ou a de depois dela, nunca metade.
     repositorios.travar_cliente(sessao, cliente_id)
     entrada = repositorios.entrada_do_cliente(sessao, cliente_id)
     hash_entrada = hash_da_rodada(entrada, corte, versao)
