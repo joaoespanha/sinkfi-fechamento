@@ -15,6 +15,7 @@ from celery.utils.time import get_exponential_backoff_interval
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from sinkfi import tarefas
+from sinkfi.fila import fila_morta
 from sinkfi.pedidos import ClienteDesconhecido
 
 TAREFAS_COM_RETRY = [tarefas.ingerir_cliente, tarefas.fechar_cliente, tarefas.fechar_semana, tarefas.reprocessar_cliente]
@@ -140,3 +141,24 @@ def test_tarefa_presa_vai_para_a_dead_letter_antes_do_limite_duro():
     brando, duro = tarefas.app.conf.task_soft_time_limit, tarefas.app.conf.task_time_limit
     assert brando is not None and duro is not None
     assert brando < duro
+
+
+def _fila_de(nome_da_tarefa: str):
+    return tarefas.app.amqp.router.route({}, nome_da_tarefa)["queue"]
+
+
+@pytest.mark.parametrize("tarefa", [t for t in TAREFAS if t.name != "sinkfi.publicar_pedidos"], ids=lambda t: t.name)
+def test_trabalho_que_falha_de_vez_cai_na_fila_morta(tarefa):
+    argumentos = _fila_de(tarefa.name).queue_arguments
+
+    # O RabbitMQ manda a mensagem rejeitada para a exchange e a chave em que a fila morta está ligada.
+    assert argumentos["x-dead-letter-exchange"] == fila_morta.exchange.name
+    assert argumentos["x-dead-letter-routing-key"] == fila_morta.routing_key
+
+
+def test_tick_do_outbox_tem_fila_propria_e_sem_dead_letter():
+    # O tick não carrega trabalho: o perdido é coberto pelo próximo, e não deve encher a fila morta.
+    fila = _fila_de("sinkfi.publicar_pedidos")
+
+    assert fila.name != _fila_de("sinkfi.fechar_cliente").name
+    assert not fila.queue_arguments
