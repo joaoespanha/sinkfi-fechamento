@@ -124,3 +124,16 @@ class OperacaoLida(BaseModel):
             " Com o RabbitMQ fora do ar ou recusando o login, null."
         )
     )
+
+
+class LojaEncontradaLida(_DeAtributos):
+    nome: str
+    documento: str = Field(description="CNPJ só com dígitos.")
+
+
+class ClienteEncontradoLido(_DeAtributos):
+    """Um resultado da busca do suporte (ADR 0010)."""
+
+    id: str
+    nome: str
+    lojas: list[LojaEncontradaLida]

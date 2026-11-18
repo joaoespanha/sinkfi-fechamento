@@ -233,10 +233,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clientes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Buscar Clientes */
+        get: operations["buscar_clientes_clientes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ClienteEncontradoLido
+         * @description Um resultado da busca do suporte (ADR 0010).
+         */
+        ClienteEncontradoLido: {
+            /** Id */
+            id: string;
+            /** Nome */
+            nome: string;
+            /** Lojas */
+            lojas: components["schemas"]["LojaEncontradaLida"][];
+        };
         /** EuResposta */
         EuResposta: {
             /** Email */
@@ -325,6 +354,16 @@ export interface components {
             email: string;
             /** Senha */
             senha: string;
+        };
+        /** LojaEncontradaLida */
+        LojaEncontradaLida: {
+            /** Nome */
+            nome: string;
+            /**
+             * Documento
+             * @description CNPJ só com dígitos.
+             */
+            documento: string;
         };
         /**
          * Motivo
@@ -923,6 +962,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OperacaoLida"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    buscar_clientes_clientes_get: {
+        parameters: {
+            query: {
+                /** @description E-mail da lojista, CNPJ (com ou sem pontuação) ou nome. */
+                busca: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                sinkfi_sessao?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClienteEncontradoLido"][];
                 };
             };
             /** @description Validation Error */

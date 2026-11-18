@@ -56,11 +56,11 @@ export default function App() {
         <span className="marca">sinkfi</span>
         <div className="cliente">
           <span className="rotulo">Cliente</span>
-          {/* A lojista vê o dela fixo; o suporte digita o id (ADR 0005). */}
+          {/* A lojista vê o dela fixo; o suporte busca por e-mail, CNPJ ou nome (ADR 0010). */}
           {lojista ? (
             <span>{eu.cliente_id}</span>
           ) : (
-            <EscolherCliente atual={clienteDoSuporte} aoEscolher={setClienteDoSuporte} />
+            <EscolherCliente aoEscolher={setClienteDoSuporte} aoPerderSessao={perdeuSessao} />
           )}
         </div>
         <nav className="paginas" aria-label="Páginas">
