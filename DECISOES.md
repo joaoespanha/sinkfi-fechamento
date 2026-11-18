@@ -137,6 +137,20 @@ Esta seção é para o time técnico de plantão. O passo a passo, com os comand
 
 **Escala.** O acesso ao banco é síncrono, na api e no worker, porque a api só faz consultas curtas sobre rodadas já calculadas e o trabalho pesado roda fora da requisição. Para atender mais gente, sobem mais cópias da api com um pool de conexões na frente do Postgres. Eu trocaria para assíncrono se a api passasse a esperar um serviço externo lento dentro da requisição, como consultar o Open Finance na hora; o sinal seria o tempo de resposta subir com as threads todas ocupadas e o banco ocioso.
 
+## Como cheguei aqui
+
+Li o enunciado inteiro antes de abrir os dados. O suporte pedia um dashboard, mas o trabalho da Marina é fechar a segunda à noite, e essa leitura guiou o resto.
+
+Depois fui conhecer os dados. Pedi ao Claude uma análise da amostra (`analise/ANALISE-DADOS.md`) para saber com que tipo de dado eu estava lidando, sabendo que em produção apareceriam casos que a amostra não tem. A prática que sigo é esta: se dá para ver todos os dados, ótimo; se não dá, tiro uma amostra de produção, anonimizada e estratificada por cliente, e busco direto os casos raros, que uma amostra aleatória não pega.
+
+Com a amostra em mãos, decidi as regras antes de escrever código. Cada decisão saiu com o porquê e o nome do teste que a garante. As que têm trade-off viraram ADR em `docs/adr/`, e os termos foram para o `GLOSSARY.md`.
+
+O repositório inteiro foi feito com TDD, desde a primeira feature. O primeiro PR de código já trouxe a regra pura, o primeiro teste e a CI no GitHub Actions. A partir daí, cada mudança entrou sobre uma base que eu sabia estável, e um PR com teste quebrado não passa.
+
+Para trabalhar com agentes sem deixar de ser dono das decisões, usei o pacote de skills do Matt Pocock (`mattpocock/skills`), configurado no repositório em `CLAUDE.md` e `docs/agents/`. Ele divide o trabalho em etapas: grilling para testar cada decisão antes de codar, modelagem de domínio para os ADRs e o glossário, um mapa de issues no GitHub com as fatias de construção, TDD na implementação e code review no fim. O agente propõe e executa; quem decide sou eu.
+
+A ordem de construção seguiu o risco. Primeiro a regra, que é onde o número pode sair errado. Depois vieram o banco e a ingestão, a API e a tela, o login, a fila e o outbox. Quando a revisão achava um erro, o teste vermelho vinha antes da correção.
+
 ## Como usei IA
 
 Usei IA como tutor e para ganhar velocidade. As decisões são minhas, e o `CLAUDE.md` fica no repositório de propósito. Conferi o que ela calculou, como a soma de conferência da análise, e discordei quando a proposta não fechava. Ela sugeriu escolher a menor parcela no empate da chave fraca, o que contradiz o resultado por grupo, e a regra passou a mostrar a dúvida. Recomendou um serviço só em TypeScript, como se o produto servisse uma pessoa; virou Python no back e React no front. Superestimou o custo do outbox e das ferramentas de debugar, e as estimativas caíram quando cobrei o número. No fim, um code review por dois eixos achou dois erros que os 163 testes não pegavam: o log no limite duro e o texto do processo morto. As duas correções saíram da leitura do código do Celery 5.7, sem reproduzir num worker real.
