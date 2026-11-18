@@ -8,6 +8,7 @@ import threading
 import time as relogio
 from collections.abc import Callable, Iterator
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -15,11 +16,13 @@ import pytest
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session
 
-from sinkfi.banco import migrar
-from sinkfi.rodadas import rodar_fechamento
+from fechamento import VERSAO_DA_REGRA
+from sinkfi.banco import migrar, repositorios
+from sinkfi.ingestao.ingerir import ingerir
+from sinkfi.rodadas import hash_da_rodada, rodar_fechamento
 from sinkfi.tipos import Rodada
 
-from tests.integracao.cenarios import MARINA, preparar_marina
+from tests.integracao.cenarios import MARINA, dados_com_credito_a_mais, preparar_marina
 
 CORTE = datetime(2026, 11, 10, 18, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
 
@@ -84,3 +87,17 @@ def test_dois_pedidos_ao_mesmo_tempo_devolvem_a_mesma_rodada(banco: Engine):
     assert segunda.erro is None
     assert segunda.resultado.id == rodada.id
 
+
+def test_rodada_espera_a_ingestao_em_andamento(banco: Engine, tmp_path: Path):
+    with Session(banco) as ingestao, ingestao.begin():
+        ingerir(ingestao, MARINA, dados_com_credito_a_mais(tmp_path))
+        rodada = EmOutraConexao(banco, lambda s: rodar_fechamento(s, MARINA, CORTE))
+        rodada.start()
+        esperar_ate_bloquear(banco, rodada)
+    rodada.join()
+
+    # A rodada lê a entrada inteira depois da ingestão, nunca uma parte de antes e outra de depois.
+    with Session(banco) as sessao:
+        entrada = repositorios.entrada_do_cliente(sessao, MARINA)
+    assert rodada.erro is None
+    assert rodada.resultado.hash_entrada == hash_da_rodada(entrada, CORTE, VERSAO_DA_REGRA)
