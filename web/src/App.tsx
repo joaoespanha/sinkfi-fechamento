@@ -39,10 +39,13 @@ export default function App() {
   if (estado.tipo !== 'logado') {
     return (
       <main className="sozinha">
-        <h1>Fechamento da semana</h1>
-        {estado.tipo === 'carregando' && <p aria-busy="true">Carregando…</p>}
-        {estado.tipo === 'erro' && <p role="alert">Não foi possível carregar. Tente de novo em instantes.</p>}
-        {estado.tipo === 'sem_sessao' && <TelaLogin aoEntrar={carregar} />}
+        {/* Um cartão no meio da tela: a marca no topo, e embaixo o login, o "Carregando…" ou o erro. */}
+        <section>
+          <h1 className="marca">sinkfi</h1>
+          {estado.tipo === 'carregando' && <p aria-busy="true">Carregando…</p>}
+          {estado.tipo === 'erro' && <p role="alert">Não foi possível carregar. Tente de novo em instantes.</p>}
+          {estado.tipo === 'sem_sessao' && <TelaLogin aoEntrar={carregar} />}
+        </section>
       </main>
     )
   }
