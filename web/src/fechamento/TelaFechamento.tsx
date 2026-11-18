@@ -12,6 +12,7 @@ import {
   emReais,
   fraseDaFaixa,
   fraseDoTermino,
+  linhaDaAtualizacao,
   linhaDoResumo,
   PEDIDO_ENVIADO,
   paraConferir,
@@ -323,6 +324,10 @@ function Detalhe({
               · Trava em {emReais(resumo.limite_trava_centavos)} <Ajuda termo="trava" />
             </>
           )}
+        </p>
+        {/* Até quando os números valem (ADR 0011): a última ingestão, não a hora da rodada. */}
+        <p className="resumo-atualizacao" data-atrasada={fechamento.atualizacao.atrasada || undefined}>
+          {linhaDaAtualizacao(fechamento.atualizacao)}
         </p>
         <BarraDoEsperado fechamento={fechamento} />
         {lojista && (

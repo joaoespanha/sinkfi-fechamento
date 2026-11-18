@@ -4,7 +4,7 @@ A rodada guarda as pendências, não a recomendação: o limite pode mudar depoi
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
@@ -30,6 +30,8 @@ class FechamentoLido:
     itens: list[ItemDoDia]
     # O "Terminei" mais recente das rodadas desta semana. A tela compara a rodada dele com a mostrada.
     ultimo_termino: Termino | None
+    # A última ingestão do cliente (ADR 0011), não a hora da rodada. None = nunca teve ingestão.
+    ultima_ingestao_em: datetime | None
 
 
 def fechamento_da_semana(sessao: Session, cliente_id: str, data: date) -> FechamentoLido | None:
@@ -56,6 +58,7 @@ def fechamento_da_rodada(sessao: Session, rodada: Rodada) -> FechamentoLido:
         limite_trava_centavos=limite,
         itens=[ItemDoDia(i, dia_do_item(i, rodada.corte, fuso)) for i in itens],
         ultimo_termino=terminos[-1] if terminos else None,
+        ultima_ingestao_em=repositorios.ultima_ingestao_do_cliente(sessao, rodada.cliente_id),
     )
 
 

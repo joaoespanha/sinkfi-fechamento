@@ -15,6 +15,7 @@ from celery.signals import task_failure, worker_ready
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from sinkfi.atualizacao import HORAS_DA_INGESTAO
 from sinkfi.banco import engine, repositorios
 from sinkfi.fechamentos import ancora_dos_cortes
 from sinkfi.fila import FilaCelery, app, fila_morta
@@ -35,12 +36,12 @@ TENTA_DE_NOVO = dict(
 )
 
 app.conf.beat_schedule = {
-    # Pelo relógio (0, 6, 12 e 18h UTC), e não a cada 6h desde que o beat subiu: o arquivo de agenda
+    # Pelo relógio (`HORAS_DA_INGESTAO`, em UTC), e não a cada 6h desde que o beat subiu: o arquivo de agenda
     # some quando o container é recriado, e um deploy a cada menos de 6h adiaria a ingestão para sempre.
     # A que expira sem rodar (worker fora) some: a próxima cobre, sem ingestões acumuladas.
     "ingestao-a-cada-6-horas": {
         "task": "sinkfi.agendar_ingestoes",
-        "schedule": crontab(minute=0, hour="*/6"),
+        "schedule": crontab(minute=0, hour=",".join(map(str, HORAS_DA_INGESTAO))),
         "options": {"expires": 6 * 60 * 60},
     },
     # O relay do outbox, na fila `outbox`. Segundos para a demonstração. O tick que expira sem rodar

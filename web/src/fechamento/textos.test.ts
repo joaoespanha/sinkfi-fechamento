@@ -6,6 +6,7 @@ import {
   fraseDaFaixa,
   fraseDoTermino,
   type Item,
+  linhaDaAtualizacao,
   linhaDoResumo,
   textoDaChave,
   type Termino,
@@ -145,6 +146,43 @@ describe('faixa do suporte', () => {
   it('com "Terminei" numa rodada anterior, diz as duas rodadas', () => {
     expect(fraseDoTermino(termino(11), 12)).toBe(
       'marina@sinkfi.demo terminou em 17/11/2026, 18:02, na rodada 11. Esta é a rodada 12.',
+    )
+  })
+})
+
+// A agenda é 0, 6, 12 e 18h UTC: 21h, 3h, 9h e 15h em São Paulo (ADR 0011).
+describe('linha da atualização', () => {
+  const nada = { ultima_em: null, atrasada: false, primeira_perdida_em: null }
+
+  it('próxima no mesmo dia da última mostra só a hora', () => {
+    expect(
+      linhaDaAtualizacao({ ...nada, ultima_em: '2026-11-18T18:00:05Z', proxima_prevista_em: '2026-11-19T00:00:00Z' }),
+    ).toBe('Dados atualizados em 18/11, 15:00 · próxima atualização prevista às 21:00')
+  })
+
+  it('próxima no dia seguinte mostra o dia', () => {
+    expect(
+      linhaDaAtualizacao({ ...nada, ultima_em: '2026-11-19T00:00:05Z', proxima_prevista_em: '2026-11-19T06:00:00Z' }),
+    ).toBe('Dados atualizados em 18/11, 21:00 · próxima atualização prevista 19/11 às 03:00')
+  })
+
+  it('atrasada nomeia a primeira atualização que não aconteceu', () => {
+    expect(
+      linhaDaAtualizacao({
+        ultima_em: '2026-11-17T18:00:05Z',
+        proxima_prevista_em: '2026-11-18T12:00:00Z',
+        atrasada: true,
+        primeira_perdida_em: '2026-11-18T00:00:00Z',
+      }),
+    ).toBe(
+      'Dados de 17/11, 15:00 · a atualização prevista para 17/11 às 21:00 não aconteceu · próxima prevista 18/11 às 09:00',
+    )
+  })
+
+  it('sem ingestão diz que ainda não houve atualização', () => {
+    // Sem a última para comparar o dia, a próxima vai sempre com o dia.
+    expect(linhaDaAtualizacao({ ...nada, proxima_prevista_em: '2026-11-19T00:00:00Z' })).toBe(
+      'Ainda sem atualização · primeira prevista 18/11 às 21:00',
     )
   })
 })

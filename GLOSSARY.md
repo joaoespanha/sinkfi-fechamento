@@ -98,6 +98,10 @@ _Evitar_: semana padrão, semana vigente, semana atual
 Um cálculo do fechamento de um cliente com os dados que havia naquele momento. Não muda depois de gravada: dados novos geram outra rodada, e a lojista vê a mais recente do fechamento que escolheu.
 _Evitar_: execução, versão, reprocessamento
 
+**Atualização**:
+A última vez que a sinkfi buscou os dados de um cliente e conseguiu gravá-los, com ou sem dado novo. É o "dados atualizados em" da tela. A busca segue uma agenda, e por isso a próxima é só prevista. Não confundir com rodada: a busca sem dado novo não gera rodada, mas conta como atualização.
+_Evitar_: sincronização, última rodada, refresh
+
 **Versão da regra**:
 A versão do cálculo que gerou uma rodada. Corrigir a regra gera rodadas novas e nunca muda as antigas. Não confundir com rodada, que é um cálculo e não uma versão.
 _Evitar_: release

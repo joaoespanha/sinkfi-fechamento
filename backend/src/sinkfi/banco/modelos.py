@@ -28,6 +28,8 @@ class LinhaCliente(Base):
     fuso: Mapped[str] = mapped_column(Text)
     # NULL = trava desligada (ADR 0003).
     limite_trava_centavos: Mapped[int | None] = mapped_column(BigInteger)
+    # A última ingestão que deu certo (ADR 0011). NULL = nunca teve ingestão.
+    ultima_ingestao_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class LinhaLoja(Base):
