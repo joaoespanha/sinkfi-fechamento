@@ -113,3 +113,9 @@ def test_reiniciar_o_beat_nao_adia_a_ingestao():
 def test_ingestao_agendada_com_o_worker_fora_expira_antes_da_proxima():
     # Sem expirar, as ingestões se acumulam na fila e rodam todas juntas quando o worker volta.
     assert 0 < INGESTAO["options"]["expires"] <= 6 * 60 * 60
+
+
+def test_publicar_espera_o_rabbitmq_confirmar():
+    # Sem a confirmação, `send_task` volta antes de o broker aceitar a mensagem, e o relay do outbox
+    # marca como publicado um pedido que pode ter se perdido.
+    assert tarefas.app.conf.broker_transport_options.get("confirm_publish") is True
