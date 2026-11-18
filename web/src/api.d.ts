@@ -423,7 +423,7 @@ export interface components {
         Motivo: "nao_caiu" | "caiu_em_parte" | "grupo_nao_fecha" | "chargeback" | "venda_cancelada" | "entrada_sem_recebivel" | "pode_ser_antecipacao" | "caiu_a_mais";
         /**
          * OperacaoLida
-         * @description A saúde da fila (Monitorar): o que ficou parado sem chegar ao fechamento.
+         * @description A saúde da fila e da ingestão (Monitorar): o que ficou parado sem chegar ao fechamento.
          */
         OperacaoLida: {
             /**
@@ -441,6 +441,16 @@ export interface components {
              * @description Mensagens em `fechamento.morta`: ingestões e fechamentos que falharam de vez. Com o RabbitMQ fora do ar ou recusando o login, null.
              */
             mensagens_na_dead_letter: number | null;
+            /**
+             * Ultima Ingestao Em
+             * @description A ingestão mais recente de qualquer cliente: o pulso do beat, que agenda as ingestões. Velha para todos ao mesmo tempo, o beat parou. Sem nenhuma ingestão, null.
+             */
+            ultima_ingestao_em: string | null;
+            /**
+             * Clientes Com Ingestao Atrasada
+             * @description Ids dos clientes sem ingestão há mais de 12 h, a mesma regra do "atrasada" da tela (ADR 0011). Cliente que nunca teve ingestão não entra.
+             */
+            clientes_com_ingestao_atrasada: string[];
         };
         /**
          * Papel
