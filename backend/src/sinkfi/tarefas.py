@@ -8,6 +8,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from celery.schedules import crontab
 from celery.signals import worker_ready
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -32,7 +33,14 @@ TENTA_DE_NOVO = dict(
 )
 
 app.conf.beat_schedule = {
-    "ingestao-a-cada-6-horas": {"task": "sinkfi.agendar_ingestoes", "schedule": 6 * 60 * 60},
+    # Pelo relógio (0, 6, 12 e 18h UTC), e não a cada 6h desde que o beat subiu: o arquivo de agenda
+    # some quando o container é recriado, e um deploy a cada menos de 6h adiaria a ingestão para sempre.
+    # A que expira sem rodar (worker fora) some: a próxima cobre, sem ingestões acumuladas.
+    "ingestao-a-cada-6-horas": {
+        "task": "sinkfi.agendar_ingestoes",
+        "schedule": crontab(minute=0, hour="*/6"),
+        "options": {"expires": 6 * 60 * 60},
+    },
     # O relay do outbox, na fila `outbox`. Segundos para a demonstração. O tick que expira sem rodar
     # some (a fila não tem dead letter), para não acumular enquanto o worker estiver fora.
     "outbox-a-cada-10-segundos": {"task": "sinkfi.publicar_pedidos", "schedule": 10, "options": {"expires": 10}},
