@@ -48,6 +48,7 @@ def _lancamento(linha: dict[str, str]) -> Lancamento:
         documento_contraparte=linha["counterparty_document"],
         descricao=linha["description"],
         tipo=linha["kind"],
+        status=linha["status"],
     )
 
 

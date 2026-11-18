@@ -16,7 +16,7 @@ from fechamento.tipos import (
 )
 
 # Sobe a cada mudança de comportamento da regra. Entra no hash da rodada (ADR 0006).
-VERSAO_DA_REGRA = "1"
+VERSAO_DA_REGRA = "2"
 
 # A adquirente é reconhecida pelo documento da contraparte, nunca pelo nome.
 DOCUMENTO_DA_ADQUIRENTE = {
@@ -32,6 +32,7 @@ CANCELADO = "cancelled"
 CHARGEBACK = "chargeback"
 PIX = "pix"
 PIX_RECEBIDO = "pix_in"
+PENDENTE = "pending"
 # Tarifa da conta e transferência da própria titular não são crédito.
 NAO_E_CREDITO = {"fee", "internal_transfer"}
 
@@ -72,12 +73,17 @@ def fechar(
 
 
 def _normalizar(lancamentos: list[Lancamento]) -> list[Lancamento]:
-    """Lançamentos repetidos com a mesma transação são um só, e o que não é crédito sai."""
+    """Lançamentos repetidos com a mesma transação são um só, e o que não é crédito sai.
+
+    Entre as repetições, a confirmada vale mais que a `pending`: é o mesmo dinheiro, já na conta.
+    """
     por_transacao: dict[str, Lancamento] = {}
     for lancamento in lancamentos:
         if lancamento.tipo in NAO_E_CREDITO:
             continue
-        por_transacao.setdefault(lancamento.transacao_id, lancamento)
+        atual = por_transacao.get(lancamento.transacao_id)
+        if atual is None or (atual.status == PENDENTE and lancamento.status != PENDENTE):
+            por_transacao[lancamento.transacao_id] = lancamento
     return list(por_transacao.values())
 
 
@@ -205,13 +211,18 @@ def _agrupar(
     return grupos
 
 
+def _caiu_ate(credito: Lancamento, corte: datetime) -> bool:
+    """Confirmado e lançado até o corte. O `pending` casado entra no próximo fechamento."""
+    return credito.status != PENDENTE and credito.lancado_em <= corte
+
+
 def _grupo(
     recebiveis: list[Recebivel], creditos: list[Lancamento], desfeitos: set[str | None], corte: datetime
 ) -> GrupoDeRecebiveis:
     valem = [c for c in creditos if c.transacao_id not in desfeitos]
     esperado = sum(r.liquido_centavos for r in recebiveis)
-    caiu = sum(c.valor_centavos for c in valem if c.lancado_em <= corte)
-    proximo = sum(c.valor_centavos for c in valem if c.lancado_em > corte)
+    caiu = sum(c.valor_centavos for c in valem if _caiu_ate(c, corte))
+    proximo = sum(c.valor_centavos for c in valem if not _caiu_ate(c, corte))
     return GrupoDeRecebiveis(
         recebiveis=recebiveis,
         creditos=creditos,

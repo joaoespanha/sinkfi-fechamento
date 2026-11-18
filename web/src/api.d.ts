@@ -243,6 +243,11 @@ export interface components {
             descricao: string;
             /** Tipo */
             tipo: string;
+            /**
+             * Status
+             * @default confirmed
+             */
+            status: string;
         };
         /** LimiteEntrada */
         LimiteEntrada: {
