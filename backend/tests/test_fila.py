@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from celery.exceptions import SoftTimeLimitExceeded
 from celery.schedules import maybe_schedule
 from celery.utils.time import get_exponential_backoff_interval
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -70,8 +71,9 @@ def test_banco_fora_do_ar_tenta_de_novo(pedido_que_falha):
         ClienteDesconhecido("cli_sumido"),
         IntegrityError("INSERT", {}, Exception("chave duplicada")),
         ValueError("dado ruim"),
+        SoftTimeLimitExceeded(),
     ],
-    ids=["cliente desconhecido", "integridade", "bug"],
+    ids=["cliente desconhecido", "integridade", "bug", "passou do limite de tempo"],
 )
 def test_erro_que_nao_e_passageiro_falha_de_primeira(pedido_que_falha, erro):
     # Falhou de primeira: o worker rejeita a mensagem e o RabbitMQ manda para a dead letter.
@@ -119,3 +121,22 @@ def test_publicar_espera_o_rabbitmq_confirmar():
     # Sem a confirmação, `send_task` volta antes de o broker aceitar a mensagem, e o relay do outbox
     # marca como publicado um pedido que pode ter se perdido.
     assert tarefas.app.conf.broker_transport_options.get("confirm_publish") is True
+
+
+TAREFAS = [t for nome, t in sorted(tarefas.app.tasks.items()) if nome.startswith("sinkfi.")]
+
+
+@pytest.mark.parametrize("tarefa", TAREFAS, ids=lambda t: t.name)
+def test_mensagem_que_derruba_o_processo_nao_volta_para_sempre(tarefa):
+    # O processo que morre (falta de memória, por exemplo) conta como tentativa; acabadas as tentativas,
+    # a mensagem vai para a dead letter, em vez de voltar para a fila e derrubar o próximo.
+    assert tarefa.retry_on_worker_lost is True
+    assert tarefa.max_retries is not None
+
+
+def test_tarefa_presa_vai_para_a_dead_letter_antes_do_limite_duro():
+    # O limite brando lança `SoftTimeLimitExceeded` dentro da tarefa: é uma falha comum, que vai para a dead letter.
+    # O duro mata o processo e a mensagem recebe ack, sem dead letter: é só a rede de segurança.
+    brando, duro = tarefas.app.conf.task_soft_time_limit, tarefas.app.conf.task_time_limit
+    assert brando is not None and duro is not None
+    assert brando < duro
