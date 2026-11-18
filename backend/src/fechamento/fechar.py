@@ -139,15 +139,23 @@ def _casar(recebiveis: list[Recebivel], creditos: list[Lancamento], fuso: tzinfo
             casamento.ligados_a_venda.add(credito.id)
 
     # 3. Chave fraca: crédito sem NSU, mesma adquirente, valor exato, dentro da janela.
+    # Créditos com os mesmos candidatos são um empate só: até um crédito por candidato casa
+    # com todos eles, num grupo (ADR 0002). O crédito que passa disso fica sem recebível.
+    pagos_pela_chave_forte = set(casamento.pagos)
+    empates: dict[frozenset[str], tuple[list[Recebivel], list[Lancamento]]] = {}
     for credito in sem_nsu:
         dia = _dia(credito, fuso)
         candidatos = [
             r
             for r in recebiveis
-            if r.status != CANCELADO and r.id not in casamento.pagos and _chave_fraca(r, credito, dia)
+            if r.status != CANCELADO and r.id not in pagos_pela_chave_forte and _chave_fraca(r, credito, dia)
         ]
         if candidatos:
-            casamento.casa(credito, candidatos)
+            empates.setdefault(frozenset(r.id for r in candidatos), (candidatos, []))[1].append(credito)
+    for candidatos, creditos_do_empate in empates.values():
+        livres = [r for r in candidatos if r.id not in casamento.pagos]
+        for credito in sorted(creditos_do_empate, key=lambda c: c.lancado_em)[: len(livres)]:
+            casamento.casa(credito, livres)
 
     return casamento
 
