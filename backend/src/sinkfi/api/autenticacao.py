@@ -18,11 +18,28 @@ from sinkfi.tipos import Papel, Usuario
 COOKIE = "sinkfi_sessao"
 VALIDADE = timedelta(hours=8)
 _ALGORITMO = "HS256"
+# O padrão do `compose.yaml`. Está no repositório: quem o leu assina um token para qualquer usuário.
+SEGREDO_DA_DEMONSTRACAO = "segredo-da-demonstracao-troque-fora-dela"
+# HS256 pede uma chave do tamanho do hash, 32 bytes (RFC 7518, seção 3.2).
+_TAMANHO_MINIMO = 32
+
+
+def conferir_segredo() -> str:
+    """O `JWT_SECRET`, ou `RuntimeError` se ele falta, é curto ou é o da demonstração com ela desligada.
+
+    Roda na subida da api e a cada uso: um segredo conhecido não chega a assinar nem a aceitar token.
+    """
+    segredo = os.environ.get("JWT_SECRET", "")
+    if len(segredo.encode()) < _TAMANHO_MINIMO:
+        raise RuntimeError(f"JWT_SECRET ausente ou com menos de {_TAMANHO_MINIMO} bytes")
+    if segredo == SEGREDO_DA_DEMONSTRACAO and os.environ.get("SINKFI_DEMONSTRACAO") != "1":
+        raise RuntimeError("JWT_SECRET é o padrão público da demonstração; defina o seu ou SINKFI_DEMONSTRACAO=1")
+    return segredo
 
 
 def _segredo() -> str:
     # Lido na hora: importar o app não exige JWT_SECRET.
-    return os.environ["JWT_SECRET"]
+    return conferir_segredo()
 
 
 def gravar_cookie(resposta: Response, usuario: Usuario) -> None:

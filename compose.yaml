@@ -109,8 +109,10 @@ services:
     command: ["uvicorn", "sinkfi.api:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/api"]
     environment:
       DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
-      # Assina o cookie de sessão (ADR 0005). O padrão só serve à demonstração.
+      # Assina o cookie de sessão (ADR 0005). O padrão é público e só serve à demonstração:
+      # a api se recusa a subir com ele sem SINKFI_DEMONSTRACAO=1. Fora dela, passe o seu e tire a linha de baixo.
       JWT_SECRET: ${JWT_SECRET:-segredo-da-demonstracao-troque-fora-dela}
+      SINKFI_DEMONSTRACAO: "1"
       # O reprocessar só enfileira; quem roda é o worker.
       BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       # A mesma âncora do worker: a lista de semanas e o fechamento atual têm que bater com o dele.
