@@ -2,7 +2,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   acharItem,
+  avisoDaConfirmacao,
   chaveDoItem,
+  fraseDoConferido,
+  podeConferir,
   fraseDaFaixa,
   fraseDaConferencia,
   type Item,
@@ -147,6 +150,59 @@ describe('faixa do suporte', () => {
     expect(fraseDaConferencia(conferencia(11), 12)).toBe(
       'marina@sinkfi.demo conferiu em 17/11/2026, 18:02, na rodada 11. Esta é a rodada 12.',
     )
+  })
+})
+
+// A conferência (ADR 0012): o botão some quando ela já vale para o que a tela mostra, e a confirmação diz o que não muda.
+describe('conferência', () => {
+  const resumo = {
+    recomendacao: 'nao_feche' as const,
+    falta_de_verdade_centavos: 1_085_933,
+    itens_falta_de_verdade: 3,
+    itens_para_conferir: 2,
+    limite_trava_centavos: 500_000,
+  }
+  const conferida = (rodada_id: number, r = resumo): Conferencia => ({
+    quem: 'marina@sinkfi.demo',
+    em: '2026-11-17T21:02:00Z',
+    rodada_id,
+    limite_trava_centavos: r.limite_trava_centavos,
+    resumo: r,
+  })
+
+  it('sem conferência, dá para conferir', () => {
+    expect(podeConferir(null, 12, resumo)).toBe(true)
+  })
+
+  it('conferida nesta rodada com o mesmo resumo, não dá para conferir de novo', () => {
+    expect(podeConferir(conferida(12), 12, { ...resumo })).toBe(false)
+  })
+
+  it('conferida nesta rodada, mas o limite mudou o resumo, dá para conferir de novo', () => {
+    const outroLimite = { ...resumo, recomendacao: 'pode_fechar' as const, limite_trava_centavos: 2_000_000 }
+    expect(podeConferir(conferida(12), 12, outroLimite)).toBe(true)
+  })
+
+  it('conferida numa rodada anterior, dá para conferir de novo', () => {
+    expect(podeConferir(conferida(11), 12, resumo)).toBe(true)
+  })
+
+  it('o estado diz quem conferiu e quando', () => {
+    expect(fraseDoConferido(conferida(12))).toBe('Conferido por marina@sinkfi.demo em 17/11/2026, 18:02')
+  })
+
+  it('a confirmação diz que os itens para conferir continuam', () => {
+    expect(avisoDaConfirmacao(resumo)).toBe('Os 2 itens para conferir continuam na lista. Nada trava.')
+  })
+
+  it('a confirmação com um item para conferir fica no singular', () => {
+    expect(avisoDaConfirmacao({ ...resumo, itens_para_conferir: 1 })).toBe(
+      'O item para conferir continua na lista. Nada trava.',
+    )
+  })
+
+  it('a confirmação sem itens para conferir só diz que nada trava', () => {
+    expect(avisoDaConfirmacao({ ...resumo, itens_para_conferir: 0 })).toBe('Nada trava.')
   })
 })
 

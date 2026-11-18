@@ -508,7 +508,8 @@ select {
 
 .acoes p[role='status']:empty { display: none; }
 
-.conferir button {
+.conferir > button,
+.confirmar-conferencia .primario {
   background: var(--realce);
   color: var(--realce-texto);
   border-color: transparent;
@@ -516,6 +517,60 @@ select {
   padding: 0.55rem 1.25rem;
 
   &:hover { background: color-mix(in oklab, var(--realce), black 12%); }
+}
+
+/* Já conferido (ADR 0012): o estado no lugar do botão, com o mesmo peso dele. */
+.conferido {
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--raio);
+  border: 1px solid color-mix(in oklab, var(--ok), transparent 55%);
+  background: color-mix(in oklab, var(--ok), transparent 88%);
+  color: var(--texto);
+  font-weight: 600;
+
+  & span { color: var(--ok); }
+}
+
+/* A confirmação: um <dialog> modal. O navegador cuida do foco, do Esc e do fundo inerte. */
+.confirmar-conferencia {
+  /* A largura já com o padding: em 390 px sobra 1 rem de cada lado. */
+  box-sizing: border-box;
+  inline-size: min(28rem, calc(100vw - 2rem));
+  padding: var(--espaco-4);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+  background: var(--cartao);
+  color: var(--texto);
+  box-shadow: var(--sombra-flutuante);
+
+  & h2 { margin: 0 0 var(--espaco-3); font-size: 1.125rem; }
+  & p { margin: 0 0 var(--espaco-2); }
+}
+
+/* Sem estas duas, rolar sobre o fundo ou dentro do diálogo rola a página atrás. */
+.confirmar-conferencia:modal { overscroll-behavior: contain; }
+
+.confirmar-conferencia::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(20 22 41 / 0.45);
+}
+
+.confirmar-conferencia-resumo {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--raio);
+  background: var(--fundo-suave);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.confirmar-conferencia-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--espaco-2);
+  margin-block-start: var(--espaco-4);
 }
 
 /* ───────── Faixa de dias (#26): quanto caiu por dia, com medidor e dica (#32) ───────── */

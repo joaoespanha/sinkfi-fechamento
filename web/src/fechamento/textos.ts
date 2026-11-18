@@ -121,6 +121,38 @@ export function fraseDaConferencia(conferencia: Conferencia | null, rodadaId: nu
     : `${quem}, na rodada ${conferencia.rodada_id}. Esta é a rodada ${rodadaId}.`
 }
 
+// A conferência da lojista (ADR 0012): um registro que não trava nada.
+
+const CAMPOS_DO_RESUMO = [
+  'recomendacao',
+  'falta_de_verdade_centavos',
+  'itens_falta_de_verdade',
+  'itens_para_conferir',
+  'limite_trava_centavos',
+] as const satisfies readonly (keyof Resumo)[]
+
+/**
+ * Se o botão aparece. Some quando a conferência mais recente já vale para o que a tela mostra: a mesma
+ * rodada e o mesmo resumo. O limite é lido na hora (ADR 0006), então o resumo muda sem rodada nova.
+ */
+export function podeConferir(conferencia: Conferencia | null, rodadaId: number, resumo: Resumo): boolean {
+  if (!conferencia || conferencia.rodada_id !== rodadaId) return true
+  return CAMPOS_DO_RESUMO.some((campo) => conferencia.resumo[campo] !== resumo[campo])
+}
+
+/** O estado no lugar do botão. */
+export function fraseDoConferido(conferencia: Conferencia): string {
+  return `Conferido por ${conferencia.quem} em ${quando(conferencia.em)}`
+}
+
+/** O que a confirmação diz que não muda: conferir não resolve os itens para conferir nem trava nada. */
+export function avisoDaConfirmacao(resumo: Resumo): string {
+  const n = resumo.itens_para_conferir
+  if (n === 0) return 'Nada trava.'
+  if (n === 1) return 'O item para conferir continua na lista. Nada trava.'
+  return `Os ${n} itens para conferir continuam na lista. Nada trava.`
+}
+
 export const PEDIDO_ENVIADO = 'Pedido enviado. Se a entrada mudou, a rodada nova aparece em instantes.'
 
 export function paraConferir(resumo: Resumo): string | null {
