@@ -8,6 +8,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from celery.schedules import crontab
 from celery.signals import worker_ready
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -24,10 +25,22 @@ log = logging.getLogger(__name__)
 
 # Passageira é o banco fora do ar ou a conexão perdida. Qualquer outra exceção é bug ou dado
 # ruim: tentar de novo não resolve, e a mensagem vai direto para a dead letter.
-TENTA_DE_NOVO = dict(autoretry_for=(OperationalError,), retry_backoff=True, retry_jitter=True, max_retries=5)
+# Esperas de 1, 2, 4… até 300s: a queda de até ~13 min (~7 min na média, pelo sorteio) não vira dead letter.
+# A tentativa agendada fica no worker sem ack até a hora: a espera máxima tem que ficar abaixo do
+# `consumer_timeout` do RabbitMQ (30 min).
+TENTA_DE_NOVO = dict(
+    autoretry_for=(OperationalError,), retry_backoff=True, retry_backoff_max=300, retry_jitter=True, max_retries=10
+)
 
 app.conf.beat_schedule = {
-    "ingestao-a-cada-6-horas": {"task": "sinkfi.agendar_ingestoes", "schedule": 6 * 60 * 60},
+    # Pelo relógio (0, 6, 12 e 18h UTC), e não a cada 6h desde que o beat subiu: o arquivo de agenda
+    # some quando o container é recriado, e um deploy a cada menos de 6h adiaria a ingestão para sempre.
+    # A que expira sem rodar (worker fora) some: a próxima cobre, sem ingestões acumuladas.
+    "ingestao-a-cada-6-horas": {
+        "task": "sinkfi.agendar_ingestoes",
+        "schedule": crontab(minute=0, hour="*/6"),
+        "options": {"expires": 6 * 60 * 60},
+    },
     # O relay do outbox, na fila `outbox`. Segundos para a demonstração. O tick que expira sem rodar
     # some (a fila não tem dead letter), para não acumular enquanto o worker estiver fora.
     "outbox-a-cada-10-segundos": {"task": "sinkfi.publicar_pedidos", "schedule": 10, "options": {"expires": 10}},

@@ -76,7 +76,7 @@ services:
       migrar:
         condition: service_completed_successfully
 
-  # Agenda a ingestão de cada cliente a cada 6 horas. Exatamente uma cópia:
+  # Agenda a ingestão de cada cliente às 0, 6, 12 e 18h UTC. Exatamente uma cópia:
   # duas agendariam tudo em dobro.
   beat:
     build: ./backend
