@@ -47,7 +47,11 @@ def fechar(
 ) -> Fechamento:
     lancamentos = _normalizar(lancamentos)
     creditos = [l for l in lancamentos if l.tipo != CHARGEBACK]
-    desfeitos = {l.transacao_original_id for l in lancamentos if l.tipo == CHARGEBACK}
+    # Quanto cada transação perdeu por chargeback. O chargeback desfaz só o seu valor.
+    desfeitos: dict[str, int] = {}
+    for l in lancamentos:
+        if l.tipo == CHARGEBACK and l.transacao_original_id:
+            desfeitos[l.transacao_original_id] = desfeitos.get(l.transacao_original_id, 0) + l.valor_centavos
 
     casamento = _casar(recebiveis, creditos, corte.tzinfo)
 
@@ -63,9 +67,12 @@ def fechar(
     pendencias += [_a_mais(g, sobra) for g in grupos if (sobra := _sobra(g, desfeitos))]
     ids_esperados = {r.id for r in esperados}
     for credito in creditos:
+        fica = _valor_que_fica(credito, desfeitos)
+        if fica == 0:
+            continue  # Entrou e saiu inteiro por chargeback: não há o que conferir.
         motivo = _motivo_da_entrada(credito, casamento, ids_esperados)
         if motivo:
-            pendencias.append(_entrada(credito, motivo))
+            pendencias.append(_entrada(credito, motivo, fica))
 
     return Fechamento(grupos=grupos, pendencias=pendencias)
 
@@ -220,18 +227,22 @@ def _agrupar(
     return grupos
 
 
+def _valor_que_fica(credito: Lancamento, desfeitos: dict[str, int]) -> int:
+    """O crédito menos o que o chargeback desfez dele."""
+    return max(credito.valor_centavos - desfeitos.get(credito.transacao_id, 0), 0)
+
+
 def _caiu_ate(credito: Lancamento, corte: datetime) -> bool:
     """Confirmado e lançado até o corte. O `pending` casado entra no próximo fechamento."""
     return credito.status != PENDENTE and credito.lancado_em <= corte
 
 
 def _grupo(
-    recebiveis: list[Recebivel], creditos: list[Lancamento], desfeitos: set[str | None], corte: datetime
+    recebiveis: list[Recebivel], creditos: list[Lancamento], desfeitos: dict[str, int], corte: datetime
 ) -> GrupoDeRecebiveis:
-    valem = [c for c in creditos if c.transacao_id not in desfeitos]
     esperado = sum(r.liquido_centavos for r in recebiveis)
-    caiu = sum(c.valor_centavos for c in valem if _caiu_ate(c, corte))
-    proximo = sum(c.valor_centavos for c in valem if not _caiu_ate(c, corte))
+    caiu = sum(_valor_que_fica(c, desfeitos) for c in creditos if _caiu_ate(c, corte))
+    proximo = sum(_valor_que_fica(c, desfeitos) for c in creditos if not _caiu_ate(c, corte))
     # Esperado = Caiu + Não caiu + Próximo fechamento, sempre. O que passa do esperado é a sobra.
     caiu = min(caiu, esperado)
     proximo = min(proximo, esperado - caiu)
@@ -245,16 +256,16 @@ def _grupo(
     )
 
 
-def _sobra(grupo: GrupoDeRecebiveis, desfeitos: set[str | None]) -> int:
+def _sobra(grupo: GrupoDeRecebiveis, desfeitos: dict[str, int]) -> int:
     """O que entrou para o grupo além do esperado."""
-    entrou = sum(c.valor_centavos for c in grupo.creditos if c.transacao_id not in desfeitos)
+    entrou = sum(_valor_que_fica(c, desfeitos) for c in grupo.creditos)
     return max(entrou - grupo.esperado_centavos, 0)
 
 
 # Classificar
 
 
-def _falta(grupo: GrupoDeRecebiveis, desfeitos: set[str | None]) -> Pendencia:
+def _falta(grupo: GrupoDeRecebiveis, desfeitos: dict[str, int]) -> Pendencia:
     """O que não caiu vira uma pendência só, com o motivo que explica a falta."""
     if any(c.transacao_id in desfeitos for c in grupo.creditos):
         motivo = Motivo.CHARGEBACK
@@ -293,5 +304,5 @@ _SEVERIDADE_DA_ENTRADA = {
 }
 
 
-def _entrada(credito: Lancamento, motivo: Motivo) -> Pendencia:
-    return Pendencia(_SEVERIDADE_DA_ENTRADA[motivo], motivo, credito.valor_centavos, lancamento=credito)
+def _entrada(credito: Lancamento, motivo: Motivo, valor: int) -> Pendencia:
+    return Pendencia(_SEVERIDADE_DA_ENTRADA[motivo], motivo, valor, lancamento=credito)
