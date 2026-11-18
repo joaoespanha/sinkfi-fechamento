@@ -5,10 +5,12 @@ services:
       POSTGRES_USER: sinkfi
       POSTGRES_PASSWORD: sinkfi
       POSTGRES_DB: sinkfi
+    # Só no host, como o RabbitMQ: a 5432 serve aos testes e à api rodando fora do compose.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sinkfi -d sinkfi"]
       interval: 2s
@@ -55,6 +57,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
 
   # Roda os pedidos da fila `fechamento`. Não guarda estado: pode ter várias cópias.
   # A pasta de dados tem uma subpasta por cliente; na demonstração, só a da Marina.
@@ -70,6 +73,14 @@ services:
       SINKFI_ANCORA_DOS_CORTES: ${SINKFI_ANCORA_DOS_CORTES-2026-11-10T18:00:00-03:00}
     volumes:
       - ./dados:/dados/cli_marina:ro
+    # Só o próprio nó: com várias cópias, cada uma responde por si. O ping leva ~1s, com o import do app.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A sinkfi.tarefas inspect ping -d celery@$$HOSTNAME --timeout 5"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -84,6 +95,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://sinkfi:sinkfi@postgres:5432/sinkfi
       BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+    # Sem health check: o beat não tem o que responder. Se ele para, a ingestão atrasa, e o
+    # `/operacao` mostra (`ultima_ingestao_em`, `clientes_com_ingestao_atrasada`).
+    restart: unless-stopped
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -101,6 +115,14 @@ services:
       BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       # A mesma âncora do worker: a lista de semanas e o fechamento atual têm que bater com o dele.
       SINKFI_ANCORA_DOS_CORTES: ${SINKFI_ANCORA_DOS_CORTES-2026-11-10T18:00:00-03:00}
+    # O `/health` confere o Postgres e o broker; 503 vira erro no `urlopen`.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
     depends_on:
       migrar:
         condition: service_completed_successfully
@@ -110,8 +132,17 @@ services:
   # A tela, servida pelo nginx, que também repassa /api para a api.
   web:
     build: ./web
+    # Só no host: de fora, chega-se por um proxy com TLS ou por túnel SSH.
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    # Pelo nginx, e não direto na api: pega também o repasse quebrado.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
     depends_on:
       api:
         condition: service_started

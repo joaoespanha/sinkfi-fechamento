@@ -42,6 +42,7 @@ A regra fica em `backend/src/fechamento/`, como funções puras. O motivo de cad
 
 ## 6. O fechamento não rodou
 
+- Primeiro, se a aplicação está de pé: `docker compose ps` mostra `healthy` ou `unhealthy` em api, web e worker, e `/api/health` (sem login) diz se a api fala com o Postgres e com o broker. Um 503 nomeia o que caiu. O beat não tem health check: a morte dele aparece pela ingestão, abaixo (ADR 0013).
 - `GET /operacao` (só o suporte, pelo mesmo `/api/docs`) mostra a saúde da fila:
   - `pedidos_pendentes` e `idade_do_mais_antigo_segundos`: ingestões gravadas que o relay do outbox ainda não publicou. O relay roda a cada 10 segundos; um pedido pendente há minutos quer dizer beat ou worker fora do ar.
   - `mensagens_na_dead_letter`: ingestões e fechamentos que falharam de vez, na fila `fechamento.morta`. `null` quer dizer que a api não alcançou o RabbitMQ, ou que ele recusou o login.
@@ -62,4 +63,4 @@ O beat agenda a ingestão e o relay do outbox. Sem ele, nenhum pedido novo entra
 
 ### A tela ou o `/api/docs` responde 502
 
-Depois de recriar o container da api (`docker compose up -d --build api`, por exemplo), o nginx do `web` continua com o IP antigo e responde 502. Rode `docker compose restart web`. A correção de vez (o `resolver` do Docker no `nginx.conf`) ficou para depois.
+O nginx resolve o nome da api pelo DNS do Docker a cada 10 segundos, então o 502 logo depois de recriar a api passa sozinho. Se ele continuar, a api não está respondendo: veja `docker compose ps api` e `docker compose logs api`.
