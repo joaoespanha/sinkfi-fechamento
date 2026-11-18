@@ -25,7 +25,7 @@ O `semear` cria dois usuários (ADR 0005). As senhas são só de demonstração:
 | `marina@sinkfi.demo` | `marina-demo` | lojista da `cli_marina` |
 | `suporte@sinkfi.demo` | `suporte-demo` | suporte, vê qualquer cliente |
 
-A `api` assina o cookie de sessão com `JWT_SECRET`. O `compose.yaml` traz um valor de demonstração; fora dela, passe o seu (`JWT_SECRET=... docker compose up`).
+A `api` assina o cookie de sessão com `JWT_SECRET`, de pelo menos 32 bytes. O `compose.yaml` traz um valor de demonstração, público, e liga `SINKFI_DEMONSTRACAO=1`: sem essa variável, a api se recusa a subir com ele. Fora da demonstração, passe o seu (`JWT_SECRET=... docker compose up`) e tire o `SINKFI_DEMONSTRACAO` do compose.
 
 ## Fila, worker e beat
 
@@ -40,4 +40,4 @@ docker compose up --build -d worker beat
 - **Cortes da demonstração:** os CSVs batem com o corte de terça, 10/11, e a Marina fecha na segunda. Por isso a api e o worker recebem `SINKFI_ANCORA_DOS_CORTES`, que faz os cortes andarem de 7 em 7 dias a partir de 10/11 às 18:00 (ADR 0007); com ela vazia (`SINKFI_ANCORA_DOS_CORTES= docker compose up ...`), valem o dia e a hora de fechamento do cliente.
 - **Retry e dead letter:** banco fora do ar tenta de novo até 10 vezes, com espera crescente de até 300 s, o que cobre uns 13 minutos de queda (ADR 0004). Qualquer outra falha vai para a fila `fechamento.morta`, visível no painel do RabbitMQ em `localhost:15672` (`guest`/`guest`).
 - **Outbox:** a ingestão grava o pedido de fechamento na mesma transação do dado (tabela `pedidos_fechamento`), e o beat dispara a cada 10 segundos o relay, que publica os pendentes. O relay tem a fila própria `outbox`, sem dead letter: o tick perdido é coberto pelo próximo.
-- **Api fora do compose** (o uvicorn local): passe `BROKER_URL=amqp://guest:guest@localhost:5672//`.
+- **Api fora do compose** (o uvicorn local): passe `BROKER_URL=amqp://guest:guest@localhost:5672//` e um `JWT_SECRET` de pelo menos 32 bytes.
