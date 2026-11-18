@@ -347,6 +347,68 @@ def test_chargeback_e_falta_de_verdade():
     assert pendencia.valor_centavos == 78800
 
 
+def test_chargeback_parcial_desfaz_so_o_valor():
+    rec_5001 = recebivel(
+        "rec_5001",
+        adquirente="pagseguro",
+        liquidacao_prevista=date(2026, 11, 6),
+        liquido_centavos=78800,
+        nsu="PAG-5001",
+    )
+    t_5001 = lancamento(
+        "ext_09",
+        transacao_id="T-5001",
+        lancado_em=em_sao_paulo(11, 6, 12, 30),
+        valor_centavos=78800,
+        documento_contraparte=PAGSEGURO,
+        descricao="PAG-5001",
+    )
+    # A compradora contestou só 200,00 dos 788,00.
+    t_5001r = lancamento(
+        "ext_10",
+        transacao_id="T-5001R",
+        transacao_original_id="T-5001",
+        lancado_em=em_sao_paulo(11, 10, 19, 12),
+        valor_centavos=20000,
+        documento_contraparte=PAGSEGURO,
+        descricao="CHARGEBACK T-5001",
+        tipo="chargeback",
+    )
+
+    fechamento = fechar(recebiveis=[rec_5001], lancamentos=[t_5001, t_5001r], lojas=LOJAS, corte=CORTE)
+
+    [grupo] = fechamento.grupos
+    assert grupo.caiu_centavos == 58800
+    assert grupo.nao_caiu_centavos == 20000
+    [pendencia] = fechamento.pendencias
+    assert pendencia.motivo == Motivo.CHARGEBACK
+    assert pendencia.valor_centavos == 20000
+
+
+def test_chargeback_de_credito_sem_recebivel_nao_vira_pendencia():
+    # Entrou um crédito que não casa com nada e saiu inteiro por chargeback: não há o que conferir.
+    sem_recebivel = lancamento(
+        "ext_50",
+        transacao_id="T-5050",
+        lancado_em=em_sao_paulo(11, 9, 10),
+        valor_centavos=7777,
+        descricao="stone",
+    )
+    estorno = lancamento(
+        "ext_51",
+        transacao_id="T-5050R",
+        transacao_original_id="T-5050",
+        lancado_em=em_sao_paulo(11, 10, 12),
+        valor_centavos=7777,
+        descricao="CHARGEBACK T-5050",
+        tipo="chargeback",
+    )
+
+    fechamento = fechar(recebiveis=[], lancamentos=[sem_recebivel, estorno], lojas=LOJAS, corte=CORTE)
+
+    assert fechamento.pendencias == []
+
+
 # Crédito a mais
 
 
