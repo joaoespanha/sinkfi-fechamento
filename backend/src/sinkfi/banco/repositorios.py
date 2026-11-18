@@ -4,7 +4,7 @@ from dataclasses import asdict
 from datetime import date, datetime, time
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -70,6 +70,21 @@ def ids_dos_clientes(sessao: Session) -> list[str]:
 
 def cliente_existe(sessao: Session, id: str) -> bool:
     return sessao.get(LinhaCliente, id) is not None
+
+
+# Primeira chave da trava por cliente: separa estas travas de outras que o banco venha a ter.
+_TRAVA_DO_CLIENTE = 1
+
+
+def travar_cliente(sessao: Session, cliente_id: str) -> None:
+    """Espera e trava o cliente até o fim da transação: quem lê ou grava a entrada dele passa um de cada vez.
+
+    É uma trava do Postgres por chave (`pg_advisory_xact_lock`), sem linha travada. O commit ou o rollback solta.
+    """
+    sessao.execute(
+        text("SELECT pg_advisory_xact_lock(:tipo, hashtext(:cliente_id))"),
+        {"tipo": _TRAVA_DO_CLIENTE, "cliente_id": cliente_id},
+    )
 
 
 def gravar_lojas(sessao: Session, linhas: list[dict[str, Any]]) -> None:
