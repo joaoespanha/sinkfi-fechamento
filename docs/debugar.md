@@ -45,11 +45,20 @@ A regra fica em `backend/src/fechamento/`, como funções puras. O motivo de cad
 - `GET /operacao` (só o suporte, pelo mesmo `/api/docs`) mostra a saúde da fila:
   - `pedidos_pendentes` e `idade_do_mais_antigo_segundos`: ingestões gravadas que o relay do outbox ainda não publicou. O relay roda a cada 10 segundos; um pedido pendente há minutos quer dizer beat ou worker fora do ar.
   - `mensagens_na_dead_letter`: ingestões e fechamentos que falharam de vez, na fila `fechamento.morta`. `null` quer dizer que a api não alcançou o RabbitMQ, ou que ele recusou o login.
+  - `ultima_ingestao_em`: a ingestão mais recente de qualquer cliente. A agenda é 0, 6, 12 e 18h UTC; mais de 6 horas atrás é uma execução perdida.
+  - `clientes_com_ingestao_atrasada`: os clientes sem ingestão há mais de 12 horas, a mesma regra do "atrasada" que a lojista vê na tela (ADR 0011). Cliente que nunca teve ingestão não entra.
 - `docker compose logs worker | grep "dead letter"` mostra cada falha definitiva com a tarefa, o que ela recebeu (cliente e, quando houver, corte) e o erro. Também sai a linha do processo que morreu (falta de memória, por exemplo) depois de acabarem as tentativas. As mensagens ficam no painel do RabbitMQ (`http://localhost:15672`). Como volta depende da tarefa:
   - `ingerir_cliente` e `fechar_cliente`: na próxima ingestão, até 6 horas depois.
   - `fechar_semana` e `reprocessar_cliente`: a ingestão só pede o fechamento atual, então o corte antigo só volta com um reprocessamento pelo suporte (ADR 0004).
 - `docker compose logs worker | grep "limite duro"` mostra a tarefa que passou de 150 segundos e foi morta. Ela recebeu ack e **não** está na fila morta nem na contagem da `/operacao`: volta do mesmo jeito que a dead letter, pela tabela acima.
 - `docker compose logs worker | grep "rodada "` mostra cada rodada com cliente, corte, versão e se é **nova** ou **existente**. Existente quer dizer que a entrada é igual à de uma rodada que já existe, e o pedido devolveu essa rodada.
+
+### O beat parou
+
+O beat agenda a ingestão e o relay do outbox. Sem ele, nenhum pedido novo entra no outbox, e `pedidos_pendentes` e `mensagens_na_dead_letter` ficam em zero: a fila parece saudável. O sinal é a ingestão:
+
+- **Todos os clientes atrasados, ou `ultima_ingestao_em` velha:** o beat (ou o worker) parou. Veja `docker compose ps beat worker` e `docker compose logs beat`. Depois de subir de novo, a próxima hora da agenda cobre; não há ingestões acumuladas.
+- **Um cliente atrasado e os outros em dia:** o problema é do cliente. Procure `cli_<id>` em `docker compose logs worker`: falta a pasta de dados, ou a ingestão dele foi para a dead letter.
 
 ### A tela ou o `/api/docs` responde 502
 

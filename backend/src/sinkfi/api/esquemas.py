@@ -126,7 +126,7 @@ class SemanaEntrada(BaseModel):
 
 
 class OperacaoLida(BaseModel):
-    """A saúde da fila (Monitorar): o que ficou parado sem chegar ao fechamento."""
+    """A saúde da fila e da ingestão (Monitorar): o que ficou parado sem chegar ao fechamento."""
 
     pedidos_pendentes: int = Field(
         description="Pedidos de fechamento gravados que o relay do outbox ainda não publicou."
@@ -138,6 +138,18 @@ class OperacaoLida(BaseModel):
         description=(
             "Mensagens em `fechamento.morta`: ingestões e fechamentos que falharam de vez."
             " Com o RabbitMQ fora do ar ou recusando o login, null."
+        )
+    )
+    ultima_ingestao_em: datetime | None = Field(
+        description=(
+            "A ingestão mais recente de qualquer cliente: o pulso do beat, que agenda as ingestões."
+            " Velha para todos ao mesmo tempo, o beat parou. Sem nenhuma ingestão, null."
+        )
+    )
+    clientes_com_ingestao_atrasada: list[str] = Field(
+        description=(
+            "Ids dos clientes sem ingestão há mais de 12 h, a mesma regra do \"atrasada\" da tela (ADR 0011)."
+            " Cliente que nunca teve ingestão não entra."
         )
     )
 

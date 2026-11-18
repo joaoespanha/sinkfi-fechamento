@@ -86,6 +86,12 @@ def marcar_ingestao(sessao: Session, cliente_id: str) -> None:
     sessao.execute(update(LinhaCliente).where(LinhaCliente.id == cliente_id).values(ultima_ingestao_em=func.now()))
 
 
+def ultimas_ingestoes(sessao: Session) -> list[tuple[str, datetime | None]]:
+    """A última ingestão de cada cliente, por id. None = o cliente nunca teve ingestão."""
+    linhas = sessao.execute(select(LinhaCliente.id, LinhaCliente.ultima_ingestao_em).order_by(LinhaCliente.id))
+    return [(cliente_id, em) for cliente_id, em in linhas]
+
+
 def ids_dos_clientes(sessao: Session) -> list[str]:
     return list(sessao.scalars(select(LinhaCliente.id).order_by(LinhaCliente.id)))
 
