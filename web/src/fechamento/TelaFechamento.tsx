@@ -17,6 +17,7 @@ import {
   fraseDaConferencia,
   linhaDaAtualizacao,
   linhaDoResumo,
+  mudancaDaConferencia,
   PEDIDO_ENVIADO,
   paraConferir,
   quando,
@@ -380,17 +381,22 @@ function Detalhe({
 function AvisoDaConferencia({ fechamento }: { fechamento: Fechamento }) {
   const conferencia = fechamento.ultima_conferencia
   if (!conferencia || !podeConferir(conferencia, fechamento.rodada.id, fechamento.resumo)) return null
+  const mudanca = mudancaDaConferencia(conferencia, fechamento.rodada.id, fechamento.resumo)
   return (
     <div className="conferencia conferencia-mudou" role="status">
       <p>
         <strong>O fechamento mudou desde a última conferência</strong>, em {quando(conferencia.em)}.
       </p>
-      <dl>
-        <dt>Antes</dt>
-        <dd>{linhaDoResumo(conferencia.resumo)}</dd>
-        <dt>Agora</dt>
-        <dd>{linhaDoResumo(fechamento.resumo)}</dd>
-      </dl>
+      {'mesmoResumo' in mudanca ? (
+        <p>{mudanca.mesmoResumo}</p>
+      ) : (
+        <dl>
+          <dt>Antes</dt>
+          <dd>{mudanca.antes}</dd>
+          <dt>Agora</dt>
+          <dd>{mudanca.agora}</dd>
+        </dl>
+      )}
     </div>
   )
 }
