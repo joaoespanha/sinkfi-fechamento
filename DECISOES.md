@@ -6,11 +6,11 @@ Quem usa é a dona ou o dono de uma pequena empresa que faz o próprio fechament
 
 O suporte pediu um dashboard de divergências com gráficos, e eu li o pedido como sintoma. O Rafa conta que quem fica reabrindo a tela de divergência cancela, e um cliente voltou para a planilha porque "pelo menos lá eu entendo". Listar melhor o que não bate não resolve isso; o que resolve é dizer o que cada coisa significa e o que fazer com ela. Por isso a tela abre com a resposta, "posso fechar?" e "o que falta de verdade?", e logo abaixo vêm as pendências, separadas em falta de verdade e para conferir. Cada pendência tem uma página própria: por que a regra a marcou, a linha do tempo da venda até o corte, o recebível e o crédito envolvidos, e o próximo passo provável, como conferir a liquidação no portal da adquirente, pedir o detalhamento de um repasse ou abrir um chamado com o NSU e a data prevista. A pendência deixa de ser uma linha vermelha e vira uma tarefa.
 
-O suporte também usa o produto, para atender um chamado: acha o cliente por e-mail, CNPJ ou nome, que é o que chega no chamado, porque o id interno ninguém conhece (ADR 0010). Abre o fechamento, vê o mesmo relatório que a lojista viu e pode pedir um reprocessamento. Não muda o limite da trava nem marca a conferência no lugar dela (ADR 0005).
+O suporte também usa o produto, para atender um chamado: acha o cliente por e-mail, CNPJ ou nome, que é o que chega no chamado, porque o id interno ninguém conhece (ADR 0010). Abre o fechamento, vê o mesmo relatório que a lojista viu e pode pedir um reprocessamento. Não muda o limite da trava, não marca a conferência no lugar dela e não resolve pendência, porque é ela quem sabe o que é o dinheiro. Vê quem resolveu, quando e a nota (ADR 0005, ADR 0014).
 
 ## O que entrou e o que ficou de fora
 
-**Entrou** o fechamento inteiro, do jeito que a lojista usa: ela abre a tela e vê se pode fechar e quanto falta de verdade, a semana dia a dia, as pendências separadas por severidade, o motivo e o próximo passo de cada uma. Vê até quando os números valem, com a última atualização dos dados e a próxima prevista (ADR 0011). Define o próprio limite da trava, volta a fechamentos anteriores e marca o fechamento como conferido quando acaba. Por baixo está o caminho de uma aplicação real, que sobe com `docker compose up`: ingestão, fila, rodadas que não mudam depois de gravadas e login com papéis separados para lojista e suporte.
+**Entrou** o fechamento inteiro, do jeito que a lojista usa: ela abre a tela e vê se pode fechar e quanto falta de verdade, a semana dia a dia, as pendências separadas por severidade, o motivo e o próximo passo de cada uma. Vê até quando os números valem, com a última atualização dos dados e a próxima prevista (ADR 0011). Define o próprio limite da trava, volta a fechamentos anteriores e marca o fechamento como conferido quando acaba. Quando descobre o que é uma pendência para conferir, como um crédito sem recebível, marca como resolvida, com uma nota que diz o quê: a pendência sai das contagens, continua visível como resolvida e pode ser desfeita (ADR 0014). Por baixo está o caminho de uma aplicação real, que sobe com `docker compose up`: ingestão, fila, rodadas que não mudam depois de gravadas e login com papéis separados para lojista e suporte.
 
 **Ficou de fora, por decisão**, o que atrapalha o trabalho dela:
 
@@ -48,7 +48,7 @@ O suporte também usa o produto, para atender um chamado: acha o cliente por e-m
 flowchart LR
     pessoa(["Lojista e suporte"]) --> web["web<br/>React"]
     web -->|"/api"| api["api<br/>FastAPI<br/>resumo() com o limite"]
-    api -->|"lê rodadas<br/>grava limite e conferência"| pg[("Postgres")]
+    api -->|"lê rodadas<br/>grava limite, conferência<br/>e resolução"| pg[("Postgres")]
     api -->|"reprocessar"| mq
 
     beat["beat"] -->|"ingestão a cada 6 h<br/>relay a cada 10 s"| mq[["RabbitMQ"]]
@@ -70,11 +70,11 @@ flowchart LR
 
 O dado entra pela ingestão, que grava junto o pedido de fechamento. O relay publica esse pedido na fila, o worker roda a regra e grava a rodada, e a `api` só lê o que já foi calculado.
 
-**Peças.** Seis serviços no Docker Compose: `web` (React) mostra o fechamento; `api` (FastAPI) faz o login, lê as rodadas e grava o limite, a conferência e o pedido de reprocessamento; `beat` dispara a ingestão de cada cliente a cada 6 horas; `worker` (Celery) roda a regra; RabbitMQ entrega os pedidos; Postgres guarda tudo. A ingestão grava o dado e o pedido de fechamento na mesma transação. Uma tarefa periódica publica os pedidos na fila, e o worker roda a regra e grava uma rodada que não muda mais (ADR 0004). Se a publicação falha, o dado não fica no banco sem o pedido de recalcular. Na dead letter, `fechamento.morta`, só cai o que falhou de verdade: o pedido repetido devolve a rodada que já existe, por causa de uma trava por cliente, e a tarefa que trava ou derruba o processo termina ali em vez de voltar sem fim.
+**Peças.** Seis serviços no Docker Compose: `web` (React) mostra o fechamento; `api` (FastAPI) faz o login, lê as rodadas e grava o limite, a conferência, a resolução e o pedido de reprocessamento; `beat` dispara a ingestão de cada cliente a cada 6 horas; `worker` (Celery) roda a regra; RabbitMQ entrega os pedidos; Postgres guarda tudo. A ingestão grava o dado e o pedido de fechamento na mesma transação. Uma tarefa periódica publica os pedidos na fila, e o worker roda a regra e grava uma rodada que não muda mais (ADR 0004). Se a publicação falha, o dado não fica no banco sem o pedido de recalcular. Na dead letter, `fechamento.morta`, só cai o que falhou de verdade: o pedido repetido devolve a rodada que já existe, por causa de uma trava por cliente, e a tarefa que trava ou derruba o processo termina ali em vez de voltar sem fim.
 
 **Onde a regra mora.** Em `backend/src/fechamento/`, como funções puras: `fechar(recebíveis, lançamentos, lojas, corte)` devolve os grupos e as pendências, e `resumo(pendências, limite)` devolve a recomendação. Não leem banco, fila, relógio nem arquivo, então são testadas em milissegundos, inclusive contra os CSVs reais. Em volta fica uma casca que carrega a entrada, chama a regra e grava o resultado; a casca depende do núcleo, nunca o contrário. O corte é entrada da regra: cada cliente tem seu dia e hora, e um fechamento continua recebendo rodadas até o corte seguinte, para pegar o crédito que o banco entregou atrasado.
 
-**O que fica gravado.** Recebíveis e lançamentos ficam em tabelas que a ingestão atualiza, com as duplicatas do Open Finance, porque juntar é trabalho da regra. Cada rodada guarda uma cópia do que cada item usou, e o hash cobre a entrada, o corte e a versão da regra. Assim dá para explicar um número antigo exatamente como a lojista o viu, e uma correção na regra gera uma rodada nova em vez de devolver a errada (ADR 0006). O limite da trava é preferência dela, não dado do fechamento: fica fora da rodada. A conferência grava quem, quando, qual rodada, o limite e o resumo daquele momento.
+**O que fica gravado.** Recebíveis e lançamentos ficam em tabelas que a ingestão atualiza, com as duplicatas do Open Finance, porque juntar é trabalho da regra. Cada rodada guarda uma cópia do que cada item usou, e o hash cobre a entrada, o corte e a versão da regra. Assim dá para explicar como a regra chegou a um número antigo, e uma correção na regra gera uma rodada nova em vez de devolver a errada (ADR 0006). O limite da trava é preferência dela, não dado do fechamento: fica fora da rodada. A resolução também fica fora. Ela é presa ao lançamento e ao valor da pendência, e não ao item da rodada, então sobrevive à rodada seguinte e vale em todos os fechamentos do cliente. Só ganha registros: desfazer grava um registro novo, e vale o mais recente (ADR 0014). O limite e a resolução são aplicados na leitura. Por isso o número exatamente como a lojista o viu fica na conferência, que grava quem, quando, qual rodada, o limite e o resumo daquele momento.
 
 **Trade-offs que aceitei.**
 
@@ -88,7 +88,6 @@ O dado entra pela ingestão, que grava junto o pedido de fechamento. O relay pub
 - Crédito sem NSU só casa por adquirente e valor se cair entre um dia antes e quatro dias depois da data prevista. Fora disso, vira pendência.
 - Na chave fraca, empates em que os candidatos só se sobrepõem em parte continuam resolvidos de forma gulosa.
 - Um chargeback lançado depois do corte seguinte não volta ao fechamento do crédito que desfez.
-- Um crédito sem venda que cai depois das 18:00 entra como "para conferir" neste fechamento, não no próximo.
 
 ## Monitorar
 
@@ -111,6 +110,7 @@ O dado entra pela ingestão, que grava junto o pedido de fechamento. O relay pub
 | Clientes que conferiram mais de uma vez na semana | O número não convenceu | Consulta nas tabelas | Chamado a caminho |
 | Parcela do valor que a regra casou sem pendência, por adquirente | A regra resolve, ou a chave fraca virou o gargalo (ver Evoluir) | Consulta nas rodadas | Queda numa adquirente |
 | Clientes com a trava ligada e mediana do limite em % | O valor padrão da trava | Consulta nas conferências | Quase ninguém liga |
+| Pendências para conferir resolvidas e desfeitas na semana | A resolução tira da lista o que ela já sabe, ou ela resolve sem ter certeza | Consulta nas resoluções | Desfeitas subindo |
 | Vezes que ela reabre a mesma pendência | Quem fica reabrindo cancela | Não registrado | — |
 
 *Operação: o fechamento rodou.*
@@ -139,7 +139,7 @@ O dado entra pela ingestão, que grava junto o pedido de fechamento. O relay pub
 
 Esta seção é para o time técnico de plantão. O passo a passo, com os comandos, está em `docs/debugar.md`.
 
-**O caminho.** *Qual rodada ela viu:* como suporte, abro o fechamento dela. A conferência diz qual rodada ela conferiu. Se o fechamento mudou depois, a tela mostra o resumo de antes e o de agora, e a primeira pergunta é se a diferença vem dessa mudança. *Qual item:* a página da pendência traz o motivo, ou a chave pela qual casou, a linha do tempo e o NSU. *O que a regra viu:* `GET /clientes/{id}/rodadas?nsu=` lista as rodadas em que a venda aparece. `GET /clientes/{id}/rodadas/{rodada}` devolve uma rodada antiga no formato do fechamento, com a cópia do recebível e do lançamento que a regra usou (ADR 0006). *A regra de hoje decide igual:* `python -m sinkfi.reproduzir` só lê. Ele diz se a versão da regra mudou, se a entrada mudou e o quê, e se a regra de hoje decide igual com a mesma entrada. Se o extrato corrigir um lançamento de `confirmed` para `pending`, o script mostra o lançamento com o status gravado na rodada e o de hoje. *Por quê:* a regra é uma função pura, então o caso vira um teste com os valores copiados da rodada. Ele roda em milissegundos e fica como teste de regressão.
+**O caminho.** *Qual rodada ela viu:* como suporte, abro o fechamento dela. A conferência diz qual rodada ela conferiu. Se o fechamento mudou depois, a tela mostra o resumo de antes e o de agora, e a primeira pergunta é se a diferença vem dessa mudança. *Qual item:* a página da pendência traz o motivo, ou a chave pela qual casou, a linha do tempo e o NSU. *O que a regra viu:* `GET /clientes/{id}/rodadas?nsu=` lista as rodadas em que a venda aparece. `GET /clientes/{id}/rodadas/{rodada}` devolve uma rodada antiga no formato do fechamento, com a cópia do recebível e do lançamento que a regra usou (ADR 0006). O resumo dessa leitura usa o limite e as resoluções de hoje; o que ela viu ao conferir está na conferência. *A regra de hoje decide igual:* `python -m sinkfi.reproduzir` só lê. Ele diz se a versão da regra mudou, se a entrada mudou e o quê, e se a regra de hoje decide igual com a mesma entrada. Se o extrato corrigir um lançamento de `confirmed` para `pending`, o script mostra o lançamento com o status gravado na rodada e o de hoje. *Por quê:* a regra é uma função pura, então o caso vira um teste com os valores copiados da rodada. Ele roda em milissegundos e fica como teste de regressão.
 
 **O que deixa outra pessoa fazer isso sem mim:** o runbook, as duas rotas, o script, o log de cada rodada (nova ou existente) e da dead letter, o `GLOSSARY.md` com o motivo de cada pendência e as ADRs.
 
