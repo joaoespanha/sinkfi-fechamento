@@ -88,6 +88,7 @@ O dado entra pela ingestão, que grava junto o pedido de fechamento. O relay pub
 - Crédito sem NSU só casa por adquirente e valor se cair entre um dia antes e quatro dias depois da data prevista. Fora disso, vira pendência.
 - Na chave fraca, empates em que os candidatos só se sobrepõem em parte continuam resolvidos de forma gulosa.
 - Um chargeback lançado depois do corte seguinte não volta ao fechamento do crédito que desfez.
+- O título "Faltam" soma o dinheiro de venda cancelada que caiu na conta, porque ele precisa voltar para a adquirente; a barra "Não caiu" não soma, porque esse recebível não é esperado. Nos dados do desafio são os R$ 3.152,00 da diferença entre os dois. O próximo passo é o título separar o que não caiu do que ela deve devolver.
 
 ## Monitorar
 
