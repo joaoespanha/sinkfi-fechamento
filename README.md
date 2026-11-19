@@ -33,6 +33,26 @@ As senhas só valem para a demonstração. A lojista cai direto no fechamento de
 | A conferência fica registrada com quem conferiu e quando | <img src="assets/telas/conferido.png" width="480"> | <img src="assets/telas/conferido-390.png" width="180"> |
 | O suporte vê o que a Marina vê e quando ela conferiu | <img src="assets/telas/suporte.png" width="480"> | <img src="assets/telas/suporte-390.png" width="180"> |
 
+## O que testar
+
+Como a Marina:
+
+- **O resumo.** Pode fechar? Quanto falta de verdade? Cada "?" explica o termo. Logo abaixo vêm quando os dados chegaram e quando chega a próxima atualização (ADR 0011).
+- **A semana dia a dia.** Passe o mouse ou o foco num dia para ver o detalhe; clique para filtrar a lista.
+- **As pendências.** Filtre por severidade, adquirente e ordem. Abra uma pendência para ver por que a regra a marcou, o recebível e o crédito, e o que fazer.
+- **Resolver uma pendência para conferir.** Abra uma "Entrada sem recebível" e use "Marcar como resolvida", com uma nota. Ela sai das contagens, vai para "Resolvidas" e pode ser desfeita (ADR 0014).
+- **A trava.** Em Limite, um valor abaixo das faltas, como `5000`, faz o resumo dizer "Não feche". Vazio, a trava fica desligada (ADR 0003).
+- **Conferir.** "Marcar como conferido" registra quem conferiu, quando e com qual resumo (ADR 0012). Se o resumo mudar depois, por exemplo ao resolver uma pendência, mudar o limite ou chegar uma rodada nova, a tela mostra o antes e o agora.
+- **Outras semanas.** Use as setas ao lado da data. Uma semana marcada como "não calculado" é calculada quando você abre (ADR 0007).
+
+Como suporte:
+
+- **Achar a cliente.** Busque por `marina`, pelo e-mail ou pelo CNPJ (ADR 0010).
+- **Ver o que ela vê.** O suporte vê a mesma tela, com uma faixa que diz quem conferiu e em qual rodada. "Pedir rodada nova" recalcula o fechamento aberto. Mudar o limite e conferir são só da lojista (ADR 0005).
+- **A operação.** `/api/docs` e `GET /operacao`, em [Saúde e operação](#saúde-e-operação).
+
+O aviso de fechamento anterior com pendência e sem conferência (ADR 0007) só aparece quando há mais de uma semana com dados. Para vê-lo, use os lotes de teste abaixo.
+
 ## Testar com outros dados
 
 A ingestão lê `dados/`: `lojas.csv`, `recebiveis.csv` e `extrato.csv`, com as mesmas colunas de hoje.
@@ -69,7 +89,7 @@ O `/api/health` não pede login e diz se a api fala com o Postgres e com o broke
 | O quê | Onde |
 | --- | --- |
 | Escolhas de produto e desenho | [`DECISOES.md`](DECISOES.md) |
-| Decisões com contexto e alternativas | [`docs/adr/`](docs/adr/) (0001 a 0013) |
+| Decisões com contexto e alternativas | [`docs/adr/`](docs/adr/) (0001 a 0014) |
 | Roteiro de "o número não bate" | [`docs/debugar.md`](docs/debugar.md) |
 | Vocabulário do domínio | [`GLOSSARY.md`](GLOSSARY.md) |
 | Leitura dos dados da semana | [`analise/ANALISE-DADOS.md`](analise/ANALISE-DADOS.md) |
