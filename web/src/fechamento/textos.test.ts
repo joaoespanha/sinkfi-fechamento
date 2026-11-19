@@ -12,6 +12,7 @@ import {
   fraseDaConferencia,
   type Item,
   linhaDaAtualizacao,
+  linhaDaTaxa,
   linhaDoResumo,
   mudancaDaConferencia,
   textoDaChave,
@@ -327,5 +328,27 @@ describe('resolução (ADR 0014)', () => {
     expect(fraseDaResolucao({ quem: 'marina@loja.com', em: '2026-11-10T15:00:00Z', nota: 'aporte' })).toBe(
       'Resolvida por marina@loja.com em 10/11/2026, 12:00',
     )
+  })
+})
+
+describe('linhaDaTaxa', () => {
+  // "A maquininha falou R$ 4.812 e no Inter tem R$ 4.790. Cadê os R$ 22?" (ENUNCIADO.md)
+  const rec_4812 = { ...casado('STN-4812', '').recebiveis[0], liquido_centavos: 479000 }
+
+  it('mostra a maquininha menos a taxa igual ao esperado', () => {
+    expect(linhaDaTaxa({ ...rec_4812, bruto_centavos: 481200, mdr_centavos: 2200, antecipacao_centavos: 0 })).toBe(
+      'R$\u00a04.812,00 na maquininha − R$\u00a022,00 de taxa = R$\u00a04.790,00',
+    )
+  })
+
+  it('cita a antecipação quando houver', () => {
+    const rec_8002 = { ...rec_4812, bruto_centavos: 50000, mdr_centavos: 750, antecipacao_centavos: 4250, liquido_centavos: 45000 }
+    expect(linhaDaTaxa(rec_8002)).toBe(
+      'R$\u00a0500,00 na maquininha − R$\u00a07,50 de taxa − R$\u00a042,50 de antecipação = R$\u00a0450,00',
+    )
+  })
+
+  it('não mostra nada em rodada gravada antes do bruto', () => {
+    expect(linhaDaTaxa(rec_4812)).toBeNull()
   })
 })

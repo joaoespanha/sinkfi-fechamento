@@ -35,6 +35,9 @@ def _recebivel(linha: dict[str, str]) -> Recebivel:
         parcela=int(linha["installment_number"]),
         parcelas=int(linha["installment_count"]),
         status=linha["status"],
+        bruto_centavos=int(linha["gross_cents"]),
+        mdr_centavos=int(linha["mdr_cents"]),
+        antecipacao_centavos=int(linha["anticipation_cents"]),
     )
 
 

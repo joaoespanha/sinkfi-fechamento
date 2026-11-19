@@ -232,6 +232,9 @@ def _recebivel(r: LinhaRecebivel) -> Recebivel:
         parcela=r.parcela,
         parcelas=r.parcelas,
         status=r.status,
+        bruto_centavos=r.bruto_centavos,
+        mdr_centavos=r.mdr_centavos,
+        antecipacao_centavos=r.antecipacao_centavos,
     )
 
 

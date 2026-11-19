@@ -41,6 +41,16 @@ def test_item_guarda_copia_dos_recebiveis_e_creditos(sessao: Session):
     assert item.creditos[0].valor_centavos == 87714
 
 
+def test_item_guarda_o_bruto_e_a_taxa_da_venda(sessao: Session):
+    # "A maquininha falou R$ 4.812 e no Inter tem R$ 4.790. Cadê os R$ 22?" (ENUNCIADO.md)
+    preparar_marina(sessao)
+    rodada = rodar_fechamento(sessao, MARINA, CORTE)
+
+    [r] = item_com_recebivel(sessao, rodada, "rec_4812").recebiveis
+
+    assert (r.bruto_centavos, r.mdr_centavos, r.antecipacao_centavos) == (481200, 2200, 0)
+
+
 def test_rodada_antiga_nao_muda_quando_recebivel_e_cancelado(sessao: Session, tmp_path: Path):
     preparar_marina(sessao)
     antiga = rodar_fechamento(sessao, MARINA, CORTE)

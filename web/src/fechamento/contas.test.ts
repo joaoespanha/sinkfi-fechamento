@@ -1,6 +1,6 @@
 // As contas da interface (#32): o que os gráficos e os filtros mostram sai daqui.
 import { describe, expect, it } from 'vitest'
-import { SEM_FILTRO, adquirentes, pendencias, porDia, resolvidas, totais } from './contas'
+import { SEM_FILTRO, adquirentes, pendencias, porDia, resolvidas, totais, vendasETaxas } from './contas'
 import { ANTES, type Fechamento, type Item, dicaDoDia, emPorcento } from './textos'
 
 let ids = 0
@@ -222,5 +222,36 @@ describe('dicaDoDia', () => {
   it('"próximo fechamento" só aparece quando tem valor', () => {
     expect(dicaDoDia({ ...vazio, esperado: 1000, caiu: 1000 })).not.toContain('próximo fechamento')
     expect(dicaDoDia({ ...vazio, esperado: 1000, proximo: 1000 })).toContain('próximo fechamento')
+  })
+})
+
+describe('vendasETaxas', () => {
+  /** Um item cujo recebível tem bruto e taxas, como as rodadas gravadas depois do bruto. */
+  function vendido(bruto: number, mdr: number, antecipacao: number): Item {
+    const i = item({ esperado_centavos: bruto - mdr - antecipacao })
+    i.recebiveis = i.recebiveis.map((r) => ({
+      ...r,
+      bruto_centavos: bruto,
+      mdr_centavos: mdr,
+      antecipacao_centavos: antecipacao,
+      liquido_centavos: bruto - mdr - antecipacao,
+    }))
+    return i
+  }
+
+  it('vendas menos taxas dá o esperado da semana', () => {
+    const f = fechamento([vendido(481200, 2200, 0), vendido(50000, 750, 4250)])
+    const v = vendasETaxas(f)
+    expect(v).toEqual({ vendas: 531200, taxas: 7200 })
+    expect(v && v.vendas - v.taxas).toBe(totais(f).esperado)
+  })
+
+  it('o item de crédito, sem recebível, não soma', () => {
+    const credito = conferir(700, { recebiveis: [], esperado_centavos: null })
+    expect(vendasETaxas(fechamento([vendido(10000, 150, 0), credito]))).toEqual({ vendas: 10000, taxas: 150 })
+  })
+
+  it('rodada gravada antes do bruto não mostra a conta', () => {
+    expect(vendasETaxas(fechamento([vendido(10000, 150, 0), item()]))).toBeNull()
   })
 })

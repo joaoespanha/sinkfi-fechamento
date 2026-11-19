@@ -545,6 +545,12 @@ export interface components {
             parcelas: number;
             /** Status */
             status: string;
+            /** Bruto Centavos */
+            bruto_centavos?: number | null;
+            /** Mdr Centavos */
+            mdr_centavos?: number | null;
+            /** Antecipacao Centavos */
+            antecipacao_centavos?: number | null;
         };
         /**
          * Recomendacao

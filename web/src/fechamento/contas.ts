@@ -28,6 +28,19 @@ function partes(itens: Item[]) {
 
 export const totais = (f: Fechamento) => partes(f.itens)
 
+/**
+ * De onde vem o esperado da semana: o que a maquininha mostrou menos as taxas (MDR e antecipação).
+ * Nulo se algum recebível veio de rodada gravada antes do bruto: uma conta pela metade não fecharia.
+ */
+export function vendasETaxas(f: Fechamento): { vendas: number; taxas: number } | null {
+  const recebiveis = f.itens.filter((i) => i.esperado_centavos != null).flatMap((i) => i.recebiveis)
+  if (recebiveis.some((r) => r.bruto_centavos == null)) return null
+  return {
+    vendas: recebiveis.reduce((s, r) => s + (r.bruto_centavos ?? 0), 0),
+    taxas: recebiveis.reduce((s, r) => s + (r.mdr_centavos ?? 0) + (r.antecipacao_centavos ?? 0), 0),
+  }
+}
+
 /** Uma casa da faixa: "Antes desta semana" e os 7 dias. O dia de cada item vem da leitura (#26). */
 export function porDia(f: Fechamento) {
   return [ANTES, ...diasDaSemana(f.rodada.data_fechamento)].map((casa) => {
