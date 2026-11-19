@@ -1,5 +1,5 @@
 import { Ajuda } from './Ajuda'
-import { totais } from './contas'
+import { totais, vendasETaxas } from './contas'
 import { type Fechamento, PARTES, TERMOS, emPorcento, emReais } from './textos'
 
 // Abaixo disso a porcentagem não cabe dentro da parte; ela continua na legenda.
@@ -11,6 +11,7 @@ const ROTULO_MINIMO = 0.12
  */
 export function BarraDoEsperado({ fechamento }: { fechamento: Fechamento }) {
   const t = totais(fechamento)
+  const v = vendasETaxas(fechamento)
   const valores = { caiu: t.caiu, naoCaiu: t.naoCaiu, proximo: t.proximo }
   const partes = PARTES.map((p) => ({ ...p, nome: TERMOS[p.termo].nome, valor: valores[p.termo] }))
   const descricao = partes.map((p) => `${p.nome} ${emReais(p.valor)}`).join(', ')
@@ -21,6 +22,11 @@ export function BarraDoEsperado({ fechamento }: { fechamento: Fechamento }) {
         Esperado <Ajuda termo="esperado" />
         <span className="esperado-total valor">{emReais(t.esperado)}</span>
       </figcaption>
+      {v && (
+        <p className="taxa">
+          Vendas {emReais(v.vendas)} − taxas {emReais(v.taxas)} = Esperado {emReais(t.esperado)}
+        </p>
+      )}
       <div className="esperado-barra" role="img" aria-label={`Esperado ${emReais(t.esperado)}: ${descricao}`}>
         {partes
           .filter((p) => p.valor > 0)

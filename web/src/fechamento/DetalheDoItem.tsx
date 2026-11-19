@@ -11,6 +11,7 @@ import {
   emReais,
   explicacaoDoMotivo,
   fraseDaResolucao,
+  linhaDaTaxa,
   linhaDoCredito,
   linhaDoRecebivel,
   notaDoDia,
@@ -131,11 +132,15 @@ export function DetalheDoItem({
         <section className="bloco">
           <h2>Recebíveis</h2>
           <ul>
-            {item.recebiveis.map((r) => (
-              <li key={chaveDoRecebivel(r)}>
-                {linhaDoRecebivel(r)} · <span className="valor">{emReais(r.liquido_centavos)}</span>
-              </li>
-            ))}
+            {item.recebiveis.map((r) => {
+              const taxa = linhaDaTaxa(r)
+              return (
+                <li key={chaveDoRecebivel(r)}>
+                  {linhaDoRecebivel(r)} · <span className="valor">{emReais(r.liquido_centavos)}</span>
+                  {taxa && <span className="taxa">{taxa}</span>}
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}

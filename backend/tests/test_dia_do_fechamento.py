@@ -44,8 +44,10 @@ def test_hash_nao_depende_da_ordem_dos_recebiveis_com_o_mesmo_id():
 
 
 def test_entrada_sem_id_repetido_mantem_o_hash_de_antes_da_adquirente_na_chave():
-    # O hash foi calculado no código anterior ao ADR 0009 (origin/main 85d72ed). Se mudar, as rodadas
-    # gravadas deixam de bater com a entrada e o próximo fechamento cria uma rodada nova sem dado novo.
+    # Se o hash mudar sem dado novo, as rodadas gravadas deixam de bater com a entrada e o próximo
+    # fechamento cria uma rodada nova sem motivo. O valor veio do código anterior ao ADR 0009 (85d72ed)
+    # e mudou uma vez de propósito: o recebível passou a trazer o bruto e as taxas da venda, que são
+    # dado novo de verdade. Cada cliente ganha uma rodada nova com o mesmo resumo.
     entrada = Entrada(
         recebiveis=[
             recebivel("rec_2", liquidacao_prevista=date(2026, 11, 9), liquido_centavos=2000, nsu="STN-2"),
@@ -67,4 +69,4 @@ def test_entrada_sem_id_repetido_mantem_o_hash_de_antes_da_adquirente_na_chave()
         lojas=LOJAS,
     )
 
-    assert hash_da_rodada(entrada, CORTE, "2") == "ba6d260f96f837729f984a9ade79a09125278fab3c21eaf35b3680f1bf84626c"
+    assert hash_da_rodada(entrada, CORTE, "2") == "ef328db8db80a9a82a81d2f3476f560e686ce8b3049c19e32c565653c959b00c"

@@ -266,6 +266,13 @@ export function linhaDoRecebivel(r: Recebivel): string {
   return `${nomeDaAdquirente(r.adquirente)} · NSU ${r.nsu} · parcela ${r.parcela}/${r.parcelas} · previsto para ${dia.format(new Date(`${r.liquidacao_prevista}T12:00:00`))}`
 }
 
+/** De onde vem o líquido: o que a maquininha mostrou menos as taxas. Nulo em rodada gravada antes do bruto. */
+export function linhaDaTaxa(r: Recebivel): string | null {
+  if (r.bruto_centavos == null) return null
+  const antecipacao = r.antecipacao_centavos ? ` − ${emReais(r.antecipacao_centavos)} de antecipação` : ''
+  return `${emReais(r.bruto_centavos)} na maquininha − ${emReais(r.mdr_centavos ?? 0)} de taxa${antecipacao} = ${emReais(r.liquido_centavos)}`
+}
+
 export function linhaDoCredito(c: Lancamento): string {
   return `${dia.format(new Date(c.lancado_em))} · ${c.descricao}`
 }

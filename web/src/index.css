@@ -1233,3 +1233,6 @@ select {
 
   .dia:hover { translate: none; }
 }
+
+/* De onde vem o líquido do recebível: a maquininha menos as taxas. */
+.taxa { display: block; color: var(--texto-suave); font-size: 0.875rem; font-variant-numeric: tabular-nums; }

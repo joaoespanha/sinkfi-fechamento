@@ -26,6 +26,10 @@ class Recebivel:
     parcela: int
     parcelas: int
     status: str
+    # Bruto e taxas da venda: a tela mostra de onde vem o líquido. Opcionais porque o JSON de rodadas antigas não os tem.
+    bruto_centavos: int | None = None
+    mdr_centavos: int | None = None
+    antecipacao_centavos: int | None = None
 
     @property
     def identidade(self) -> Identidade:
